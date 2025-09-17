@@ -91,6 +91,7 @@ serve(async (req) => {
             amount: parseFloat(amount),
             currency: currency || 'SAR',
             category: category || 'general',
+            label: category || 'general', // Required field
             note: description || '',
             description: description || '',
             date: date || new Date().toISOString()

@@ -81,19 +81,23 @@ serve(async (req) => {
           asset_type,
           currency: currency || 'USD',
           created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
+          updated_at: new Date().toISOString(),
+          market: 'US', // Default market
+          symbol: symbol || 'N/A', // Required field
+          quantity: quantity ? parseFloat(quantity) : 1, // Default to 1
+          avg_price: avg_price ? parseFloat(avg_price) : 0 // Default to 0
         };
 
         if (asset_type === 'real_estate') {
-          holdingData.address = address;
-          holdingData.property_type = property_type;
+          holdingData.address = address || 'Unknown';
+          holdingData.property_type = property_type || 'residential';
           holdingData.sqft = sqft ? parseFloat(sqft) : null;
-          holdingData.purchase_price = purchase_price ? parseFloat(purchase_price) : null;
+          holdingData.purchase_price = purchase_price ? parseFloat(purchase_price) : holdingData.avg_price;
+          holdingData.symbol = address || `RE-${Date.now()}`;
+          holdingData.market = 'Real Estate';
         } else {
-          holdingData.symbol = symbol;
-          holdingData.quantity = quantity ? parseFloat(quantity) : null;
-          holdingData.avg_price = avg_price ? parseFloat(avg_price) : null;
           holdingData.is_crypto = asset_type === 'crypto';
+          holdingData.market = asset_type === 'crypto' ? 'Crypto' : 'US';
         }
 
         if (purchase_date) {
