@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useFinancialDashboard } from '@/hooks/useFinancialDashboard';
+import { Loader2 } from 'lucide-react';
 
 interface AddEntryModalProps {
   open: boolean;
@@ -58,8 +59,8 @@ export const AddEntryModal: React.FC<AddEntryModalProps> = ({ open, onOpenChange
   };
 
   const categories = {
-    income: ['Salary', 'Freelance', 'Investment', 'Business', 'Other'],
-    expense: ['Food', 'Transportation', 'Housing', 'Healthcare', 'Entertainment', 'Shopping', 'Bills', 'Other'],
+    income: ['Salary', 'Freelance', 'Investment', 'Business', 'Bonus', 'Other'],
+    expense: ['Food', 'Transportation', 'Housing', 'Healthcare', 'Entertainment', 'Shopping', 'Bills', 'Education', 'Other'],
     savings: ['Emergency Fund', 'Investment', 'Retirement', 'Goal-based', 'Other']
   };
 
@@ -67,13 +68,13 @@ export const AddEntryModal: React.FC<AddEntryModalProps> = ({ open, onOpenChange
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Add Financial Entry</DialogTitle>
+          <DialogTitle className="text-xl font-semibold">Add Financial Entry</DialogTitle>
         </DialogHeader>
         
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="type">Type</Label>
+              <Label htmlFor="type">Type *</Label>
               <Select
                 value={formData.type}
                 onValueChange={(value: 'income' | 'expense' | 'savings') => 
@@ -84,19 +85,20 @@ export const AddEntryModal: React.FC<AddEntryModalProps> = ({ open, onOpenChange
                   <SelectValue placeholder="Select type" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="income">Income</SelectItem>
-                  <SelectItem value="expense">Expense</SelectItem>
-                  <SelectItem value="savings">Savings</SelectItem>
+                  <SelectItem value="income">💰 Income</SelectItem>
+                  <SelectItem value="expense">💸 Expense</SelectItem>
+                  <SelectItem value="savings">🏦 Savings</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="amount">Amount</Label>
+              <Label htmlFor="amount">Amount *</Label>
               <Input
                 id="amount"
                 type="number"
                 step="0.01"
+                min="0.01"
                 placeholder="0.00"
                 value={formData.amount}
                 onChange={(e) => setFormData(prev => ({ ...prev, amount: e.target.value }))}
@@ -116,9 +118,9 @@ export const AddEntryModal: React.FC<AddEntryModalProps> = ({ open, onOpenChange
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="SAR">SAR</SelectItem>
-                  <SelectItem value="USD">USD</SelectItem>
-                  <SelectItem value="EUR">EUR</SelectItem>
+                  <SelectItem value="SAR">🇸🇦 SAR</SelectItem>
+                  <SelectItem value="USD">🇺🇸 USD</SelectItem>
+                  <SelectItem value="EUR">🇪🇺 EUR</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -155,7 +157,7 @@ export const AddEntryModal: React.FC<AddEntryModalProps> = ({ open, onOpenChange
           )}
 
           <div className="space-y-2">
-            <Label htmlFor="description">Description (Optional)</Label>
+            <Label htmlFor="description">Description</Label>
             <Textarea
               id="description"
               placeholder="Add a note..."
@@ -170,14 +172,23 @@ export const AddEntryModal: React.FC<AddEntryModalProps> = ({ open, onOpenChange
               type="button"
               variant="outline"
               onClick={() => onOpenChange(false)}
+              disabled={loading}
             >
               Cancel
             </Button>
             <Button
               type="submit"
               disabled={loading || !formData.type || !formData.amount}
+              className="luxury-button"
             >
-              {loading ? 'Adding...' : 'Add Entry'}
+              {loading ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Adding...
+                </>
+              ) : (
+                'Add Entry'
+              )}
             </Button>
           </div>
         </form>

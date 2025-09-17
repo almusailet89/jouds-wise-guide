@@ -12,23 +12,35 @@ serve(async (req) => {
   }
 
   try {
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? ''
-    );
-
     // Get user from auth header
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
-      throw new Error('No authorization header');
+      return new Response(JSON.stringify({ error: 'No authorization header' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
-    const { data: { user }, error: userError } = await supabase.auth.getUser(
-      authHeader.replace('Bearer ', '')
+    const token = authHeader.replace('Bearer ', '');
+    
+    // Create Supabase client with user token for RLS
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      {
+        global: {
+          headers: { Authorization: authHeader }
+        }
+      }
     );
 
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+
     if (userError || !user) {
-      throw new Error('Invalid user token');
+      return new Response(JSON.stringify({ error: 'Invalid user token' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     const { method, body } = await req.json();
@@ -79,8 +91,19 @@ serve(async (req) => {
       case 'POST': {
         const { type, amount, currency, category, description, date } = body;
 
-        if (!type || !amount) {
-          throw new Error('Type and amount are required');
+        // Validate required fields
+        if (!type || !['income', 'expense', 'savings'].includes(type)) {
+          return new Response(JSON.stringify({ error: 'Valid type (income/expense/savings) is required' }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+
+        if (!amount || parseFloat(amount) <= 0) {
+          return new Response(JSON.stringify({ error: 'Amount must be greater than 0' }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
         }
 
         const { data, error } = await supabase
@@ -91,7 +114,7 @@ serve(async (req) => {
             amount: parseFloat(amount),
             currency: currency || 'SAR',
             category: category || 'general',
-            label: category || 'general', // Required field
+            label: category || type,
             note: description || '',
             description: description || '',
             date: date || new Date().toISOString()
@@ -110,7 +133,18 @@ serve(async (req) => {
         const { id, updates } = body;
 
         if (!id) {
-          throw new Error('ID is required for updates');
+          return new Response(JSON.stringify({ error: 'ID is required for updates' }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+
+        // Validate amount if being updated
+        if (updates.amount !== undefined && parseFloat(updates.amount) <= 0) {
+          return new Response(JSON.stringify({ error: 'Amount must be greater than 0' }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
         }
 
         const { data, error } = await supabase
@@ -132,7 +166,10 @@ serve(async (req) => {
         const { id } = body;
 
         if (!id) {
-          throw new Error('ID is required for deletion');
+          return new Response(JSON.stringify({ error: 'ID is required for deletion' }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
         }
 
         const { error } = await supabase
@@ -149,7 +186,10 @@ serve(async (req) => {
       }
 
       default:
-        throw new Error('Invalid method');
+        return new Response(JSON.stringify({ error: 'Invalid method' }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
     }
 
   } catch (error) {

@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useFinancialDashboard } from '@/hooks/useFinancialDashboard';
+import { Loader2 } from 'lucide-react';
 
 interface AddHoldingModalProps {
   open: boolean;
@@ -24,7 +25,7 @@ export const AddHoldingModal: React.FC<AddHoldingModalProps> = ({ open, onOpenCh
     purchase_date: new Date().toISOString().split('T')[0],
     // Real estate specific fields
     address: '',
-    property_type: '',
+    property_type: 'residential',
     sqft: '',
     purchase_price: ''
   });
@@ -45,11 +46,11 @@ export const AddHoldingModal: React.FC<AddHoldingModalProps> = ({ open, onOpenCh
         holdingData.address = formData.address;
         holdingData.property_type = formData.property_type;
         if (formData.sqft) holdingData.sqft = parseFloat(formData.sqft);
-        if (formData.purchase_price) holdingData.purchase_price = parseFloat(formData.purchase_price);
+        holdingData.purchase_price = parseFloat(formData.purchase_price);
       } else {
         holdingData.symbol = formData.symbol.toUpperCase();
-        if (formData.quantity) holdingData.quantity = parseFloat(formData.quantity);
-        if (formData.avg_price) holdingData.avg_price = parseFloat(formData.avg_price);
+        holdingData.quantity = parseFloat(formData.quantity);
+        holdingData.avg_price = parseFloat(formData.avg_price);
       }
 
       await addPortfolioHolding(holdingData);
@@ -63,7 +64,7 @@ export const AddHoldingModal: React.FC<AddHoldingModalProps> = ({ open, onOpenCh
         currency: 'USD',
         purchase_date: new Date().toISOString().split('T')[0],
         address: '',
-        property_type: '',
+        property_type: 'residential',
         sqft: '',
         purchase_price: ''
       });
@@ -81,7 +82,7 @@ export const AddHoldingModal: React.FC<AddHoldingModalProps> = ({ open, onOpenCh
       return (
         <>
           <div className="space-y-2">
-            <Label htmlFor="address">Address/Name</Label>
+            <Label htmlFor="address">Address/Name *</Label>
             <Input
               id="address"
               placeholder="Property location or name"
@@ -99,14 +100,14 @@ export const AddHoldingModal: React.FC<AddHoldingModalProps> = ({ open, onOpenCh
                 onValueChange={(value) => setFormData(prev => ({ ...prev, property_type: value }))}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Select type" />
+                  <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="residential">Residential</SelectItem>
-                  <SelectItem value="commercial">Commercial</SelectItem>
-                  <SelectItem value="land">Land</SelectItem>
-                  <SelectItem value="apartment">Apartment</SelectItem>
-                  <SelectItem value="villa">Villa</SelectItem>
+                  <SelectItem value="residential">🏠 Residential</SelectItem>
+                  <SelectItem value="commercial">🏢 Commercial</SelectItem>
+                  <SelectItem value="land">🌍 Land</SelectItem>
+                  <SelectItem value="apartment">🏠 Apartment</SelectItem>
+                  <SelectItem value="villa">🏰 Villa</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -116,6 +117,7 @@ export const AddHoldingModal: React.FC<AddHoldingModalProps> = ({ open, onOpenCh
               <Input
                 id="sqft"
                 type="number"
+                min="0"
                 placeholder="e.g., 2000"
                 value={formData.sqft}
                 onChange={(e) => setFormData(prev => ({ ...prev, sqft: e.target.value }))}
@@ -124,14 +126,16 @@ export const AddHoldingModal: React.FC<AddHoldingModalProps> = ({ open, onOpenCh
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="purchase_price">Purchase Price</Label>
+            <Label htmlFor="purchase_price">Purchase Price *</Label>
             <Input
               id="purchase_price"
               type="number"
               step="0.01"
+              min="0.01"
               placeholder="0.00"
               value={formData.purchase_price}
               onChange={(e) => setFormData(prev => ({ ...prev, purchase_price: e.target.value }))}
+              required
             />
           </div>
         </>
@@ -140,10 +144,10 @@ export const AddHoldingModal: React.FC<AddHoldingModalProps> = ({ open, onOpenCh
       return (
         <>
           <div className="space-y-2">
-            <Label htmlFor="symbol">Symbol</Label>
+            <Label htmlFor="symbol">Symbol *</Label>
             <Input
               id="symbol"
-              placeholder={formData.asset_type === 'crypto' ? 'e.g., BTC' : 'e.g., AAPL'}
+              placeholder={formData.asset_type === 'crypto' ? 'e.g., BTC, ETH' : 'e.g., AAPL, MSFT'}
               value={formData.symbol}
               onChange={(e) => setFormData(prev => ({ ...prev, symbol: e.target.value.toUpperCase() }))}
               required
@@ -152,26 +156,30 @@ export const AddHoldingModal: React.FC<AddHoldingModalProps> = ({ open, onOpenCh
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="quantity">Quantity</Label>
+              <Label htmlFor="quantity">Quantity *</Label>
               <Input
                 id="quantity"
                 type="number"
-                step="0.00000001"
+                step={formData.asset_type === 'crypto' ? '0.00000001' : '0.001'}
+                min="0.000001"
                 placeholder="0"
                 value={formData.quantity}
                 onChange={(e) => setFormData(prev => ({ ...prev, quantity: e.target.value }))}
+                required
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="avg_price">Buy Price</Label>
+              <Label htmlFor="avg_price">Buy Price *</Label>
               <Input
                 id="avg_price"
                 type="number"
                 step="0.01"
+                min="0.01"
                 placeholder="0.00"
                 value={formData.avg_price}
                 onChange={(e) => setFormData(prev => ({ ...prev, avg_price: e.target.value }))}
+                required
               />
             </div>
           </div>
@@ -180,29 +188,46 @@ export const AddHoldingModal: React.FC<AddHoldingModalProps> = ({ open, onOpenCh
     }
   };
 
+  const isFormValid = () => {
+    if (!formData.asset_type) return false;
+    
+    if (formData.asset_type === 'real_estate') {
+      return formData.address && formData.purchase_price && parseFloat(formData.purchase_price) > 0;
+    } else {
+      return formData.symbol && formData.quantity && formData.avg_price && 
+             parseFloat(formData.quantity) > 0 && parseFloat(formData.avg_price) > 0;
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Add Portfolio Holding</DialogTitle>
+          <DialogTitle className="text-xl font-semibold">Add Portfolio Holding</DialogTitle>
         </DialogHeader>
         
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="asset_type">Asset Type</Label>
+            <Label htmlFor="asset_type">Asset Type *</Label>
             <Select
               value={formData.asset_type}
               onValueChange={(value: 'stock' | 'crypto' | 'real_estate') => 
-                setFormData(prev => ({ ...prev, asset_type: value, symbol: '', address: '' }))
+                setFormData(prev => ({ 
+                  ...prev, 
+                  asset_type: value, 
+                  symbol: '', 
+                  address: '',
+                  currency: value === 'real_estate' ? 'SAR' : 'USD'
+                }))
               }
             >
               <SelectTrigger>
                 <SelectValue placeholder="Select asset type" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="stock">Stock</SelectItem>
-                <SelectItem value="crypto">Cryptocurrency</SelectItem>
-                <SelectItem value="real_estate">Real Estate</SelectItem>
+                <SelectItem value="stock">📈 Stock</SelectItem>
+                <SelectItem value="crypto">₿ Cryptocurrency</SelectItem>
+                <SelectItem value="real_estate">🏠 Real Estate</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -220,9 +245,9 @@ export const AddHoldingModal: React.FC<AddHoldingModalProps> = ({ open, onOpenCh
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="USD">USD</SelectItem>
-                  <SelectItem value="SAR">SAR</SelectItem>
-                  <SelectItem value="EUR">EUR</SelectItem>
+                  <SelectItem value="USD">🇺🇸 USD</SelectItem>
+                  <SelectItem value="SAR">🇸🇦 SAR</SelectItem>
+                  <SelectItem value="EUR">🇪🇺 EUR</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -244,14 +269,23 @@ export const AddHoldingModal: React.FC<AddHoldingModalProps> = ({ open, onOpenCh
               type="button"
               variant="outline"
               onClick={() => onOpenChange(false)}
+              disabled={loading}
             >
               Cancel
             </Button>
             <Button
               type="submit"
-              disabled={loading || !formData.asset_type}
+              disabled={loading || !isFormValid()}
+              className="luxury-button"
             >
-              {loading ? 'Adding...' : 'Add Holding'}
+              {loading ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Adding...
+                </>
+              ) : (
+                'Add Holding'
+              )}
             </Button>
           </div>
         </form>

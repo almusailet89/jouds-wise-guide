@@ -14,12 +14,14 @@ import {
   Plus, 
   RefreshCw,
   FileText,
-  BarChart3
+  BarChart3,
+  Settings
 } from "lucide-react";
 import { toast } from "sonner";
 import { useFinancialDashboard } from '@/hooks/useFinancialDashboard';
 import { AddEntryModal } from './AddEntryModal';
 import { AddHoldingModal } from './AddHoldingModal';
+import { SetSavingsTargetModal } from './SetSavingsTargetModal';
 import { FinancialLedgerDrawer } from './FinancialLedgerDrawer';
 import { PortfolioTable } from './PortfolioTable';
 import { AllocationChart } from './AllocationChart';
@@ -63,6 +65,7 @@ export const FinancialDashboard: React.FC = () => {
   const [timeFilter, setTimeFilter] = useState<'7d' | '30d' | 'ytd'>('30d');
   const [showAddEntry, setShowAddEntry] = useState(false);
   const [showAddHolding, setShowAddHolding] = useState(false);
+  const [showSetTarget, setShowSetTarget] = useState(false);
   const [showLedger, setShowLedger] = useState(false);
   
   const {
@@ -73,7 +76,9 @@ export const FinancialDashboard: React.FC = () => {
     news,
     loading,
     refreshPrices,
-    fetchInsights
+    fetchInsights,
+    getCurrentMonthSavings,
+    savingsTarget
   } = useFinancialDashboard();
 
   // Calculate KPIs from financial entries
@@ -110,6 +115,7 @@ export const FinancialDashboard: React.FC = () => {
   };
 
   const kpiData = calculateKPIs();
+  const savingsProgress = getCurrentMonthSavings();
 
   const kpis = [
     {
@@ -173,6 +179,20 @@ export const FinancialDashboard: React.FC = () => {
     }
     return data;
   }, [portfolioSummary]);
+
+  const getProgressColor = (progress: number) => {
+    if (progress >= 100) return 'text-green-600';
+    if (progress >= 75) return 'text-primary';
+    if (progress >= 50) return 'text-yellow-600';
+    return 'text-red-600';
+  };
+
+  const getDailyNeededColor = (dailyNeeded: number, daysRemaining: number) => {
+    if (daysRemaining === 0) return 'text-muted-foreground';
+    if (dailyNeeded <= 100) return 'text-green-600';
+    if (dailyNeeded <= 300) return 'text-yellow-600';
+    return 'text-red-600';
+  };
 
   return (
     <div className="space-y-8">
@@ -254,6 +274,83 @@ export const FinancialDashboard: React.FC = () => {
         ))}
       </div>
 
+      {/* Savings Target Card */}
+      <Card className="luxury-card">
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center space-x-3">
+              <div className="bg-gradient-luxury p-2 rounded-full">
+                <Target className="h-6 w-6 text-white" />
+              </div>
+              <div>
+                <span className="text-xl font-semibold">Monthly Savings Target</span>
+                <p className="text-sm text-muted-foreground font-normal">Wealth accumulation goal</p>
+              </div>
+            </CardTitle>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowSetTarget(true)}
+              className="bg-white/10 border-white/20 hover:bg-white/20"
+            >
+              <Settings className="h-4 w-4 mr-2" />
+              Set Target
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex justify-between items-end">
+            <div>
+              <p className="text-sm text-muted-foreground">Current Progress</p>
+              <p className="text-2xl font-bold bg-gradient-luxury bg-clip-text text-transparent">
+                SAR {savingsProgress.current.toLocaleString()} 
+                <span className="text-lg text-muted-foreground">
+                  / SAR {savingsProgress.target.toLocaleString()}
+                </span>
+              </p>
+            </div>
+            <Badge className={`px-4 py-2 text-lg font-semibold ${getProgressColor(savingsProgress.progress)}`}>
+              {savingsProgress.progress.toFixed(0)}%
+            </Badge>
+          </div>
+          
+          <Progress 
+            value={Math.min(100, savingsProgress.progress)} 
+            className="h-4 bg-muted shadow-inner" 
+          />
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="bg-muted/50 rounded-lg p-3 border border-border/50">
+              <p className="text-xs text-muted-foreground font-medium">Days Remaining</p>
+              <p className="text-lg font-bold text-foreground">{savingsProgress.daysRemaining}</p>
+            </div>
+            <div className="bg-muted/50 rounded-lg p-3 border border-border/50">
+              <p className="text-xs text-muted-foreground font-medium">Daily Needed</p>
+              <p className={`text-lg font-bold ${getDailyNeededColor(savingsProgress.dailyNeeded, savingsProgress.daysRemaining)}`}>
+                SAR {savingsProgress.dailyNeeded.toFixed(0)}
+              </p>
+            </div>
+            <div className="bg-muted/50 rounded-lg p-3 border border-border/50">
+              <p className="text-xs text-muted-foreground font-medium">Remaining</p>
+              <p className="text-lg font-bold text-foreground">
+                SAR {savingsProgress.remaining.toLocaleString()}
+              </p>
+            </div>
+          </div>
+          
+          <div className="bg-muted/50 rounded-lg p-4 border border-border/50">
+            <p className="text-sm font-medium text-foreground">
+              {savingsProgress.progress >= 100 ? 
+                '🎉 Congratulations! You\'ve exceeded your monthly savings target.' :
+                savingsProgress.daysRemaining === 0 ?
+                '⏰ Month ended. Review your progress and set next month\'s target.' :
+                `💪 Keep going! Save SAR ${savingsProgress.dailyNeeded.toFixed(0)} daily to reach your goal.`
+              }
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Portfolio Holdings Table */}
       {portfolioHoldings.length > 0 && (
         <Card className="luxury-card">
@@ -291,43 +388,6 @@ export const FinancialDashboard: React.FC = () => {
         />
       </div>
 
-      {/* Savings Target */}
-      <Card className="luxury-card">
-        <CardHeader>
-          <CardTitle className="flex items-center space-x-3">
-            <div className="bg-gradient-luxury p-2 rounded-full">
-              <Target className="h-6 w-6 text-white" />
-            </div>
-            <div>
-              <span className="text-xl font-semibold">Monthly Savings Target</span>
-              <p className="text-sm text-muted-foreground font-normal">Wealth accumulation goal</p>
-            </div>
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex justify-between items-end">
-            <div>
-              <p className="text-sm text-muted-foreground">Current Progress</p>
-              <p className="text-2xl font-bold bg-gradient-luxury bg-clip-text text-transparent">
-                SAR {kpiData.totalSavings.toLocaleString()} <span className="text-lg text-muted-foreground">/ SAR 8,000</span>
-              </p>
-            </div>
-            <Badge className="bg-gradient-luxury text-white px-4 py-2 text-lg font-semibold">
-              {Math.round((kpiData.totalSavings / 8000) * 100)}%
-            </Badge>
-          </div>
-          <Progress value={(kpiData.totalSavings / 8000) * 100} className="h-4 bg-muted shadow-inner" />
-          <div className="bg-muted/50 rounded-lg p-4 border border-border/50">
-            <p className="text-sm font-medium text-foreground">
-              {kpiData.totalSavings >= 8000 ? 
-                'Congratulations! You\'ve exceeded your monthly savings target.' :
-                `Only SAR ${(8000 - kpiData.totalSavings).toLocaleString()} remaining to achieve your financial milestone.`
-              }
-            </p>
-          </div>
-        </CardContent>
-      </Card>
-
       {/* Modals */}
       <AddEntryModal 
         open={showAddEntry}
@@ -336,6 +396,10 @@ export const FinancialDashboard: React.FC = () => {
       <AddHoldingModal 
         open={showAddHolding}
         onOpenChange={setShowAddHolding}
+      />
+      <SetSavingsTargetModal
+        open={showSetTarget}
+        onOpenChange={setShowSetTarget}
       />
       <FinancialLedgerDrawer
         open={showLedger}

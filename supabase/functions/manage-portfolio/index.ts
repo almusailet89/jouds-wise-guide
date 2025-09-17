@@ -12,23 +12,35 @@ serve(async (req) => {
   }
 
   try {
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? ''
-    );
-
     // Get user from auth header
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
-      throw new Error('No authorization header');
+      return new Response(JSON.stringify({ error: 'No authorization header' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
-    const { data: { user }, error: userError } = await supabase.auth.getUser(
-      authHeader.replace('Bearer ', '')
+    const token = authHeader.replace('Bearer ', '');
+    
+    // Create Supabase client with user token for RLS
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      {
+        global: {
+          headers: { Authorization: authHeader }
+        }
+      }
     );
 
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+
     if (userError || !user) {
-      throw new Error('Invalid user token');
+      return new Response(JSON.stringify({ error: 'Invalid user token' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     const { method, body } = await req.json();
@@ -62,8 +74,12 @@ serve(async (req) => {
           purchase_price 
         } = body;
 
-        if (!asset_type) {
-          throw new Error('Asset type is required');
+        // Validate asset type
+        if (!asset_type || !['stock', 'crypto', 'real_estate'].includes(asset_type)) {
+          return new Response(JSON.stringify({ error: 'Valid asset_type (stock/crypto/real_estate) is required' }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
         }
 
         // Check maximum holdings limit (25)
@@ -73,23 +89,44 @@ serve(async (req) => {
           .eq('user_id', user.id);
 
         if (count && count >= 25) {
-          throw new Error('Maximum of 25 holdings allowed per user');
+          return new Response(JSON.stringify({ error: 'Maximum of 25 holdings allowed per user' }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
         }
 
-        // Validate required fields based on asset type
+        // Validate based on asset type
         if (asset_type === 'real_estate') {
           if (!address) {
-            throw new Error('Address is required for real estate');
+            return new Response(JSON.stringify({ error: 'Address is required for real estate' }), {
+              status: 400,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            });
+          }
+          if (!purchase_price || parseFloat(purchase_price) <= 0) {
+            return new Response(JSON.stringify({ error: 'Purchase price must be greater than 0 for real estate' }), {
+              status: 400,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            });
           }
         } else {
           if (!symbol) {
-            throw new Error('Symbol is required for stocks and crypto');
+            return new Response(JSON.stringify({ error: 'Symbol is required for stocks and crypto' }), {
+              status: 400,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            });
           }
-          if (!quantity || quantity <= 0) {
-            throw new Error('Valid quantity is required for stocks and crypto');
+          if (!quantity || parseFloat(quantity) <= 0) {
+            return new Response(JSON.stringify({ error: 'Quantity must be greater than 0 for stocks and crypto' }), {
+              status: 400,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            });
           }
-          if (!avg_price || avg_price <= 0) {
-            throw new Error('Valid average price is required for stocks and crypto');
+          if (!avg_price || parseFloat(avg_price) <= 0) {
+            return new Response(JSON.stringify({ error: 'Average price must be greater than 0 for stocks and crypto' }), {
+              status: 400,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            });
           }
         }
 
@@ -105,14 +142,14 @@ serve(async (req) => {
           holdingData.address = address;
           holdingData.property_type = property_type || 'residential';
           holdingData.sqft = sqft ? parseFloat(sqft) : null;
-          holdingData.purchase_price = purchase_price ? parseFloat(purchase_price) : null;
+          holdingData.purchase_price = parseFloat(purchase_price);
           // Required fields for database
           holdingData.symbol = address;
           holdingData.market = 'Real Estate';
           holdingData.quantity = 1;
-          holdingData.avg_price = purchase_price ? parseFloat(purchase_price) : 1;
+          holdingData.avg_price = parseFloat(purchase_price);
         } else {
-          holdingData.symbol = symbol;
+          holdingData.symbol = symbol.toUpperCase();
           holdingData.quantity = parseFloat(quantity);
           holdingData.avg_price = parseFloat(avg_price);
           holdingData.is_crypto = asset_type === 'crypto';
@@ -140,7 +177,25 @@ serve(async (req) => {
         const { id, updates } = body;
 
         if (!id) {
-          throw new Error('ID is required for updates');
+          return new Response(JSON.stringify({ error: 'ID is required for updates' }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+
+        // Validate updates
+        if (updates.quantity !== undefined && parseFloat(updates.quantity) <= 0) {
+          return new Response(JSON.stringify({ error: 'Quantity must be greater than 0' }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+
+        if (updates.avg_price !== undefined && parseFloat(updates.avg_price) <= 0) {
+          return new Response(JSON.stringify({ error: 'Average price must be greater than 0' }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
         }
 
         const updateData = {
@@ -167,7 +222,10 @@ serve(async (req) => {
         const { id } = body;
 
         if (!id) {
-          throw new Error('ID is required for deletion');
+          return new Response(JSON.stringify({ error: 'ID is required for deletion' }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
         }
 
         const { error } = await supabase
@@ -196,7 +254,10 @@ serve(async (req) => {
       }
 
       default:
-        throw new Error('Invalid method');
+        return new Response(JSON.stringify({ error: 'Invalid method' }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
     }
 
   } catch (error) {
