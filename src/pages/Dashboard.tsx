@@ -10,6 +10,7 @@ import MoodTracker from '@/components/Mood/MoodTracker';
 import { ExportPanel } from '@/components/Export/ExportPanel';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { MessageSquare, TrendingUp, Calendar, Heart, Brain, LogOut, User, Mic, Download, Settings } from "lucide-react";
 
 const Dashboard = () => {
@@ -47,6 +48,25 @@ const Dashboard = () => {
             </div>
             
             <div className="flex items-center gap-4">
+              <Dialog>
+                <DialogTrigger asChild>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="bg-white/10 border-white/20 text-white hover:bg-white/20"
+                  >
+                    <Download className="w-4 h-4 mr-2" />
+                    Export
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+                  <DialogHeader>
+                    <DialogTitle>Export Data</DialogTitle>
+                  </DialogHeader>
+                  <ExportPanel />
+                </DialogContent>
+              </Dialog>
+              
               <div className="flex items-center gap-2 text-white/80">
                 <User className="w-4 h-4" />
                 <span className="text-sm">{user?.email}</span>
@@ -68,7 +88,7 @@ const Dashboard = () => {
       <div className="container mx-auto px-4 py-6">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           {/* Navigation Tabs */}
-          <TabsList className="grid w-full grid-cols-6 bg-card/20 backdrop-blur-sm border border-white/10">
+          <TabsList className="grid w-full grid-cols-5 bg-card/20 backdrop-blur-sm border border-white/10">
             <TabsTrigger value="overview" className="flex items-center gap-2">
               <Brain className="w-4 h-4" />
               <span className="hidden sm:inline">Overview</span>
@@ -92,10 +112,6 @@ const Dashboard = () => {
             <TabsTrigger value="voice" className="flex items-center gap-2">
               <Mic className="w-4 h-4" />
               <span className="hidden sm:inline">Voice</span>
-            </TabsTrigger>
-            <TabsTrigger value="export" className="flex items-center gap-2">
-              <Download className="w-4 h-4" />
-              <span className="hidden sm:inline">Export</span>
             </TabsTrigger>
           </TabsList>
 
@@ -232,14 +248,15 @@ const Dashboard = () => {
             </div>
           </TabsContent>
 
-          {/* Export Panel */}
-          <TabsContent value="export">
+          {/* Voice Interface */}
+          {/* Voice Interface */}
+          <TabsContent value="voice">
             <div>
               <h2 className="text-2xl font-bold mb-6 flex items-center space-x-2 text-white">
-                <Download className="w-6 h-6" />
-                <span>Export Data</span>
+                <Mic className="w-6 h-6" />
+                <span>Voice Assistant</span>
               </h2>
-              <ExportPanel />
+              <VoicePanel onVoiceMessage={handleVoiceMessage} />
             </div>
           </TabsContent>
         </Tabs>
