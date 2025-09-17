@@ -66,55 +66,51 @@ export const VoicePanel: React.FC<VoicePanelProps> = ({ onVoiceMessage }) => {
   const { speak } = useSpeech();
 
   useEffect(() => {
-    // Startup greeting - must speak within 1s of UI load
+    // Show ready notification without speaking
     if (!hasGreeted) {
-      const greetUser = () => {
-        setIsSpeaking(true);
-        
-        // Start speaking animation
-        const interval = setInterval(() => {
-          setVolume(Math.random() * 100);
-        }, 80);
-
-        // Speak the greeting
-        const greeting = "Hello, I'm Joud, your personal financial assistant. How may I help you today?";
-        speak(greeting, 'elegant');
-        
-        // Show toast notification
-        toast.success("Joud AI is ready to assist you", {
-          description: "Your elegant financial secretary is now online."
-        });
-
-        setTimeout(() => {
-          setIsSpeaking(false);
-          setVolume(0);
-          clearInterval(interval);
-          setHasGreeted(true);
-        }, 4000);
-      };
-
-      // Greet after 500ms (< 1s requirement)
-      const timer = setTimeout(greetUser, 500);
-      return () => clearTimeout(timer);
+      toast.success("Joud AI is ready to assist you", {
+        description: "Your elegant financial secretary is now online. Tap the microphone to start voice conversation."
+      });
+      setHasGreeted(true);
     }
-  }, [hasGreeted, speak]);
+  }, [hasGreeted]);
 
   const toggleListening = () => {
-    setIsListening(!isListening);
-    if (!isListening) {
-      // Start listening animation
-      const interval = setInterval(() => {
-        setVolume(Math.random() * 50);
-      }, 100);
-
-      // Stop after 3 seconds (simulate)
-      setTimeout(() => {
-        setIsListening(false);
-        setVolume(0);
-        clearInterval(interval);
-        onVoiceMessage?.("I heard you say something about finances...");
-      }, 3000);
+    if (isListening) {
+      setIsListening(false);
+      setVolume(0);
+      return;
     }
+
+    // Start voice conversation with greeting
+    setIsListening(true);
+    setIsSpeaking(true);
+    
+    // Start listening animation
+    const interval = setInterval(() => {
+      setVolume(Math.random() * 50);
+    }, 100);
+
+    // Greet user when they start voice interaction
+    const greeting = "Hi there! I'm Joud, your personal financial assistant. I'm excited to chat with you! What's on your mind today?";
+    speak(greeting, 'elegant');
+    
+    // Show toast
+    toast.success("Voice conversation started", {
+      description: "Joud is ready to chat with you!"
+    });
+
+    // Simulate listening for voice input (3 seconds)
+    setTimeout(() => {
+      setIsListening(false);
+      setIsSpeaking(false);
+      setVolume(0);
+      clearInterval(interval);
+      
+      // Simulate heard message and trigger conversation
+      const heardMessage = "Hello Joud, let's chat about my finances";
+      onVoiceMessage?.(heardMessage);
+    }, 3000);
   };
 
   return (

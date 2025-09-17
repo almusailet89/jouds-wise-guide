@@ -31,28 +31,12 @@ export const ChatInterface = ({ onMessage }: ChatInterfaceProps) => {
     scrollToBottom();
   }, [messages]);
 
-  // Joud's greeting on first load
+  // Joud's greeting only when user explicitly requests it
   useEffect(() => {
     if (isFirstLoad && user) {
-      const greetingMessage: ChatMessage = {
-        id: '1',
-        role: 'assistant',
-        content: `Hello, I'm Joud, your personal financial assistant. I'm here to help you manage your finances, plan your tasks, track your mood, and provide elegant insights tailored just for you. How may I assist you today?`,
-        timestamp: new Date().toISOString(),
-      };
-      
-      setMessages([greetingMessage]);
-      
-      // Speak the greeting
-      if (canAccessFeature('voice')) {
-        setTimeout(() => {
-          speakMessage(greetingMessage.content);
-        }, 1000);
-      }
-      
       setIsFirstLoad(false);
     }
-  }, [user, isFirstLoad, canAccessFeature, speakMessage]);
+  }, [user, isFirstLoad]);
 
   const handleSendMessage = async () => {
     if (!inputMessage.trim() || loading) return;
