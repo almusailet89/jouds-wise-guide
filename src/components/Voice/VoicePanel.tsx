@@ -3,6 +3,8 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Mic, MicOff, Volume2, VolumeX, Sparkles } from "lucide-react";
 import { toast } from "sonner";
+import { useVoiceRecognition } from '@/hooks/useVoiceRecognition';
+import { useAI } from '@/hooks/useAI';
 
 interface VoicePanelProps {
   onVoiceMessage?: (message: string) => void;
@@ -59,11 +61,33 @@ const useSpeech = () => {
 };
 
 export const VoicePanel: React.FC<VoicePanelProps> = ({ onVoiceMessage }) => {
-  const [isListening, setIsListening] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [volume, setVolume] = useState(0);
   const [hasGreeted, setHasGreeted] = useState(false);
   const { speak } = useSpeech();
+  const { speakMessage, speaking } = useAI();
+
+  const handleTranscription = async (text: string) => {
+    console.log('Voice transcription received:', text);
+    toast.success("Voice message received", {
+      description: `I heard: "${text}"`
+    });
+    
+    // Pass the transcribed text to the parent component
+    onVoiceMessage?.(text);
+  };
+
+  const handleVoiceError = (error: string) => {
+    console.error('Voice recognition error:', error);
+    toast.error("Voice recognition error", {
+      description: error
+    });
+  };
+
+  const { isListening, isProcessing, toggleListening } = useVoiceRecognition({
+    onTranscription: handleTranscription,
+    onError: handleVoiceError
+  });
 
   useEffect(() => {
     // Show ready notification without speaking
@@ -75,43 +99,34 @@ export const VoicePanel: React.FC<VoicePanelProps> = ({ onVoiceMessage }) => {
     }
   }, [hasGreeted]);
 
-  const toggleListening = () => {
-    if (isListening) {
-      setIsListening(false);
+  // Update volume animation when listening or processing
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    
+    if (isListening || isProcessing) {
+      interval = setInterval(() => {
+        setVolume(Math.random() * 50);
+      }, 100);
+      
+      // Greet user when they start voice interaction (only first time)
+      if (isListening && !isSpeaking && !hasGreeted) {
+        const greeting = "Hi I'm Jood, how can I help?";
+        speakMessage(greeting, 'nova');
+        setIsSpeaking(true);
+      }
+    } else {
       setVolume(0);
-      return;
     }
 
-    // Start voice conversation with greeting
-    setIsListening(true);
-    setIsSpeaking(true);
-    
-    // Start listening animation
-    const interval = setInterval(() => {
-      setVolume(Math.random() * 50);
-    }, 100);
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [isListening, isProcessing, hasGreeted, isSpeaking, speakMessage]);
 
-    // Greet user when they start voice interaction
-    const greeting = "Hi I'm Jood, how can I help?";
-    speak(greeting, 'elegant');
-    
-    // Show toast
-    toast.success("Voice conversation started", {
-      description: "Jood AI is ready to chat with you!"
-    });
-
-    // Simulate listening for voice input (3 seconds)
-    setTimeout(() => {
-      setIsListening(false);
-      setIsSpeaking(false);
-      setVolume(0);
-      clearInterval(interval);
-      
-      // Simulate heard message and trigger conversation
-      const heardMessage = "Hello Joud, let's chat about my finances";
-      onVoiceMessage?.(heardMessage);
-    }, 3000);
-  };
+  // Update speaking state based on AI speaking
+  useEffect(() => {
+    setIsSpeaking(speaking);
+  }, [speaking]);
 
   return (
     <Card className="h-full luxury-card p-8 flex flex-col items-center justify-center">
@@ -165,11 +180,13 @@ export const VoicePanel: React.FC<VoicePanelProps> = ({ onVoiceMessage }) => {
       <div className="text-center mb-8">
         <h3 className="text-xl font-semibold mb-3 bg-gradient-luxury bg-clip-text text-transparent">
           {isSpeaking ? "Joud AI is speaking..." : 
+           isProcessing ? "Processing your voice..." :
            isListening ? "I'm listening..." : 
            "Joud AI Voice Assistant"}
         </h3>
         <p className="text-muted-foreground text-base leading-relaxed max-w-md">
           {isSpeaking ? "Your Joud AI assistant is ready to assist with premium insights and personalized guidance." :
+           isProcessing ? "Converting your speech to text..." :
            isListening ? "Please share your financial questions or goals..." :
            "Activate voice mode to experience Joud AI's sophisticated assistance"}
         </p>
@@ -182,7 +199,7 @@ export const VoicePanel: React.FC<VoicePanelProps> = ({ onVoiceMessage }) => {
           variant={isListening ? "destructive" : "default"}
           size="lg"
           className="luxury-button rounded-full w-20 h-20 shadow-luxury hover:shadow-gold transition-luxury"
-          disabled={isSpeaking}
+          disabled={isSpeaking || isProcessing}
         >
           {isListening ? <MicOff className="h-7 w-7" /> : <Mic className="h-7 w-7" />}
         </Button>
@@ -191,7 +208,7 @@ export const VoicePanel: React.FC<VoicePanelProps> = ({ onVoiceMessage }) => {
           variant="outline"
           size="lg"
           className="rounded-full w-20 h-20 border-2 border-primary/30 hover:border-primary hover:bg-primary/10 transition-luxury shadow-elegant"
-          disabled={isSpeaking}
+          disabled={isSpeaking || isProcessing}
         >
           {isSpeaking ? <VolumeX className="h-7 w-7 text-primary" /> : <Volume2 className="h-7 w-7 text-primary" />}
         </Button>
