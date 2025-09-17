@@ -75,6 +75,7 @@ export type Database = {
           created_at: string
           currency: string | null
           date: string | null
+          description: string | null
           id: string
           label: string
           note: string | null
@@ -87,6 +88,7 @@ export type Database = {
           created_at?: string
           currency?: string | null
           date?: string | null
+          description?: string | null
           id?: string
           label: string
           note?: string | null
@@ -99,6 +101,7 @@ export type Database = {
           created_at?: string
           currency?: string | null
           date?: string | null
+          description?: string | null
           id?: string
           label?: string
           note?: string | null
@@ -131,6 +134,45 @@ export type Database = {
           mood_score?: number
           note?: string | null
           user_id?: string
+        }
+        Relationships: []
+      }
+      news_cache: {
+        Row: {
+          content: string | null
+          created_at: string
+          fetched_at: string
+          id: string
+          published_at: string
+          sentiment: number | null
+          source: string
+          symbol: string
+          title: string
+          url: string
+        }
+        Insert: {
+          content?: string | null
+          created_at?: string
+          fetched_at?: string
+          id?: string
+          published_at: string
+          sentiment?: number | null
+          source: string
+          symbol: string
+          title: string
+          url: string
+        }
+        Update: {
+          content?: string | null
+          created_at?: string
+          fetched_at?: string
+          id?: string
+          published_at?: string
+          sentiment?: number | null
+          source?: string
+          symbol?: string
+          title?: string
+          url?: string
         }
         Relationships: []
       }
@@ -361,6 +403,16 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_portfolio_summary: {
+        Args: { user_uuid: string }
+        Returns: {
+          asset_allocation: Json
+          total_cost: number
+          total_pnl: number
+          total_pnl_percent: number
+          total_value: number
+        }[]
+      }
       get_user_role: {
         Args: { _user_id: string }
         Returns: Database["public"]["Enums"]["app_role"]
