@@ -16,7 +16,7 @@ export const useAI = () => {
   const [loading, setLoading] = useState(false);
   const [speaking, setSpeaking] = useState(false);
 
-  const sendMessage = async (message: string, context?: ChatMessage[]): Promise<string> => {
+  const sendMessage = async (message: string, context?: ChatMessage[], mode?: string, pendingFunction?: any): Promise<any> => {
     if (!session) {
       throw new Error('User must be logged in to chat');
     }
@@ -27,7 +27,9 @@ export const useAI = () => {
       const { data, error } = await supabase.functions.invoke('ai-chat', {
         body: { 
           message,
-          context: context?.map(msg => ({ role: msg.role, content: msg.content }))
+          context: context?.map(msg => ({ role: msg.role, content: msg.content })),
+          mode,
+          pendingFunction
         },
         headers: {
           Authorization: `Bearer ${session.access_token}`,
@@ -39,7 +41,7 @@ export const useAI = () => {
         throw new Error('Failed to get AI response');
       }
 
-      return data.message;
+      return data;
     } catch (error) {
       console.error('Error sending message:', error);
       toast({

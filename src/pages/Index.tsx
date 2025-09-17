@@ -48,7 +48,7 @@ const Index = () => {
             <span className="text-sm font-medium">AI-Powered Assistant</span>
           </div>
           <h1 className="text-5xl font-bold bg-gradient-to-r from-primary via-accent to-primary bg-clip-text text-transparent mb-6">
-            Joud's Wise Guide
+            Jood AI
           </h1>
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto mb-8">
             Your intelligent personal assistant for chat, financial planning, mood tracking, and smart suggestions.
