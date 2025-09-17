@@ -58,17 +58,17 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ onMessage }) => {
       const aiMessage: ChatMessage = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: response.message || response,
+        content: typeof response === 'string' ? response : response.message || 'No response received',
         timestamp: new Date().toISOString(),
       };
 
       setMessages(prev => [...prev, aiMessage]);
 
       // Handle function results for preview mode
-      if (response.function_results?.preview_mode) {
+      if (response && typeof response === 'object' && response.function_results?.preview_mode) {
         setPendingFunction(response.function_results.function_call);
         setAwaitingConfirmation(true);
-      } else if (response.mode === 'commit') {
+      } else if (response && typeof response === 'object' && response.mode === 'commit') {
         setPendingFunction(null);
         setAwaitingConfirmation(false);
         
