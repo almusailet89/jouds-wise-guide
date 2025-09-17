@@ -1,45 +1,67 @@
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans:wght@300;400;500;600;700&family=Noto+Naskh+Arabic:wght@400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
-All colors MUST be HSL.
-*/
+/* Joud AI Luxury Design System - All colors MUST be HSL */
 
 @layer base {
   :root {
-    --background: 230 20% 98%;
-    --foreground: 230 20% 8%;
-
+    /* Joud AI Luxury Color System */
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
     --card: 0 0% 100%;
-    --card-foreground: 230 20% 8%;
-
+    --card-foreground: 222.2 84% 4.9%;
     --popover: 0 0% 100%;
-    --popover-foreground: 230 20% 8%;
-
-    --primary: 250 75% 60%;
+    --popover-foreground: 222.2 84% 4.9%;
+    
+    /* Primary - Emerald Green */
+    --primary: 160 84% 39%;
     --primary-foreground: 0 0% 100%;
-
-    --secondary: 230 15% 95%;
-    --secondary-foreground: 230 20% 20%;
-
-    --muted: 230 15% 95%;
-    --muted-foreground: 230 10% 45%;
-
-    --accent: 280 60% 50%;
-    --accent-foreground: 0 0% 100%;
-
-    --ai-glow: 250 75% 60%;
-    --ai-secondary: 280 60% 50%;
-
+    --primary-glow: 160 84% 49%;
+    
+    /* Secondary - Deep Gold */
+    --secondary: 45 93% 47%;
+    --secondary-foreground: 0 0% 100%;
+    --secondary-glow: 45 93% 57%;
+    
+    /* Muted - Soft Beige */
+    --muted: 39 30% 94%;
+    --muted-foreground: 39 30% 40%;
+    
+    /* Accent - Light Gold */
+    --accent: 45 54% 91%;
+    --accent-foreground: 45 93% 47%;
+    
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
-
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
-
-    --radius: 0.5rem;
+    --border: 39 30% 89%;
+    --input: 39 30% 89%;
+    --ring: 160 84% 39%;
+    
+    /* Charts - Luxury Palette */
+    --chart-1: 160 84% 39%;
+    --chart-2: 45 93% 47%;
+    --chart-3: 160 34% 29%;
+    --chart-4: 45 54% 67%;
+    --chart-5: 160 54% 67%;
+    
+    /* Gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary-glow)));
+    --gradient-secondary: linear-gradient(135deg, hsl(var(--secondary)), hsl(var(--secondary-glow)));
+    --gradient-luxury: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--secondary)));
+    
+    /* Shadows */
+    --shadow-luxury: 0 10px 30px -10px hsl(var(--primary) / 0.3);
+    --shadow-gold: 0 5px 20px -5px hsl(var(--secondary) / 0.4);
+    --shadow-elegant: 0 4px 20px -2px hsl(0 0% 0% / 0.1);
+    
+    /* Animations */
+    --transition-luxury: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    
+    --radius: 1rem;
 
     --sidebar-background: 0 0% 98%;
 
@@ -59,36 +81,54 @@ All colors MUST be HSL.
   }
 
   .dark {
-    --background: 230 25% 6%;
-    --foreground: 230 15% 95%;
-
-    --card: 230 25% 8%;
-    --card-foreground: 230 15% 95%;
-
-    --popover: 230 25% 8%;
-    --popover-foreground: 230 15% 95%;
-
-    --primary: 250 75% 65%;
-    --primary-foreground: 230 25% 6%;
-
-    --secondary: 230 20% 12%;
-    --secondary-foreground: 230 15% 90%;
-
-    --muted: 230 20% 12%;
-    --muted-foreground: 230 10% 60%;
-
-    --accent: 280 60% 55%;
-    --accent-foreground: 230 25% 6%;
-
-    --ai-glow: 250 75% 65%;
-    --ai-secondary: 280 60% 55%;
-
-    --destructive: 0 62.8% 30.6%;
+    /* Joud AI Dark Mode - Luxury */
+    --background: 222.2 47% 6%;
+    --foreground: 210 40% 98%;
+    --card: 222.2 47% 8%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222.2 47% 8%;
+    --popover-foreground: 210 40% 98%;
+    
+    /* Primary - Bright Emerald */
+    --primary: 160 84% 49%;
+    --primary-foreground: 222.2 47% 6%;
+    --primary-glow: 160 84% 59%;
+    
+    /* Secondary - Bright Gold */
+    --secondary: 45 93% 57%;
+    --secondary-foreground: 222.2 47% 6%;
+    --secondary-glow: 45 93% 67%;
+    
+    /* Muted - Dark Beige */
+    --muted: 222.2 32.6% 12%;
+    --muted-foreground: 215 20.2% 65.1%;
+    
+    /* Accent - Dark Gold */
+    --accent: 222.2 32.6% 12%;
+    --accent-foreground: 45 93% 57%;
+    
+    --destructive: 0 62.8% 50.6%;
     --destructive-foreground: 210 40% 98%;
-
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
+    --border: 222.2 32.6% 15%;
+    --input: 222.2 32.6% 15%;
+    --ring: 160 84% 49%;
+    
+    /* Charts - Dark Luxury Palette */
+    --chart-1: 160 84% 49%;
+    --chart-2: 45 93% 57%;
+    --chart-3: 160 34% 39%;
+    --chart-4: 45 54% 77%;
+    --chart-5: 160 54% 77%;
+    
+    /* Gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary-glow)));
+    --gradient-secondary: linear-gradient(135deg, hsl(var(--secondary)), hsl(var(--secondary-glow)));
+    --gradient-luxury: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--secondary)));
+    
+    /* Shadows */
+    --shadow-luxury: 0 10px 30px -10px hsl(var(--primary) / 0.4);
+    --shadow-gold: 0 5px 20px -5px hsl(var(--secondary) / 0.5);
+    --shadow-elegant: 0 4px 20px -2px hsl(0 0% 0% / 0.3);
     --sidebar-background: 240 5.9% 10%;
     --sidebar-foreground: 240 4.8% 95.9%;
     --sidebar-primary: 224.3 76.3% 48%;
@@ -106,6 +146,40 @@ All colors MUST be HSL.
   }
 
   body {
-    @apply bg-background text-foreground;
+    font-family: 'Noto Sans', Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+    line-height: 1.6;
+    font-weight: 400;
+    color: hsl(var(--foreground));
+    background: hsl(var(--background));
+    font-synthesis: none;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  .font-arabic {
+    font-family: 'Noto Naskh Arabic', 'Noto Sans', serif;
+    direction: rtl;
+  }
+
+  .luxury-card {
+    @apply bg-gradient-to-br from-background to-muted/50 shadow-elegant border border-border/50;
+  }
+
+  .luxury-button {
+    @apply bg-gradient-primary text-primary-foreground shadow-luxury hover:shadow-gold transition-all duration-300;
+  }
+
+  .avatar-glow {
+    @apply shadow-luxury animate-pulse;
+  }
+
+  .waveform-bar {
+    @apply bg-gradient-primary transition-all duration-100 rounded-full;
+  }
+
+  .joud-container {
+    @apply min-h-screen bg-gradient-to-br from-background via-muted/10 to-accent/20;
   }
 }
