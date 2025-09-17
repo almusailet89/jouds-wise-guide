@@ -1,21 +1,25 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
+import { useLegalAgreements } from '@/hooks/useLegalAgreements';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 
 export default function Auth() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [loading, setLoading] = useState(false);
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
+  const [agreedToPrivacy, setAgreedToPrivacy] = useState(false);
   const { signIn, signUp, user } = useAuth();
+  const { acceptAgreement, getLatestVersion } = useLegalAgreements();
   const navigate = useNavigate();
-  const { toast } = useToast();
 
   useEffect(() => {
     if (user) {
@@ -30,16 +34,9 @@ export default function Auth() {
     const { error } = await signIn(email, password);
     
     if (error) {
-      toast({
-        title: "Authentication Error",
-        description: error.message,
-        variant: "destructive",
-      });
+      toast.error(error.message || 'Failed to sign in');
     } else {
-      toast({
-        title: "Welcome back!",
-        description: "Successfully signed in to Joud AI.",
-      });
+      toast.success('Welcome back!');
       navigate('/dashboard');
     }
     setLoading(false);
@@ -47,21 +44,24 @@ export default function Auth() {
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
+    if (!agreedToTerms || !agreedToPrivacy) {
+      toast.error('You must agree to the Terms and Privacy Policy');
+      return;
+    }
     
+    setLoading(true);
     const { error } = await signUp(email, password, displayName);
     
     if (error) {
-      toast({
-        title: "Registration Error",
-        description: error.message,
-        variant: "destructive",
-      });
+      toast.error(error.message || 'Failed to create account');
     } else {
-      toast({
-        title: "Welcome to Joud AI!",
-        description: "Please check your email to verify your account.",
-      });
+      // Record legal agreements
+      const termsVersion = getLatestVersion('terms');
+      const privacyVersion = getLatestVersion('privacy');
+      if (termsVersion) await acceptAgreement('terms', termsVersion.version);
+      if (privacyVersion) await acceptAgreement('privacy', privacyVersion.version);
+      
+      toast.success('Account created! Please check your email.');
     }
     setLoading(false);
   };
@@ -150,16 +150,53 @@ export default function Auth() {
                     <Input
                       id="password"
                       type="password"
-                      placeholder="Create a password"
+                      placeholder="Create a password (minimum 6 characters)"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       required
+                      minLength={6}
                     />
                   </div>
+
+                  {/* Legal Agreements */}
+                  <div className="space-y-3 pt-4 border-t">
+                    <div className="flex items-start space-x-3">
+                      <Checkbox
+                        id="terms-agreement"
+                        checked={agreedToTerms}
+                        onCheckedChange={setAgreedToTerms}
+                        className="mt-1"
+                      />
+                      <Label htmlFor="terms-agreement" className="text-sm leading-relaxed">
+                        I agree to the{' '}
+                        <Link to="/terms" target="_blank" className="text-primary hover:underline">
+                          Terms of Service
+                        </Link>
+                        <span className="text-red-500 ml-1">*</span>
+                      </Label>
+                    </div>
+                    
+                    <div className="flex items-start space-x-3">
+                      <Checkbox
+                        id="privacy-agreement"
+                        checked={agreedToPrivacy}
+                        onCheckedChange={setAgreedToPrivacy}
+                        className="mt-1"
+                      />
+                      <Label htmlFor="privacy-agreement" className="text-sm leading-relaxed">
+                        I agree to the{' '}
+                        <Link to="/privacy" target="_blank" className="text-primary hover:underline">
+                          Privacy Policy
+                        </Link>
+                        <span className="text-red-500 ml-1">*</span>
+                      </Label>
+                    </div>
+                  </div>
+                  
                   <Button 
                     type="submit" 
                     className="w-full"
-                    disabled={loading}
+                    disabled={loading || !agreedToTerms || !agreedToPrivacy}
                   >
                     {loading ? 'Creating account...' : 'Sign Up'}
                   </Button>
