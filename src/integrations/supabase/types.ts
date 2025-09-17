@@ -14,7 +14,213 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      ai_interactions: {
+        Row: {
+          context_data: Json | null
+          created_at: string
+          id: string
+          message: string
+          response: string
+          user_id: string
+        }
+        Insert: {
+          context_data?: Json | null
+          created_at?: string
+          id?: string
+          message: string
+          response: string
+          user_id: string
+        }
+        Update: {
+          context_data?: Json | null
+          created_at?: string
+          id?: string
+          message?: string
+          response?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      financial_data: {
+        Row: {
+          amount: number
+          category: string | null
+          created_at: string
+          currency: string | null
+          id: string
+          label: string
+          note: string | null
+          type: string
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          category?: string | null
+          created_at?: string
+          currency?: string | null
+          id?: string
+          label: string
+          note?: string | null
+          type: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          category?: string | null
+          created_at?: string
+          currency?: string | null
+          id?: string
+          label?: string
+          note?: string | null
+          type?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      mood_logs: {
+        Row: {
+          created_at: string
+          id: string
+          mood_label: string | null
+          mood_score: number
+          note: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          mood_label?: string | null
+          mood_score: number
+          note?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          mood_label?: string | null
+          mood_score?: number
+          note?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      portfolio_holdings: {
+        Row: {
+          avg_price: number
+          created_at: string
+          currency: string
+          id: string
+          is_crypto: boolean | null
+          market: string
+          quantity: number
+          symbol: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          avg_price: number
+          created_at?: string
+          currency: string
+          id?: string
+          is_crypto?: boolean | null
+          market: string
+          quantity: number
+          symbol: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          avg_price?: number
+          created_at?: string
+          currency?: string
+          id?: string
+          is_crypto?: boolean | null
+          market?: string
+          quantity?: number
+          symbol?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          base_currency: string | null
+          created_at: string
+          display_name: string | null
+          id: string
+          income: number | null
+          interests: string[] | null
+          risk_profile: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          base_currency?: string | null
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          income?: number | null
+          interests?: string[] | null
+          risk_profile?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          base_currency?: string | null
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          income?: number | null
+          interests?: string[] | null
+          risk_profile?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      tasks: {
+        Row: {
+          category: string | null
+          completed_at: string | null
+          created_at: string
+          description: string | null
+          due_date: string | null
+          id: string
+          priority: string | null
+          status: string | null
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          category?: string | null
+          completed_at?: string | null
+          created_at?: string
+          description?: string | null
+          due_date?: string | null
+          id?: string
+          priority?: string | null
+          status?: string | null
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          category?: string | null
+          completed_at?: string | null
+          created_at?: string
+          description?: string | null
+          due_date?: string | null
+          id?: string
+          priority?: string | null
+          status?: string | null
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
