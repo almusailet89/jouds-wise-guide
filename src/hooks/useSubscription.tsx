@@ -1,5 +1,6 @@
 import { useState, useEffect, createContext, useContext, ReactNode } from 'react';
 import { useAuth } from './useAuth';
+import { useRoles } from './useRoles';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from './use-toast';
 
@@ -71,6 +72,7 @@ interface SubscriptionProviderProps {
 
 export const SubscriptionProvider = ({ children }: SubscriptionProviderProps) => {
   const { user, session } = useAuth();
+  const { isAdmin } = useRoles();
   const { toast } = useToast();
   const [subscription, setSubscription] = useState<SubscriptionData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -153,6 +155,9 @@ export const SubscriptionProvider = ({ children }: SubscriptionProviderProps) =>
   };
 
   const canAccessFeature = (feature: string): boolean => {
+    // Admins have access to all features
+    if (isAdmin()) return true;
+    
     if (!subscription) return false;
     
     // During trial or with active subscription, allow access to all features
@@ -181,7 +186,7 @@ export const SubscriptionProvider = ({ children }: SubscriptionProviderProps) =>
     return () => clearInterval(interval);
   }, [user]);
 
-  const isSubscribed = subscription?.subscribed || subscription?.inTrial || false;
+  const isSubscribed = isAdmin() || subscription?.subscribed || subscription?.inTrial || false;
 
   const value = {
     subscription,

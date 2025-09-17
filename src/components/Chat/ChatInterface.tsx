@@ -7,6 +7,7 @@ import { Volume2, Send, Loader2, Check, X, Edit3 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useAI, ChatMessage } from '@/hooks/useAI';
 import { useSubscription } from '@/hooks/useSubscription';
+import { useRoles } from '@/hooks/useRoles';
 import { useToast } from '@/hooks/use-toast';
 
 interface ChatInterfaceProps {
@@ -21,6 +22,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ onMessage }) => {
   const [pendingFunction, setPendingFunction] = useState<any>(null);
   const [awaitingConfirmation, setAwaitingConfirmation] = useState(false);
   const { canAccessFeature } = useSubscription();
+  const { isAdmin } = useRoles();
   const { toast } = useToast();
   const scrollAreaRef = useRef<HTMLDivElement>(null);
 
@@ -111,7 +113,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ onMessage }) => {
   };
 
   const handleSpeakMessage = async (content: string) => {
-    if (!canAccessFeature('voice')) {
+    if (!canAccessFeature('voice') && !isAdmin()) {
       toast({
         title: "Premium Feature",
         description: "Text-to-speech is available for premium subscribers.",

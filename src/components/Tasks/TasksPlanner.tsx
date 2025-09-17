@@ -5,52 +5,10 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Plus, Calendar, Clock, Tag } from "lucide-react";
-
-interface Task {
-  id: string;
-  title: string;
-  completed: boolean;
-  dueDate?: string;
-  category: 'finance' | 'wellness' | 'study' | 'general';
-  priority: 'high' | 'medium' | 'low';
-}
+import { useTasks } from '@/hooks/useDatabase';
 
 const TasksPlanner: React.FC = () => {
-  const [tasks, setTasks] = useState<Task[]>([
-    {
-      id: '1',
-      title: 'Review monthly budget and expenses',
-      completed: false,
-      dueDate: '2024-01-15',
-      category: 'finance',
-      priority: 'high'
-    },
-    {
-      id: '2',
-      title: 'Schedule financial advisor meeting',
-      completed: false,
-      dueDate: '2024-01-16',
-      category: 'finance',
-      priority: 'medium'
-    },
-    {
-      id: '3',
-      title: 'Morning meditation - 10 minutes',
-      completed: true,
-      dueDate: '2024-01-14',
-      category: 'wellness',
-      priority: 'medium'
-    },
-    {
-      id: '4',
-      title: 'Read investment strategy article',
-      completed: false,
-      dueDate: '2024-01-17',
-      category: 'study',
-      priority: 'low'
-    }
-  ]);
-
+  const { tasks, loading, addTask, updateTask } = useTasks();
   const [newTask, setNewTask] = useState('');
 
   const categoryColors = {
@@ -66,29 +24,33 @@ const TasksPlanner: React.FC = () => {
     low: 'border-l-green-500'
   };
 
-  const toggleTask = (id: string) => {
-    setTasks(tasks.map(task => 
-      task.id === id ? { ...task, completed: !task.completed } : task
-    ));
+  const toggleTask = async (id: string) => {
+    const task = tasks.find(t => t.id === id);
+    if (!task) return;
+    
+    await updateTask(id, { 
+      status: task.status === 'completed' ? 'pending' : 'completed',
+      completed_at: task.status === 'pending' ? new Date().toISOString() : null
+    });
   };
 
-  const addTask = () => {
+  const handleAddTask = async () => {
     if (!newTask.trim()) return;
 
-    const task: Task = {
-      id: Date.now().toString(),
+    await addTask({
       title: newTask,
-      completed: false,
-      dueDate: new Date().toISOString().split('T')[0],
+      description: null,
+      status: 'pending',
+      priority: 'medium',
       category: 'general',
-      priority: 'medium'
-    };
+      due_date: new Date().toISOString().split('T')[0],
+      completed_at: null
+    });
 
-    setTasks([...tasks, task]);
     setNewTask('');
   };
 
-  const completedTasks = tasks.filter(t => t.completed).length;
+  const completedTasks = tasks.filter(t => t.status === 'completed').length;
   const totalTasks = tasks.length;
 
   return (
@@ -124,10 +86,11 @@ const TasksPlanner: React.FC = () => {
               placeholder="Add a new task..."
               value={newTask}
               onChange={(e) => setNewTask(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && addTask()}
+              onKeyPress={(e) => e.key === 'Enter' && handleAddTask()}
               className="flex-1"
+              disabled={loading}
             />
-            <Button onClick={addTask} size="icon">
+            <Button onClick={handleAddTask} size="icon" disabled={loading || !newTask.trim()}>
               <Plus className="h-4 w-4" />
             </Button>
           </div>
@@ -143,57 +106,77 @@ const TasksPlanner: React.FC = () => {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          {tasks.map((task) => (
-            <div
-              key={task.id}
-              className={`p-4 rounded-lg border-l-4 bg-muted/30 ${priorityColors[task.priority]} 
-                         ${task.completed ? 'opacity-60' : ''}`}
-            >
-              <div className="flex items-start space-x-3">
-                <Checkbox
-                  checked={task.completed}
-                  onCheckedChange={() => toggleTask(task.id)}
-                  className="mt-1"
-                />
-                <div className="flex-1">
-                  <p className={`font-medium ${task.completed ? 'line-through' : ''}`}>
-                    {task.title}
-                  </p>
-                  <div className="flex items-center space-x-2 mt-2">
-                    <Badge
-                      variant="outline"
-                      className={`text-xs ${categoryColors[task.category]}`}
-                    >
-                      <Tag className="w-3 h-3 mr-1" />
-                      {task.category}
-                    </Badge>
-                    {task.dueDate && (
-                      <Badge variant="outline" className="text-xs">
-                        <Clock className="w-3 h-3 mr-1" />
-                        {new Date(task.dueDate).toLocaleDateString()}
-                      </Badge>
-                    )}
-                    <Badge
-                      variant="outline"
-                      className={`text-xs ${
-                        task.priority === 'high' ? 'text-red-600 border-red-200' :
-                        task.priority === 'medium' ? 'text-yellow-600 border-yellow-200' :
-                        'text-green-600 border-green-200'
-                      }`}
-                    >
-                      {task.priority} priority
-                    </Badge>
+          {loading ? (
+            // Loading skeletons
+            Array.from({ length: 3 }).map((_, index) => (
+              <div key={index} className="p-4 rounded-lg border-l-4 bg-muted/30 animate-pulse">
+                <div className="flex items-start space-x-3">
+                  <div className="w-4 h-4 bg-muted rounded mt-1"></div>
+                  <div className="flex-1">
+                    <div className="h-4 bg-muted rounded mb-2"></div>
+                    <div className="flex space-x-2">
+                      <div className="h-6 bg-muted rounded w-16"></div>
+                      <div className="h-6 bg-muted rounded w-20"></div>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-          ))}
-
-          {tasks.length === 0 && (
+            ))
+          ) : tasks.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
               <Calendar className="h-12 w-12 mx-auto mb-3 opacity-50" />
-              <p>No tasks yet. Add your first task above!</p>
+              <p className="text-lg font-medium mb-2">No tasks yet</p>
+              <p className="text-sm">Add your first task above or say "Joud, note this add task to call the bank tomorrow"</p>
             </div>
+          ) : (
+            tasks.map((task) => (
+              <div
+                key={task.id}
+                className={`p-4 rounded-lg border-l-4 bg-muted/30 ${priorityColors[task.priority]} 
+                           ${task.status === 'completed' ? 'opacity-60' : ''}`}
+              >
+                <div className="flex items-start space-x-3">
+                  <Checkbox
+                    checked={task.status === 'completed'}
+                    onCheckedChange={() => toggleTask(task.id)}
+                    className="mt-1"
+                  />
+                  <div className="flex-1">
+                    <p className={`font-medium ${task.status === 'completed' ? 'line-through' : ''}`}>
+                      {task.title}
+                    </p>
+                    {task.description && (
+                      <p className="text-sm text-muted-foreground mt-1">{task.description}</p>
+                    )}
+                    <div className="flex items-center space-x-2 mt-2">
+                      <Badge
+                        variant="outline"
+                        className={`text-xs ${categoryColors[task.category as keyof typeof categoryColors] || categoryColors.general}`}
+                      >
+                        <Tag className="w-3 h-3 mr-1" />
+                        {task.category}
+                      </Badge>
+                      {task.due_date && (
+                        <Badge variant="outline" className="text-xs">
+                          <Clock className="w-3 h-3 mr-1" />
+                          {new Date(task.due_date).toLocaleDateString()}
+                        </Badge>
+                      )}
+                      <Badge
+                        variant="outline"
+                        className={`text-xs ${
+                          task.priority === 'high' ? 'text-red-600 border-red-200' :
+                          task.priority === 'medium' ? 'text-yellow-600 border-yellow-200' :
+                          'text-green-600 border-green-200'
+                        }`}
+                      >
+                        {task.priority} priority
+                      </Badge>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))
           )}
         </CardContent>
       </Card>

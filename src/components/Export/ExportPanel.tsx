@@ -1,15 +1,17 @@
 import { useState } from 'react';
 import { useExport } from '@/hooks/useExport';
 import { useSubscription } from '@/hooks/useSubscription';
+import { useRoles } from '@/hooks/useRoles';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Download, FileText, FileSpreadsheet, Loader2, Crown } from 'lucide-react';
+import { Download, FileText, FileSpreadsheet, Loader2, Crown, Shield } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 export const ExportPanel = () => {
   const { exportFinancialData, exportTasks, exportMoodData, exportAllData, exporting } = useExport();
   const { canAccessFeature, isSubscribed } = useSubscription();
+  const { isAdmin } = useRoles();
   const { toast } = useToast();
   const [activeExport, setActiveExport] = useState<string | null>(null);
 
@@ -18,7 +20,7 @@ export const ExportPanel = () => {
     format: 'csv' | 'pdf',
     name: string
   ) => {
-    if (!canAccessFeature('export')) {
+    if (!canAccessFeature('export') && !isAdmin()) {
       toast({
         title: "Premium Feature",
         description: "Export functionality is available with a subscription.",
@@ -78,7 +80,7 @@ export const ExportPanel = () => {
         </p>
       </div>
 
-      {!isSubscribed && (
+      {!isSubscribed && !isAdmin() && (
         <Card className="bg-gradient-elegant border-white/20">
           <CardContent className="p-6 text-center">
             <Crown className="w-12 h-12 text-white mx-auto mb-4" />
@@ -89,6 +91,17 @@ export const ExportPanel = () => {
             <Button variant="outline" className="bg-white/10 border-white/20 text-white hover:bg-white/20">
               Upgrade Now
             </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {isAdmin() && (
+        <Card className="bg-gradient-to-r from-primary/10 to-secondary/10 border-primary/20">
+          <CardContent className="p-4 text-center">
+            <Shield className="w-8 h-8 text-primary mx-auto mb-2" />
+            <p className="text-sm font-medium text-primary">
+              Admin Access: All premium features unlocked
+            </p>
           </CardContent>
         </Card>
       )}
@@ -123,7 +136,7 @@ export const ExportPanel = () => {
                   variant="outline"
                   size="sm"
                   onClick={() => handleExport(option.exportFn, 'csv', option.id)}
-                  disabled={exporting || !isSubscribed}
+                  disabled={exporting || (!isSubscribed && !isAdmin())}
                   className="flex-1"
                 >
                   {activeExport === `${option.id}-csv` ? (
@@ -138,7 +151,7 @@ export const ExportPanel = () => {
                   variant="outline"
                   size="sm"
                   onClick={() => handleExport(option.exportFn, 'pdf', option.id)}
-                  disabled={exporting || !isSubscribed}
+                  disabled={exporting || (!isSubscribed && !isAdmin())}
                   className="flex-1"
                 >
                   {activeExport === `${option.id}-pdf` ? (
