@@ -47,6 +47,7 @@ export type Database = {
           category: string | null
           created_at: string
           currency: string | null
+          date: string | null
           id: string
           label: string
           note: string | null
@@ -58,6 +59,7 @@ export type Database = {
           category?: string | null
           created_at?: string
           currency?: string | null
+          date?: string | null
           id?: string
           label: string
           note?: string | null
@@ -69,6 +71,7 @@ export type Database = {
           category?: string | null
           created_at?: string
           currency?: string | null
+          date?: string | null
           id?: string
           label?: string
           note?: string | null
@@ -106,40 +109,91 @@ export type Database = {
       }
       portfolio_holdings: {
         Row: {
+          address: string | null
+          asset_type: string | null
           avg_price: number
           created_at: string
           currency: string
+          current_price: number | null
           id: string
           is_crypto: boolean | null
+          last_updated: string | null
           market: string
+          property_type: string | null
+          purchase_price: number | null
           quantity: number
+          sqft: number | null
           symbol: string
           updated_at: string
           user_id: string
         }
         Insert: {
+          address?: string | null
+          asset_type?: string | null
           avg_price: number
           created_at?: string
           currency: string
+          current_price?: number | null
           id?: string
           is_crypto?: boolean | null
+          last_updated?: string | null
           market: string
+          property_type?: string | null
+          purchase_price?: number | null
           quantity: number
+          sqft?: number | null
           symbol: string
           updated_at?: string
           user_id: string
         }
         Update: {
+          address?: string | null
+          asset_type?: string | null
           avg_price?: number
           created_at?: string
           currency?: string
+          current_price?: number | null
           id?: string
           is_crypto?: boolean | null
+          last_updated?: string | null
           market?: string
+          property_type?: string | null
+          purchase_price?: number | null
           quantity?: number
+          sqft?: number | null
           symbol?: string
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      price_history: {
+        Row: {
+          asset_type: string
+          currency: string
+          id: string
+          price: number
+          symbol: string
+          timestamp: string
+          user_id: string | null
+        }
+        Insert: {
+          asset_type: string
+          currency?: string
+          id?: string
+          price: number
+          symbol: string
+          timestamp?: string
+          user_id?: string | null
+        }
+        Update: {
+          asset_type?: string
+          currency?: string
+          id?: string
+          price?: number
+          symbol?: string
+          timestamp?: string
+          user_id?: string | null
         }
         Relationships: []
       }
