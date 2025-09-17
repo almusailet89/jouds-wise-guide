@@ -164,7 +164,7 @@ export default function Auth() {
                       <Checkbox
                         id="terms-agreement"
                         checked={agreedToTerms}
-                        onCheckedChange={setAgreedToTerms}
+                        onCheckedChange={(checked) => setAgreedToTerms(checked === true)}
                         className="mt-1"
                       />
                       <Label htmlFor="terms-agreement" className="text-sm leading-relaxed">
@@ -180,7 +180,7 @@ export default function Auth() {
                       <Checkbox
                         id="privacy-agreement"
                         checked={agreedToPrivacy}
-                        onCheckedChange={setAgreedToPrivacy}
+                        onCheckedChange={(checked) => setAgreedToPrivacy(checked === true)}
                         className="mt-1"
                       />
                       <Label htmlFor="privacy-agreement" className="text-sm leading-relaxed">
