@@ -76,26 +76,45 @@ serve(async (req) => {
           throw new Error('Maximum of 25 holdings allowed per user');
         }
 
+        // Validate required fields based on asset type
+        if (asset_type === 'real_estate') {
+          if (!address) {
+            throw new Error('Address is required for real estate');
+          }
+        } else {
+          if (!symbol) {
+            throw new Error('Symbol is required for stocks and crypto');
+          }
+          if (!quantity || quantity <= 0) {
+            throw new Error('Valid quantity is required for stocks and crypto');
+          }
+          if (!avg_price || avg_price <= 0) {
+            throw new Error('Valid average price is required for stocks and crypto');
+          }
+        }
+
         const holdingData: any = {
           user_id: user.id,
           asset_type,
           currency: currency || 'USD',
           created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-          market: 'US', // Default market
-          symbol: symbol || 'N/A', // Required field
-          quantity: quantity ? parseFloat(quantity) : 1, // Default to 1
-          avg_price: avg_price ? parseFloat(avg_price) : 0 // Default to 0
+          updated_at: new Date().toISOString()
         };
 
         if (asset_type === 'real_estate') {
-          holdingData.address = address || 'Unknown';
+          holdingData.address = address;
           holdingData.property_type = property_type || 'residential';
           holdingData.sqft = sqft ? parseFloat(sqft) : null;
-          holdingData.purchase_price = purchase_price ? parseFloat(purchase_price) : holdingData.avg_price;
-          holdingData.symbol = address || `RE-${Date.now()}`;
+          holdingData.purchase_price = purchase_price ? parseFloat(purchase_price) : null;
+          // Required fields for database
+          holdingData.symbol = address;
           holdingData.market = 'Real Estate';
+          holdingData.quantity = 1;
+          holdingData.avg_price = purchase_price ? parseFloat(purchase_price) : 1;
         } else {
+          holdingData.symbol = symbol;
+          holdingData.quantity = parseFloat(quantity);
+          holdingData.avg_price = parseFloat(avg_price);
           holdingData.is_crypto = asset_type === 'crypto';
           holdingData.market = asset_type === 'crypto' ? 'Crypto' : 'US';
         }
