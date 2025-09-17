@@ -20,7 +20,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ onMessage }) => {
   const [input, setInput] = useState('');
   const [pendingFunction, setPendingFunction] = useState<any>(null);
   const [awaitingConfirmation, setAwaitingConfirmation] = useState(false);
-  const { canUsePremiumFeatures } = useSubscription();
+  const { canAccessFeature } = useSubscription();
   const { toast } = useToast();
   const scrollAreaRef = useRef<HTMLDivElement>(null);
 
@@ -111,7 +111,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ onMessage }) => {
   };
 
   const handleSpeakMessage = async (content: string) => {
-    if (!canUsePremiumFeatures) {
+    if (!canAccessFeature('voice')) {
       toast({
         title: "Premium Feature",
         description: "Text-to-speech is available for premium subscribers.",
