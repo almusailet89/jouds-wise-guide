@@ -1,32 +1,26 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Card } from "@/components/ui/card";
-import { Send, Mic, MicOff } from "lucide-react";
-import { toast } from "sonner";
-
-interface Message {
-  id: string;
-  role: 'user' | 'assistant';
-  content: string;
-  timestamp: Date;
-}
+import { useState, useEffect, useRef } from 'react';
+import { useAuth } from '@/hooks/useAuth';
+import { useAI, ChatMessage } from '@/hooks/useAI';
+import { useSubscription } from '@/hooks/useSubscription';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { MessageSquare, Send, Volume2, Loader2 } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 
 interface ChatInterfaceProps {
   onMessage?: (message: string) => void;
 }
 
-export const ChatInterface: React.FC<ChatInterfaceProps> = ({ onMessage }) => {
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: '1',
-      role: 'assistant',
-      content: "Hello! I'm Joud, your personal financial assistant. How can I help you today?",
-      timestamp: new Date()
-    }
-  ]);
-  const [input, setInput] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
+export const ChatInterface = ({ onMessage }: ChatInterfaceProps) => {
+  const { user } = useAuth();
+  const { canAccessFeature } = useSubscription();
+  const { sendMessage, speakMessage, loading, speaking } = useAI();
+  const { toast } = useToast();
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [inputMessage, setInputMessage] = useState('');
+  const [isFirstLoad, setIsFirstLoad] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -37,32 +31,63 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ onMessage }) => {
     scrollToBottom();
   }, [messages]);
 
-  const handleSendMessage = async () => {
-    if (!input.trim() || isLoading) return;
+  // Joud's greeting on first load
+  useEffect(() => {
+    if (isFirstLoad && user) {
+      const greetingMessage: ChatMessage = {
+        id: '1',
+        role: 'assistant',
+        content: `Hello, I'm Joud, your personal financial assistant. I'm here to help you manage your finances, plan your tasks, track your mood, and provide elegant insights tailored just for you. How may I assist you today?`,
+        timestamp: new Date().toISOString(),
+      };
+      
+      setMessages([greetingMessage]);
+      
+      // Speak the greeting
+      if (canAccessFeature('voice')) {
+        setTimeout(() => {
+          speakMessage(greetingMessage.content);
+        }, 1000);
+      }
+      
+      setIsFirstLoad(false);
+    }
+  }, [user, isFirstLoad, canAccessFeature, speakMessage]);
 
-    const userMessage: Message = {
+  const handleSendMessage = async () => {
+    if (!inputMessage.trim() || loading) return;
+
+    const userMessage: ChatMessage = {
       id: Date.now().toString(),
       role: 'user',
-      content: input,
-      timestamp: new Date()
+      content: inputMessage.trim(),
+      timestamp: new Date().toISOString(),
     };
 
-    setMessages(prev => [...prev, userMessage]);
-    setInput('');
-    setIsLoading(true);
+    const updatedMessages = [...messages, userMessage];
+    setMessages(updatedMessages);
+    onMessage?.(inputMessage.trim());
+    setInputMessage('');
 
-    // Simulate AI response
-    setTimeout(() => {
-      const aiResponse: Message = {
+    try {
+      const response = await sendMessage(inputMessage.trim(), messages);
+      
+      const assistantMessage: ChatMessage = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: "I understand your request. Let me help you with that financial analysis...",
-        timestamp: new Date()
+        content: response,
+        timestamp: new Date().toISOString(),
       };
-      setMessages(prev => [...prev, aiResponse]);
-      setIsLoading(false);
-      onMessage?.(input);
-    }, 1000);
+
+      setMessages(prev => [...prev, assistantMessage]);
+      
+      // Auto-speak response if user has voice access
+      if (canAccessFeature('voice')) {
+        speakMessage(response);
+      }
+    } catch (error) {
+      console.error('Chat error:', error);
+    }
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -70,6 +95,18 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ onMessage }) => {
       e.preventDefault();
       handleSendMessage();
     }
+  };
+
+  const handleSpeakMessage = (content: string) => {
+    if (!canAccessFeature('voice')) {
+      toast({
+        title: "Premium Feature",
+        description: "Voice features are available with a subscription.",
+        variant: "destructive",
+      });
+      return;
+    }
+    speakMessage(content);
   };
 
   return (
@@ -81,27 +118,43 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ onMessage }) => {
             key={message.id}
             className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
           >
-            <Card className={`max-w-[70%] p-4 ${
+            <Card className={`max-w-[80%] p-4 ${
               message.role === 'user'
                 ? 'bg-primary text-primary-foreground'
-                : 'bg-muted'
+                : 'bg-card/80 backdrop-blur border-white/10'
             }`}>
-              <p className="text-sm">{message.content}</p>
-              <span className="text-xs opacity-70 mt-1 block">
-                {message.timestamp.toLocaleTimeString()}
-              </span>
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex-1">
+                  <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                  <span className="text-xs opacity-70 mt-1 block">
+                    {new Date(message.timestamp).toLocaleTimeString()}
+                  </span>
+                </div>
+                {message.role === 'assistant' && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleSpeakMessage(message.content)}
+                    disabled={speaking}
+                    className="p-1 h-auto opacity-70 hover:opacity-100 ml-2"
+                  >
+                    {speaking ? (
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                    ) : (
+                      <Volume2 className="w-3 h-3" />
+                    )}
+                  </Button>
+                )}
+              </div>
             </Card>
           </div>
         ))}
-        {isLoading && (
+        
+        {loading && (
           <div className="flex justify-start">
-            <Card className="bg-muted p-4">
-              <div className="flex items-center space-x-2">
-                <div className="flex space-x-1">
-                  <div className="w-2 h-2 bg-primary rounded-full animate-bounce"></div>
-                  <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                  <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
-                </div>
+            <Card className="bg-card/80 backdrop-blur border-white/10 p-4">
+              <div className="flex items-center gap-2">
+                <Loader2 className="w-4 h-4 animate-spin text-primary" />
                 <span className="text-sm text-muted-foreground">Joud is thinking...</span>
               </div>
             </Card>
@@ -111,22 +164,27 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ onMessage }) => {
       </div>
 
       {/* Input */}
-      <div className="p-4 border-t bg-background">
-        <div className="flex space-x-2">
+      <div className="p-4 border-t border-white/10 bg-card/20 backdrop-blur">
+        <div className="flex gap-2">
           <Input
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
+            placeholder="Ask Joud anything about your finances, tasks, or goals..."
+            value={inputMessage}
+            onChange={(e) => setInputMessage(e.target.value)}
             onKeyPress={handleKeyPress}
-            placeholder="Ask Joud about your finances, tasks, or anything..."
-            className="flex-1"
-            disabled={isLoading}
+            disabled={loading}
+            className="flex-1 bg-background/50"
           />
           <Button
             onClick={handleSendMessage}
-            disabled={isLoading || !input.trim()}
+            disabled={loading || !inputMessage.trim()}
             size="icon"
+            className="bg-primary hover:bg-primary/90"
           >
-            <Send className="h-4 w-4" />
+            {loading ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Send className="w-4 h-4" />
+            )}
           </Button>
         </div>
       </div>

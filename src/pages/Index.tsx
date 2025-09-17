@@ -54,11 +54,11 @@ const Index = () => {
             Your intelligent personal assistant for chat, financial planning, mood tracking, and smart suggestions.
           </p>
           <div className="flex gap-4 justify-center">
-            <Button size="lg" className="bg-primary hover:bg-primary/90" onClick={() => navigate('/auth')}>
+            <Button size="lg" className="bg-primary hover:bg-primary/90" onClick={() => navigate('/pricing')}>
               Launch Joud AI
             </Button>
-            <Button variant="outline" size="lg">
-              Learn More
+            <Button variant="outline" size="lg" onClick={() => navigate('/auth')}>
+              Sign In
             </Button>
           </div>
         </div>

@@ -1,14 +1,16 @@
 import React, { useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
+import { useSubscription } from '@/hooks/useSubscription';
 import { Button } from '@/components/ui/button';
 import { ChatInterface } from '@/components/Chat/ChatInterface';
 import { VoicePanel } from '@/components/Voice/VoicePanel';
 import { FinancialDashboard } from '@/components/Dashboard/FinancialDashboard';
 import TasksPlanner from '@/components/Tasks/TasksPlanner';
 import MoodTracker from '@/components/Mood/MoodTracker';
+import { ExportPanel } from '@/components/Export/ExportPanel';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { MessageSquare, TrendingUp, Calendar, Heart, Brain, LogOut, User, Mic } from "lucide-react";
+import { MessageSquare, TrendingUp, Calendar, Heart, Brain, LogOut, User, Mic, Download, Settings } from "lucide-react";
 
 const Dashboard = () => {
   const { user, signOut } = useAuth();
@@ -90,6 +92,10 @@ const Dashboard = () => {
             <TabsTrigger value="voice" className="flex items-center gap-2">
               <Mic className="w-4 h-4" />
               <span className="hidden sm:inline">Voice</span>
+            </TabsTrigger>
+            <TabsTrigger value="export" className="flex items-center gap-2">
+              <Download className="w-4 h-4" />
+              <span className="hidden sm:inline">Export</span>
             </TabsTrigger>
           </TabsList>
 
@@ -226,14 +232,14 @@ const Dashboard = () => {
             </div>
           </TabsContent>
 
-          {/* Voice Interface */}
-          <TabsContent value="voice">
+          {/* Export Panel */}
+          <TabsContent value="export">
             <div>
               <h2 className="text-2xl font-bold mb-6 flex items-center space-x-2 text-white">
-                <Mic className="w-6 h-6" />
-                <span>Voice Assistant</span>
+                <Download className="w-6 h-6" />
+                <span>Export Data</span>
               </h2>
-              <VoicePanel onVoiceMessage={handleVoiceMessage} />
+              <ExportPanel />
             </div>
           </TabsContent>
         </Tabs>
