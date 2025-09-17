@@ -92,12 +92,12 @@ export const VoicePanel: React.FC<VoicePanelProps> = ({ onVoiceMessage }) => {
     }, 100);
 
     // Greet user when they start voice interaction
-    const greeting = "Hi there! I'm Joud, your personal financial assistant. I'm excited to chat with you! What's on your mind today?";
+    const greeting = "Hi I'm Jood, how can I help?";
     speak(greeting, 'elegant');
     
     // Show toast
     toast.success("Voice conversation started", {
-      description: "Joud is ready to chat with you!"
+      description: "Jood AI is ready to chat with you!"
     });
 
     // Simulate listening for voice input (3 seconds)
@@ -164,14 +164,14 @@ export const VoicePanel: React.FC<VoicePanelProps> = ({ onVoiceMessage }) => {
       {/* Luxury Status Display */}
       <div className="text-center mb-8">
         <h3 className="text-xl font-semibold mb-3 bg-gradient-luxury bg-clip-text text-transparent">
-          {isSpeaking ? "Joud is speaking..." : 
+          {isSpeaking ? "Joud AI is speaking..." : 
            isListening ? "I'm listening..." : 
-           "Voice Assistant"}
+           "Joud AI Voice Assistant"}
         </h3>
         <p className="text-muted-foreground text-base leading-relaxed max-w-md">
-          {isSpeaking ? "Your elegant financial secretary is ready to assist with premium insights and personalized guidance." :
+          {isSpeaking ? "Your Joud AI assistant is ready to assist with premium insights and personalized guidance." :
            isListening ? "Please share your financial questions or goals..." :
-           "Activate voice mode to experience Joud's sophisticated AI assistance"}
+           "Activate voice mode to experience Joud AI's sophisticated assistance"}
         </p>
       </div>
 
