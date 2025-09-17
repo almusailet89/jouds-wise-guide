@@ -1,8 +1,10 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Brain, MessageSquare, TrendingUp, Calendar, Heart, Mic } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 const Index = () => {
+  const navigate = useNavigate();
   const features = [
     {
       icon: MessageSquare,
@@ -52,8 +54,8 @@ const Index = () => {
             Your intelligent personal assistant for chat, financial planning, mood tracking, and smart suggestions.
           </p>
           <div className="flex gap-4 justify-center">
-            <Button size="lg" className="bg-primary hover:bg-primary/90">
-              Get Started
+            <Button size="lg" className="bg-primary hover:bg-primary/90" onClick={() => navigate('/dashboard')}>
+              Launch Joud AI
             </Button>
             <Button variant="outline" size="lg">
               Learn More
