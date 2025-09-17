@@ -1,0 +1,18 @@
+{
+  "owner": "default",
+  "risk_profile": "balanced",
+  "base_currency": "USD",
+  "targets": {
+    "saudi": { "allocation_pct": 30 },
+    "us": { "allocation_pct": 40 },
+    "crypto": { "allocation_pct": 30 }
+  },
+  "cash": { "USD": 5000, "SAR": 0, "BTC": 0 },
+  "holdings": [
+    { "symbol": "AAPL", "market": "US", "quantity": 10, "avg_price": 190.0, "currency": "USD" },
+    { "symbol": "ARAMCO", "market": "Saudi", "quantity": 100, "avg_price": 30.0, "currency": "SAR" },
+    { "symbol": "BTC", "market": "Crypto", "quantity": 0.05, "avg_price": 65000.0, "currency": "USD", "is_crypto": true }
+  ],
+  "watchlist": ["NVDA", "MSFT", "TSLA", "TADAWUL:2010", "ETH"],
+  "last_updated": "2025-08-09T00:00:00"
+}

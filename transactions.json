@@ -1,0 +1,18 @@
+{
+  "incomes": [
+    {
+      "amount": 5000.0,
+      "label": "Salary",
+      "note": "",
+      "ts": "2025-08-11T00:00:00"
+    }
+  ],
+  "expenses": [
+    {
+      "amount": 1500.0,
+      "label": "Rent",
+      "note": "",
+      "ts": "2025-08-11T00:00:00"
+    }
+  ]
+}

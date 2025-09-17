@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Joud Avatar (LiveKit Ready)</title>
+<!-- LiveKit UMD -->
+<script src="https://unpkg.com/livekit-client/dist/livekit-client.umd.min.js"></script>
+<style>
+  :root { --accent:#7c3aed; --glow:0 0 42px rgba(124,58,237,.55); }
+  * { box-sizing:border-box }
+  body { margin:0; background:#0b0b12; color:#fff; font-family: ui-sans-serif,system-ui,-apple-system,Segoe UI,Inter,Roboto; }
+  .card {
+    max-width: 980px; margin: 18px auto; padding: 16px;
+    background: radial-gradient(1200px 600px at 50% -20%, #1b1532 0%, #0b0b12 60%);
+    border:1px solid rgba(124,58,237,.25); border-radius: 18px; transition: box-shadow .25s;
+  }
+  .card.speaking { box-shadow: var(--glow); }
+  .row { display:flex; gap:16px; align-items:center; }
+  video {
+    width: 280px; height: 280px; object-fit: cover; border-radius: 16px;
+    border:1px solid rgba(124,58,237,.25); background:#000;
+  }
+  .content { flex:1 1 auto; display:flex; flex-direction:column; gap:12px; }
+  .bubble {
+    background: rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.12);
+    padding:14px 16px; border-radius:14px; min-height:74px; line-height:1.35;
+  }
+  .controls { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+  button, select {
+    background:#141424; color:#fff; border:1px solid rgba(255,255,255,.15);
+    padding:10px 14px; border-radius:12px; cursor:pointer;
+  }
+  button:disabled { opacity:.5; cursor:not-allowed }
+  .wave { width:100%; height:26px; }
+  .badge { font-size:12px; opacity:.85; border:1px solid rgba(255,255,255,.12); padding:4px 8px; border-radius:10px; }
+  .hint { font-size:12px; opacity:.7 }
+</style>
+</head>
+<body>
+  <div class="card" id="card">
+    <div class="row">
+      <video id="avatar" autoplay loop muted playsinline></video>
+      <div class="content">
+        <div class="controls">
+          <button id="joinBtn">🔌 Join Voice (LiveKit)</button>
+          <button id="recBtn" title="Hold to talk">🎙️ Hold to talk</button>
+          <button id="stopBtn">⏹ Stop</button>
+          <select id="persona">
+            <option value="ameera-calm">Ameera — Calm</option>
+            <option value="ameera-dark">Ameera — Noir</option>
+          </select>
+          <span class="badge" id="status">idle</span>
+        </div>
+
+        <!-- Animated waveform (CSS/SVG) -->
+        <svg class="wave" viewBox="0 0 500 60" preserveAspectRatio="none" aria-hidden="true">
+          <polyline id="waveLine" fill="none" stroke="rgba(124,58,237,.9)" stroke-width="3" points="0,30 500,30"/>
+        </svg>
+
+        <div class="bubble" id="bubble">
+          Ready. Click “Join Voice” to connect (LiveKit). Hold 🎙️ to speak.
+          <div class="hint">PLAN lines in replies are forwarded back to the Streamlit app.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+/* ================== CONFIG ================== */
+const API_BASE = "http://localhost:5050";           // FastAPI server (token + chat)
+const AVATARS = {                                   // Local assets
+  "ameera-calm": "assets/Joud_Ameera_loop.mp4",
+  "ameera-dark": "assets/Joud_Ameera_loop2.mp4"
+};
+/* ============================================ */
+
+const LK = window.livekitClient;
+
+/* Elements */
+const avatar = document.getElementById('avatar');
+const bubble = document.getElementById('bubble');
+const recBtn = document.getElementById('recBtn');
+const stopBtn = document.getElementById('stopBtn');
+const joinBtn = document.getElementById('joinBtn');
+const personaSel = document.getElementById('persona');
+const statusEl = document.getElementById('status');
+const wave = document.getElementById('waveLine');
+const card = document.getElementById('card');
+
+/* Persona switching */
+function setPersona(p) { avatar.src = AVATARS[p] || AVATARS["ameera-calm"]; }
+setPersona(personaSel.value);
+personaSel.addEventListener('change', ()=> setPersona(personaSel.value));
+
+/* Waveform animation */
+let t = 0;
+(function animateWave(){
+  t += 0.08;
+  const pts = []; const mid = 30;
+  for (let x=0; x<=500; x+=5) {
+    const y = mid + Math.sin((x/40)+t)*8 + Math.sin((x/15)+t*2)*3;
+    pts.push(`${x},${y}`);
+  }
+  wave.setAttribute('points', pts.join(' '));
+  requestAnimationFrame(animateWave);
+})();
+
+/* Speaking glow + TTS */
+function setSpeaking(on){ card.classList.toggle('speaking', !!on); }
+function speak(text) {
+  if (!window.speechSynthesis) return;
+  setSpeaking(true);
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = 'en-US'; // switch to 'ar-SA' for Arabic
+  u.onend = ()=> setSpeaking(false);
+  speechSynthesis.cancel(); speechSynthesis.speak(u);
+}
+
+/* Browser Speech Recognition (temporary until server agent is wired) */
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+let recog = SR ? new SR() : null;
+if (recog) {
+  recog.lang = 'en-US';            // or 'ar-SA'
+  recog.continuous = true;
+  recog.interimResults = true;
+  recog.onresult = (ev)=>{
+    let txt = '';
+    for (let i=ev.resultIndex; i<ev.results.length; i++) {
+      txt += ev.results[i][0].transcript;
+    }
+    bubble.textContent = txt.trim();
+  };
+  recog.onend = ()=> statusEl.textContent = 'idle';
+}
+
+/* Chat (to FastAPI /chat) */
+async function sendToChat(text){
+  statusEl.textContent = 'thinking…';
+  const persona = personaSel.value;
+  try {
+    const r = await fetch(`${API_BASE}/chat`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ message:text, persona })
+    });
+    const data = await r.json();
+    const reply = (data && data.reply) ? data.reply : '(no reply)';
+    bubble.textContent = reply;
+    speak(reply);
+
+    // Forward to parent (Streamlit iframe) for PLAN ingestion
+    if (window.parent) {
+      window.parent.postMessage({ type:'joud-reply', reply, persona }, '*');
+    }
+  } catch (e) {
+    bubble.textContent = 'Error: ' + (e?.message || e);
+  } finally {
+    statusEl.textContent = 'idle';
+  }
+}
+
+/* Press & hold to talk UX */
+let pressing = false;
+recBtn.onmousedown = ()=>{
+  pressing = true;
+  if (recog) { speechSynthesis.cancel(); recog.start(); statusEl.textContent='listening…'; }
+};
+recBtn.onmouseup = async ()=>{
+  if (!pressing) return; pressing = false;
+  if (recog) recog.stop();
+  const text = bubble.textContent.trim();
+  if (text) await sendToChat(text);
+};
+stopBtn.onclick = ()=>{
+  if (recog) recog.stop();
+  speechSynthesis.cancel(); statusEl.textContent='idle'; setSpeaking(false);
+};
+
+/* LiveKit join (ready now; full-duplex later) */
+let room = null;
+joinBtn.onclick = async ()=>{
+  try {
+    statusEl.textContent = 'joining…';
+    const t = await fetch(`${API_BASE}/token`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ identity: null, room: "joud-voice" })
+    });
+    const { url, token } = await t.json();
+
+    room = new LK.Room();
+    room
+      .on(LK.RoomEvent.ConnectionStateChanged, (s)=> statusEl.textContent = s)
+      .on(LK.RoomEvent.TrackSubscribed, (track, pub, participant)=>{
+        // When you add a server voice agent, attach remote audio:
+        if (track.kind === 'audio') {
+          const el = track.attach();
+          el.autoplay = true; el.playsInline = true;
+          document.body.appendChild(el); // hidden audio element
+        }
+      });
+
+    await room.connect(url, token);
+    const mic = await LK.createLocalAudioTrack({ echoCancellation:true, noiseSuppression:true, autoGainControl:true });
+    await room.localParticipant.publishTrack(mic);
+    statusEl.textContent = 'connected';
+  } catch (e) {
+    console.error(e);
+    statusEl.textContent = 'join failed';
+  }
+};
+</script>
+</body>
+</html>
