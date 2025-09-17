@@ -14,8 +14,11 @@ serve(async (req) => {
     const { text, voice = 'nova' } = await req.json()
 
     if (!text) {
+      console.error('No text provided in request')
       throw new Error('Text is required')
     }
+
+    console.log('Generating speech for text length:', text.length, 'with voice:', voice)
 
     const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
     if (!openAIApiKey) {
@@ -39,8 +42,15 @@ serve(async (req) => {
     })
 
     if (!response.ok) {
-      const error = await response.json()
-      throw new Error(error.error?.message || 'Failed to generate speech')
+      const errorText = await response.text()
+      console.error('OpenAI TTS API error:', response.status, response.statusText, errorText)
+      let error;
+      try {
+        error = JSON.parse(errorText);
+      } catch {
+        error = { error: { message: errorText } };
+      }
+      throw new Error(error.error?.message || `Failed to generate speech (${response.status}): ${errorText}`)
     }
 
     // Convert audio buffer to base64

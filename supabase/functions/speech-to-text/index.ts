@@ -15,10 +15,17 @@ serve(async (req) => {
     const { audio } = await req.json()
     
     if (!audio) {
+      console.error('No audio data provided in request')
       throw new Error('No audio data provided')
     }
 
-    console.log('Received audio data for transcription')
+    const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
+    if (!openAIApiKey) {
+      console.error('OpenAI API key not configured')
+      throw new Error('OpenAI API key not configured');
+    }
+
+    console.log('Received audio data for transcription, length:', audio.length)
 
     // Convert base64 to binary
     const binaryString = atob(audio)
@@ -39,15 +46,15 @@ serve(async (req) => {
     const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${Deno.env.get('OPENAI_API_KEY')}`,
+        'Authorization': `Bearer ${openAIApiKey}`,
       },
       body: formData,
     })
 
     if (!response.ok) {
       const errorText = await response.text()
-      console.error('OpenAI API error:', errorText)
-      throw new Error(`OpenAI API error: ${errorText}`)
+      console.error('OpenAI API error:', response.status, response.statusText, errorText)
+      throw new Error(`OpenAI API error (${response.status}): ${errorText}`)
     }
 
     const result = await response.json()

@@ -92,7 +92,7 @@ export const VoicePanel: React.FC<VoicePanelProps> = ({ onVoiceMessage }) => {
   useEffect(() => {
     // Show ready notification without speaking
     if (!hasGreeted) {
-      toast.success("Joud AI is ready to assist you", {
+      toast.success("Jood AI is ready to assist you", {
         description: "Your elegant financial secretary is now online. Tap the microphone to start voice conversation."
       });
       setHasGreeted(true);
@@ -179,16 +179,16 @@ export const VoicePanel: React.FC<VoicePanelProps> = ({ onVoiceMessage }) => {
       {/* Luxury Status Display */}
       <div className="text-center mb-8">
         <h3 className="text-xl font-semibold mb-3 bg-gradient-luxury bg-clip-text text-transparent">
-          {isSpeaking ? "Joud AI is speaking..." : 
+          {isSpeaking ? "Jood AI is speaking..." : 
            isProcessing ? "Processing your voice..." :
            isListening ? "I'm listening..." : 
-           "Joud AI Voice Assistant"}
+           "Jood AI Voice Assistant"}
         </h3>
         <p className="text-muted-foreground text-base leading-relaxed max-w-md">
-          {isSpeaking ? "Your Joud AI assistant is ready to assist with premium insights and personalized guidance." :
+          {isSpeaking ? "Your Jood AI assistant is ready to assist with premium insights and personalized guidance." :
            isProcessing ? "Converting your speech to text..." :
            isListening ? "Please share your financial questions or goals..." :
-           "Activate voice mode to experience Joud AI's sophisticated assistance"}
+           "Activate voice mode to experience Jood AI's sophisticated assistance"}
         </p>
       </div>
 
