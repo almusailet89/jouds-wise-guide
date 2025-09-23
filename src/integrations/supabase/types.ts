@@ -68,6 +68,33 @@ export type Database = {
         }
         Relationships: []
       }
+      chat_messages: {
+        Row: {
+          content: string
+          conversation_id: string | null
+          created_at: string
+          id: string
+          role: string
+          user_id: string
+        }
+        Insert: {
+          content: string
+          conversation_id?: string | null
+          created_at?: string
+          id?: string
+          role: string
+          user_id: string
+        }
+        Update: {
+          content?: string
+          conversation_id?: string | null
+          created_at?: string
+          id?: string
+          role?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       financial_data: {
         Row: {
           amount: number
@@ -110,10 +137,107 @@ export type Database = {
         }
         Relationships: []
       }
+      financial_entries: {
+        Row: {
+          amount: number
+          category: string | null
+          created_at: string
+          currency: string
+          description: string | null
+          id: string
+          occurred_at: string
+          type: string
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          category?: string | null
+          created_at?: string
+          currency?: string
+          description?: string | null
+          id?: string
+          occurred_at?: string
+          type: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          category?: string | null
+          created_at?: string
+          currency?: string
+          description?: string | null
+          id?: string
+          occurred_at?: string
+          type?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      goals: {
+        Row: {
+          created_at: string
+          due_date: string | null
+          id: string
+          progress: number
+          status: string
+          target_amount: number
+          title: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          due_date?: string | null
+          id?: string
+          progress?: number
+          status?: string
+          target_amount: number
+          title: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          due_date?: string | null
+          id?: string
+          progress?: number
+          status?: string
+          target_amount?: number
+          title?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      knowledge_vault: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          tags: string[]
+          title: string
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          tags?: string[]
+          title: string
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          tags?: string[]
+          title?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       mood_logs: {
         Row: {
           created_at: string
           id: string
+          logged_at: string | null
           mood_label: string | null
           mood_score: number
           note: string | null
@@ -122,6 +246,7 @@ export type Database = {
         Insert: {
           created_at?: string
           id?: string
+          logged_at?: string | null
           mood_label?: string | null
           mood_score: number
           note?: string | null
@@ -130,6 +255,7 @@ export type Database = {
         Update: {
           created_at?: string
           id?: string
+          logged_at?: string | null
           mood_label?: string | null
           mood_score?: number
           note?: string | null
@@ -302,6 +428,51 @@ export type Database = {
         }
         Relationships: []
       }
+      savings_contributions: {
+        Row: {
+          amount_sar: number
+          created_at: string
+          financial_entry_id: string | null
+          goal_id: string | null
+          id: string
+          note: string | null
+          user_id: string
+        }
+        Insert: {
+          amount_sar: number
+          created_at?: string
+          financial_entry_id?: string | null
+          goal_id?: string | null
+          id?: string
+          note?: string | null
+          user_id: string
+        }
+        Update: {
+          amount_sar?: number
+          created_at?: string
+          financial_entry_id?: string | null
+          goal_id?: string | null
+          id?: string
+          note?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "savings_contributions_financial_entry_id_fkey"
+            columns: ["financial_entry_id"]
+            isOneToOne: false
+            referencedRelation: "financial_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "savings_contributions_goal_id_fkey"
+            columns: ["goal_id"]
+            isOneToOne: false
+            referencedRelation: "goals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tasks: {
         Row: {
           category: string | null
@@ -311,6 +482,7 @@ export type Database = {
           due_date: string | null
           id: string
           priority: string | null
+          reminder_at: string | null
           status: string | null
           title: string
           updated_at: string
@@ -324,6 +496,7 @@ export type Database = {
           due_date?: string | null
           id?: string
           priority?: string | null
+          reminder_at?: string | null
           status?: string | null
           title: string
           updated_at?: string
@@ -337,6 +510,7 @@ export type Database = {
           due_date?: string | null
           id?: string
           priority?: string | null
+          reminder_at?: string | null
           status?: string | null
           title?: string
           updated_at?: string
@@ -423,6 +597,36 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      record_portfolio_buy_with_wallet: {
+        Args: {
+          _currency?: string
+          _price: number
+          _quantity: number
+          _symbol: string
+          _user_id: string
+        }
+        Returns: {
+          holding_id: string
+          new_balance: number
+        }[]
+      }
+      record_savings_contribution: {
+        Args: {
+          _amount_sar: number
+          _goal_id?: string
+          _note?: string
+          _user_id: string
+        }
+        Returns: {
+          contribution_id: string
+          financial_entry_id: string
+          new_balance: number
+        }[]
+      }
+      reset_dev_data_seed: {
+        Args: { _seed: number }
+        Returns: undefined
       }
     }
     Enums: {

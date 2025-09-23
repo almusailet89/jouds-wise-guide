@@ -13,9 +13,17 @@ export const useVoiceRecognition = ({ onTranscription, onError }: UseVoiceRecogn
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const { toast } = useToast();
+  // TODO: re-enable when remote egress is acceptable
+  const OFFLINE = import.meta.env?.VITE_DEV_OFFLINE === '1';
+  const EGRESS_SAVER = OFFLINE || (typeof window !== 'undefined' && window.localStorage.getItem('egressSaver') === '1');
 
   const startListening = useCallback(async () => {
     try {
+      // Short-circuit with mock when saver/offline is on
+      if (EGRESS_SAVER) {
+        onTranscription('Mock transcription (egress saver)');
+        return;
+      }
       console.log('Starting voice recognition...');
       
       // Request microphone permission
@@ -46,6 +54,14 @@ export const useVoiceRecognition = ({ onTranscription, onError }: UseVoiceRecogn
       mediaRecorder.onstop = async () => {
         console.log('Recording stopped, processing audio...');
         setIsProcessing(true);
+        // Short-circuit STT call when saver/offline is on
+        if (EGRESS_SAVER) {
+          onTranscription('Mock transcription (egress saver)');
+          setIsProcessing(false);
+          // Stop all tracks
+          stream.getTracks().forEach(track => track.stop());
+          return;
+        }
         
         try {
           // Create audio blob

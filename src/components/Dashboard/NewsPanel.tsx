@@ -16,12 +16,14 @@ interface NewsPanelProps {
   news: Record<string, NewsItem[]>;
   loading?: boolean;
   onRefresh?: () => void;
+  saver?: boolean;
 }
 
 export const NewsPanel: React.FC<NewsPanelProps> = ({ 
   news, 
   loading = false, 
-  onRefresh 
+  onRefresh,
+  saver = false,
 }) => {
   // Flatten and sort news by published date
   const allNews = Object.entries(news)
@@ -69,7 +71,7 @@ export const NewsPanel: React.FC<NewsPanelProps> = ({
               variant="outline"
               size="sm"
               onClick={onRefresh}
-              disabled={loading}
+              disabled={loading || saver}
               className="bg-white/10 border-white/20 hover:bg-white/20"
             >
               <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
@@ -129,10 +131,17 @@ export const NewsPanel: React.FC<NewsPanelProps> = ({
         ) : (
           <div className="text-center py-8">
             <Newspaper className="h-12 w-12 mx-auto mb-3 text-muted-foreground" />
-            <p className="text-lg font-medium text-muted-foreground">No news available</p>
-            <p className="text-sm text-muted-foreground">
-              News will appear when you add portfolio holdings
-            </p>
+            {saver ? (
+              <>
+                <p className="text-lg font-medium text-muted-foreground">News paused in Egress Saver Mode</p>
+                <p className="text-sm text-muted-foreground">Use the main Refresh to fetch one-time headlines, or turn Saver off for auto-updates.</p>
+              </>
+            ) : (
+              <>
+                <p className="text-lg font-medium text-muted-foreground">No news available</p>
+                <p className="text-sm text-muted-foreground">News will appear when you add portfolio holdings</p>
+              </>
+            )}
           </div>
         )}
       </CardContent>

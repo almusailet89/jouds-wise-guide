@@ -9,12 +9,14 @@ interface InsightsPanelProps {
   insights: Insight[];
   loading?: boolean;
   onRefresh?: () => void;
+  saver?: boolean;
 }
 
 export const InsightsPanel: React.FC<InsightsPanelProps> = ({ 
   insights, 
   loading = false, 
-  onRefresh 
+  onRefresh,
+  saver = false,
 }) => {
   const getInsightIcon = (type: string) => {
     switch (type) {
@@ -67,7 +69,7 @@ export const InsightsPanel: React.FC<InsightsPanelProps> = ({
               variant="outline"
               size="sm"
               onClick={onRefresh}
-              disabled={loading}
+              disabled={loading || saver}
               className="bg-white/10 border-white/20 hover:bg-white/20"
             >
               <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
@@ -76,7 +78,13 @@ export const InsightsPanel: React.FC<InsightsPanelProps> = ({
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        {loading ? (
+        {saver ? (
+          <div className="text-center py-8">
+            <Sparkles className="h-12 w-12 mx-auto mb-3 text-muted-foreground" />
+            <p className="text-lg font-medium text-muted-foreground">Insights paused in Egress Saver Mode</p>
+            <p className="text-sm text-muted-foreground">Turn Saver off to enable, or use the main Refresh for prices/news only.</p>
+          </div>
+        ) : loading ? (
           // Loading skeletons
           Array.from({ length: 3 }).map((_, index) => (
             <div key={index} className="animate-pulse">

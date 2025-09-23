@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useSubscription } from '@/hooks/useSubscription';
 import { Button } from '@/components/ui/button';
-import { ChatInterface } from '@/components/Chat/ChatInterface';
+import { AssistantChatPanel } from '@/components/Assistant/AssistantChatPanel';
 import { VoicePanel } from '@/components/Voice/VoicePanel';
 import { FinancialDashboard } from '@/components/Dashboard/FinancialDashboard';
 import TasksPlanner from '@/components/Tasks/TasksPlanner';
@@ -199,7 +199,7 @@ const Dashboard = () => {
                   <span>Chat with Joud</span>
                 </h2>
                 <div className="flex-1 border rounded-lg overflow-hidden">
-                  <ChatInterface onMessage={handleChatMessage} />
+                  <AssistantChatPanel />
                 </div>
               </div>
               
@@ -248,7 +248,6 @@ const Dashboard = () => {
             </div>
           </TabsContent>
 
-          {/* Voice Interface */}
           {/* Voice Interface */}
           <TabsContent value="voice">
             <div>

@@ -20,17 +20,8 @@ port = 54324
 
 [storage]
 enabled = true
-port = 54325
 
 [auth]
-enabled = true
-port = 54326
-
-[edge-runtime]
-enabled = true
-port = 54327
-
-[[edge-runtime.extensions]]
 enabled = true
 
 [functions.ai-chat]
@@ -60,8 +51,17 @@ verify_jwt = true
 [functions.refresh-prices]
 verify_jwt = false
 
+[functions.finance-actions]
+verify_jwt = true
+
+[functions.assistant-actions]
+verify_jwt = true
+
 [functions.speech-to-text]
 verify_jwt = true
 
 [functions.text-to-speech]
+verify_jwt = true
+
+[functions.admin-reset]
 verify_jwt = true

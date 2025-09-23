@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -26,6 +26,14 @@ import { AllocationChart } from './AllocationChart';
 import { EquityCurveChart } from './EquityCurveChart';
 import { InsightsPanel } from './InsightsPanel';
 import { NewsPanel } from './NewsPanel';
+import { supabase } from '@/integrations/supabase/client';
+import { Switch } from '@/components/ui/switch';
+import TasksReminder from './TasksReminder';
+import DailyBrief from './DailyBrief';
+
+// TODO: re-enable when remote egress is acceptable
+const OFFLINE = import.meta.env?.VITE_DEV_OFFLINE === '1';
+const DEV_ADMIN = import.meta.env?.VITE_DEV_ADMIN === '1';
 
 interface KPICardProps {
   title: string;
@@ -65,6 +73,16 @@ export const FinancialDashboard: React.FC = () => {
   const [showAddHolding, setShowAddHolding] = useState(false);
   const [showLedger, setShowLedger] = useState(false);
   
+  // Egress Saver toggle (persisted)
+  const [egressSaver, setEgressSaver] = useState<boolean>(() => {
+    const saved = typeof window !== 'undefined' ? window.localStorage.getItem('egressSaver') : null;
+    const envSaver = import.meta.env?.VITE_EGRESS_SAVER === '1';
+    return OFFLINE || envSaver || saved === '1';
+  });
+  useEffect(() => {
+    try { if (typeof window !== 'undefined') window.localStorage.setItem('egressSaver', egressSaver ? '1' : '0'); } catch {}
+  }, [egressSaver]);
+
   const {
     financialEntries,
     portfolioHoldings,
@@ -73,8 +91,16 @@ export const FinancialDashboard: React.FC = () => {
     news,
     loading,
     refreshPrices,
-    fetchInsights
-  } = useFinancialDashboard();
+    fetchInsights,
+    fetchFinancialEntries,
+    fetchPortfolioHoldings,
+    fetchPortfolioSummary,
+    walletBalanceSar,
+    goals,
+    savingsProgress,
+    applySavingsContribution,
+    resetLocalState,
+  } = useFinancialDashboard({ egressSaver });
 
   // Calculate KPIs from financial entries
   const calculateKPIs = () => {
@@ -174,6 +200,32 @@ export const FinancialDashboard: React.FC = () => {
     return data;
   }, [portfolioSummary]);
 
+  // Dev-only admin reset
+  const handleResetData = async () => {
+    try {
+      if (!DEV_ADMIN) return;
+      const key = import.meta.env?.VITE_DEV_RESET_KEY as string | undefined;
+      if (!key) { toast.error('Missing VITE_DEV_RESET_KEY'); return; }
+      const { data: sess } = await supabase.auth.getSession();
+      const token = sess.session?.access_token;
+      const headers: Record<string, string> = { 'x-reset-key': key };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+      const { data, error } = await supabase.functions.invoke('admin-reset', {
+        body: {},
+        headers,
+      });
+      if (error || (data && data.ok === false)) {
+        throw new Error(error?.message || data?.message || 'Reset failed');
+      }
+      toast.success('Database reset');
+      // Do not refetch in Saver/Offline; rely on local reset
+      // Optimistically clear local state
+      try { (resetLocalState as any)?.(); } catch {}
+    } catch (e: any) {
+      toast.error(e?.message || 'Database reset failed');
+    }
+  };
+
   return (
     <div className="space-y-8">
       {/* Header with Actions */}
@@ -204,7 +256,30 @@ export const FinancialDashboard: React.FC = () => {
           </div>
 
           {/* Action Buttons */}
-          <div className="flex gap-2">
+          <div className="flex gap-2 items-center">
+            {/* TODO: re-enable when remote egress is acceptable */}
+            {OFFLINE && (
+              <Badge variant="outline" className="text-xs">Offline mode</Badge>
+            )}
+            {egressSaver && !OFFLINE && (
+              <Badge variant="outline" className="text-xs">Egress saver</Badge>
+            )}
+            <div className="flex items-center gap-2 pr-2">
+              <span className="text-xs text-muted-foreground">Egress Saver</span>
+              <Switch checked={egressSaver} onCheckedChange={setEgressSaver} />
+            </div>
+            {DEV_ADMIN && (egressSaver || OFFLINE) && (
+              <Button
+                onClick={handleResetData}
+                variant="destructive"
+                size="sm"
+                className="bg-destructive text-white"
+              >
+                Reset Data
+              </Button>
+            )}
+            {/* Lightweight reminders (no extra egress when saver/offline) */}
+            <TasksReminder />
             <Button
               onClick={() => setShowLedger(true)}
               variant="outline"
@@ -216,7 +291,8 @@ export const FinancialDashboard: React.FC = () => {
             </Button>
             <Button
               onClick={refreshPrices}
-              disabled={loading}
+              // TODO: re-enable when remote egress is acceptable
+              disabled={loading || OFFLINE}
               variant="outline"
               size="sm"
               className="bg-white/10 border-white/20 hover:bg-white/20"
@@ -254,6 +330,15 @@ export const FinancialDashboard: React.FC = () => {
         ))}
       </div>
 
+      {/* Daily Brief (client-only, zero egress) */}
+      <DailyBrief
+        financialEntries={financialEntries.map(e => ({ type: e.type, amount: e.amount, date: e.date, currency: e.currency }))}
+        egressSaver={egressSaver || OFFLINE}
+        walletBalanceSar={walletBalanceSar}
+        goals={goals}
+        applySavingsContribution={applySavingsContribution}
+      />
+
       {/* Portfolio Holdings Table */}
       {portfolioHoldings.length > 0 && (
         <Card className="luxury-card">
@@ -284,10 +369,12 @@ export const FinancialDashboard: React.FC = () => {
           insights={insights}
           loading={loading}
           onRefresh={fetchInsights}
+          saver={egressSaver || OFFLINE}
         />
         <NewsPanel 
           news={news}
           loading={loading}
+          saver={egressSaver || OFFLINE}
         />
       </div>
 
