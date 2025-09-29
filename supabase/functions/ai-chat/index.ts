@@ -99,11 +99,28 @@ const functionTools = [
         required: ["address", "property_type", "purchase_price"]
       }
     }
+  },
+  {
+    type: "function",
+    function: {
+      name: "sell_from_portfolio",
+      description: "Sell a holding from the user's portfolio and credit proceeds",
+      parameters: {
+        type: "object",
+        properties: {
+          symbol: { type: "string", description: "Asset symbol to sell" },
+          quantity: { type: "number", description: "Quantity to sell" },
+          price: { type: "number", description: "Sell price per unit" },
+          currency: { type: "string", description: "Currency code (optional, defaults to USD)" }
+        },
+        required: ["symbol", "quantity", "price"]
+      }
+    }
   }
 ];
 
 // Execute function calls
-async function executeFunction(functionCall: any, userId: string, supabase: any) {
+async function executeFunction(functionCall: any, userId: string, supabase: any, authHeader?: string) {
   const { name, arguments: args } = functionCall;
   const parsedArgs = JSON.parse(args);
   
@@ -210,6 +227,24 @@ async function executeFunction(functionCall: any, userId: string, supabase: any)
       if (realEstateError) throw realEstateError;
       return `Added ${parsedArgs.property_type} in ${parsedArgs.address} worth ${parsedArgs.purchase_price} ${parsedArgs.currency || 'SAR'}.`;
     
+    case 'sell_from_portfolio': {
+      // Route to portfolio-actions Edge Function with JWT
+      const match = (Deno.env.get('SUPABASE_URL') || '').match(/https:\/\/([^.]+)\.supabase\.co/);
+      const projectRef = match ? match[1] : '';
+      const base = projectRef ? `https://${projectRef}.functions.supabase.co` : '';
+      if (!base || !authHeader) throw new Error('Unable to route SELL: missing config or auth');
+      const resp = await fetch(`${base}/portfolio-actions`, {
+        method: 'POST',
+        headers: { 'Authorization': authHeader, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'SELL', symbol: parsedArgs.symbol, quantity: parsedArgs.quantity, price: parsedArgs.price, currency: parsedArgs.currency || 'USD' }),
+      });
+      if (!resp.ok) {
+        const txt = await resp.text();
+        throw new Error(`Sell failed: ${resp.status} ${txt}`);
+      }
+      return `Sold ${parsedArgs.quantity} ${parsedArgs.symbol} at $${parsedArgs.price}. Proceeds credited.`;
+    }
+    
     default:
       throw new Error(`Unknown function: ${name}`);
   }
@@ -235,7 +270,7 @@ serve(async (req) => {
     // Get user context for personalized responses
     const authHeader = req.headers.get("Authorization");
     let userContext = "";
-    let userId = null;
+    let userId: string | null = null;
     
     const supabaseClient = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
@@ -371,7 +406,7 @@ Always respond as Jood would in a natural conversation - think ChatGPT's convers
     else if (choice.message.tool_calls && (shouldCommit || (isConfirmation && pendingFunction)) && userId) {
       try {
         const functionCall = choice.message.tool_calls[0].function || pendingFunction;
-        const result = await executeFunction(functionCall, userId, supabaseClient);
+        const result = await executeFunction(functionCall, userId, supabaseClient, authHeader || undefined);
         functionResults = result;
         assistantMessage = `Consider it done. ${result}`;
       } catch (error) {
@@ -417,7 +452,7 @@ Always respond as Jood would in a natural conversation - think ChatGPT's convers
       };
     }
 
-    // Store the interaction for context memory
+    // Store the interaction for context memory and persist chat messages
     if (userId) {
       try {
         await supabaseClient
@@ -432,6 +467,11 @@ Always respond as Jood would in a natural conversation - think ChatGPT's convers
               mode: shouldPreview ? 'preview' : shouldCommit ? 'commit' : 'conversation'
             }
           });
+        // Persist into chat_messages as well
+        await supabaseClient.from('chat_messages').insert([
+          { user_id: userId, role: 'user', content: message },
+          { user_id: userId, role: 'assistant', content: assistantMessage }
+        ]);
       } catch (error) {
         console.error('Error storing interaction:', error);
       }

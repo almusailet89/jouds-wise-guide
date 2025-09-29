@@ -241,6 +241,58 @@ serve(async (req) => {
         });
       }
 
+      case 'SELL': {
+        const { symbol, quantity, price, currency = 'USD' } = body || {};
+        if (!symbol || !quantity || !price) {
+          return new Response(JSON.stringify({ error: 'symbol, quantity, price are required' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        }
+        const sym = String(symbol).toUpperCase();
+        const qty = Number(quantity);
+        const prc = Number(price);
+        if (qty <= 0 || prc <= 0) {
+          return new Response(JSON.stringify({ error: 'quantity and price must be > 0' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        }
+        const { data: existing, error: exErr } = await supabase
+          .from('portfolio_holdings')
+          .select('*')
+          .eq('user_id', user.id)
+          .eq('symbol', sym)
+          .maybeSingle();
+        if (exErr) throw exErr;
+        if (!existing || Number(existing.quantity) < qty) {
+          return new Response(JSON.stringify({ error: 'Insufficient holding to sell' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        }
+        const remaining = Number(existing.quantity) - qty;
+        if (remaining > 0) {
+          const { error: updErr } = await supabase
+            .from('portfolio_holdings')
+            .update({ quantity: remaining, updated_at: new Date().toISOString() })
+            .eq('id', existing.id)
+            .eq('user_id', user.id);
+          if (updErr) throw updErr;
+        } else {
+          const { error: delErr } = await supabase
+            .from('portfolio_holdings')
+            .delete()
+            .eq('id', existing.id)
+            .eq('user_id', user.id);
+          if (delErr) throw delErr;
+        }
+        // Credit proceeds into wallet via income log
+        const proceeds = qty * prc;
+        const { error: finErr } = await supabase.from('financial_data').insert({
+          user_id: user.id,
+          type: 'income',
+          amount: proceeds,
+          currency,
+          label: 'sell',
+          category: 'portfolio',
+          created_at: new Date().toISOString(),
+        });
+        if (finErr) throw finErr;
+        return new Response(JSON.stringify({ success: true, action: 'SELL', proceeds }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+
       case 'SUMMARY': {
         // Get portfolio summary using the database function
         const { data, error } = await supabase

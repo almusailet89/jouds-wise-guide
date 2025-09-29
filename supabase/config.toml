@@ -1,42 +1,9 @@
 project_id = "neadnclykbukvmlquepg"
 
-[api]
-enabled = true
-port = 54321
-schemas = ["public", "graphql_public"]
-extra_search_path = ["public", "extensions"]
-max_rows = 1000
-
-[db]
-port = 54322
-
-[studio]
-enabled = true
-port = 54323
-
-[inbucket]
-enabled = true
-port = 54324
-
-[storage]
-enabled = true
-port = 54325
-
-[auth]
-enabled = true
-port = 54326
-
-[edge-runtime]
-enabled = true
-port = 54327
-
-[[edge-runtime.extensions]]
-enabled = true
-
 [functions.ai-chat]
 verify_jwt = true
 
-[functions.check-subscription] 
+[functions.check-subscription]
 verify_jwt = true
 
 [functions.create-checkout]
@@ -54,11 +21,23 @@ verify_jwt = true
 [functions.manage-finance]
 verify_jwt = true
 
+[functions.finance-actions]
+verify_jwt = true
+
 [functions.manage-portfolio]
 verify_jwt = true
 
+[functions.portfolio-actions]
+verify_jwt = true
+
 [functions.refresh-prices]
-verify_jwt = false
+verify_jwt = true
+
+[functions.tasks-actions]
+verify_jwt = true
+
+[functions.alerts-actions]
+verify_jwt = true
 
 [functions.speech-to-text]
 verify_jwt = true
