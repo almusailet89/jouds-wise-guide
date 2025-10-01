@@ -23,3 +23,22 @@ dist-ssr
 *.sln
 *.sw?
 .env
+
+# Python caches
+**/__pycache__/
+**/*.pyc
+
+# Bun lock if not used
+bun.lockb
+
+# Large media dumps (keep curated samples in _archive_8083_misc/assets-samples)
+assets/**/*.mp4
+assets/**/*.mov
+assets/**/*.wav
+assets/**/*.mp3
+
+# Local test data at root (avoid accidental re-add)
+/*.json
+
+# Archive bucket
+/_archive_8083_misc/**
