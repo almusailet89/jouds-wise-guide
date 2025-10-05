@@ -272,6 +272,131 @@ export const useTasks = () => {
   return { tasks, loading, addTask, updateTask, refetch: fetchTasks };
 };
 
+export const useWallet = () => {
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const [wallet, setWalletState] = useState<{ balance: number; currency: string; updated_at: string } | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (user) {
+      fetchWallet();
+    }
+  }, [user]);
+
+  const fetchWallet = async () => {
+    if (!user) return;
+    setLoading(true);
+    try {
+      // TODO: Prefer profiles.wallet_balance_sar once types.generated includes it
+      // For now, use the wallets table as the canonical single source
+      const { data, error } = await supabase
+        .from('wallets')
+        .select('balance, currency, updated_at')
+        .eq('user_id', user.id)
+        .single();
+
+      if (error && error.code !== 'PGRST116') { // PGRST116 = no rows returned
+        throw error;
+      }
+
+      if (data) {
+        setWalletState({
+          balance: Number(data.balance),
+          currency: data.currency,
+          updated_at: data.updated_at,
+        });
+      } else {
+        // Initialize with zero balance if no wallet exists
+        setWalletState({
+          balance: 0,
+          currency: 'SAR',
+          updated_at: new Date().toISOString(),
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching wallet:', error);
+      toast({
+        title: "Error fetching wallet",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const setWallet = async (balance: number, currency: string = 'SAR') => {
+    if (!user) return;
+
+    try {
+      const { data, error } = await supabase.rpc('adjust_wallet', {
+        _delta: balance - (wallet?.balance || 0),
+        _currency: currency
+      });
+
+      if (error) throw error;
+
+      const row = Array.isArray(data) ? data[0] : data;
+      if (row) {
+        setWalletState({
+          balance: Number(row.balance),
+          currency: row.currency,
+          updated_at: row.updated_at,
+        });
+      } else {
+        await fetchWallet();
+      }
+    } catch (error) {
+      toast({
+        title: "Failed to set wallet",
+        description: error.message,
+        variant: "destructive",
+      });
+      throw error;
+    }
+  };
+
+  const adjustWallet = async (delta: number, currency: string = 'SAR') => {
+    if (!user) return;
+
+    try {
+      const { data, error } = await supabase.rpc('adjust_wallet', {
+        _delta: delta,
+        _currency: currency
+      });
+
+      if (error) throw error;
+
+      const row = Array.isArray(data) ? data[0] : data;
+      if (row) {
+        setWalletState({
+          balance: Number(row.balance),
+          currency: row.currency,
+          updated_at: row.updated_at,
+        });
+      } else {
+        await fetchWallet();
+      }
+    } catch (error) {
+      toast({
+        title: "Wallet adjust failed",
+        description: error.message,
+        variant: "destructive",
+      });
+      throw error;
+    }
+  };
+
+  return {
+    wallet,
+    loading,
+    refetch: fetchWallet,
+    setWallet,
+    adjustWallet,
+  };
+};
+
 export const useMoodLogs = () => {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -286,7 +411,7 @@ export const useMoodLogs = () => {
 
   const fetchMoodLogs = async () => {
     if (!user) return;
-    
+
     setLoading(true);
     const { data, error } = await supabase
       .from('mood_logs')
@@ -301,7 +426,7 @@ export const useMoodLogs = () => {
         variant: "destructive",
       });
     }
-    
+
     setMoodLogs(data || []);
     setLoading(false);
   };
