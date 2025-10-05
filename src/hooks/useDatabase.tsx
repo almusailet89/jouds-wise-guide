@@ -197,44 +197,52 @@ export const useTasks = () => {
 
   const fetchTasks = async () => {
     if (!user) return;
-    
-    setLoading(true);
-    const { data, error } = await supabase
-      .from('tasks')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false });
 
-    if (error) {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('tasks-actions', {
+        body: { action: 'list' },
+        headers: {
+          Authorization: `Bearer ${supabase.auth.getSession().then(({ data }) => data.session?.access_token)}`,
+        },
+      });
+
+      if (error) throw error;
+      setTasks(data.tasks || []);
+    } catch (error) {
+      console.error('Error fetching tasks:', error);
       toast({
         title: "Error fetching tasks",
         description: error.message,
         variant: "destructive",
       });
+    } finally {
+      setLoading(false);
     }
-    
-    setTasks((data || []) as Task[]);
-    setLoading(false);
   };
 
   const addTask = async (task: Omit<Task, 'id' | 'user_id' | 'created_at' | 'updated_at'>) => {
     if (!user) return;
 
-    const { error } = await supabase
-      .from('tasks')
-      .insert({ ...task, user_id: user.id });
-
-    if (error) {
-      toast({
-        title: "Error adding task",
-        description: error.message,
-        variant: "destructive",
+    try {
+      const { error } = await supabase.functions.invoke('tasks-actions', {
+        body: { action: 'create', task },
+        headers: {
+          Authorization: `Bearer ${supabase.auth.getSession().then(({ data }) => data.session?.access_token)}`,
+        },
       });
-    } else {
+
+      if (error) throw error;
       fetchTasks();
       toast({
         title: "Task added",
         description: "Task has been added successfully.",
+      });
+    } catch (error) {
+      toast({
+        title: "Error adding task",
+        description: error.message,
+        variant: "destructive",
       });
     }
   };
@@ -242,20 +250,22 @@ export const useTasks = () => {
   const updateTask = async (id: string, updates: Partial<Task>) => {
     if (!user) return;
 
-    const { error } = await supabase
-      .from('tasks')
-      .update(updates)
-      .eq('id', id)
-      .eq('user_id', user.id);
+    try {
+      const { error } = await supabase.functions.invoke('tasks-actions', {
+        body: { action: 'update', id, updates },
+        headers: {
+          Authorization: `Bearer ${supabase.auth.getSession().then(({ data }) => data.session?.access_token)}`,
+        },
+      });
 
-    if (error) {
+      if (error) throw error;
+      fetchTasks();
+    } catch (error) {
       toast({
         title: "Error updating task",
         description: error.message,
         variant: "destructive",
       });
-    } else {
-      fetchTasks();
     }
   };
 
