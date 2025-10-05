@@ -52,6 +52,9 @@ export const useFinancialDashboard = () => {
   const [loading, setLoading] = useState(false);
   const [portfolioSummary, setPortfolioSummary] = useState<any>(null);
   const [savingsTarget, setSavingsTarget] = useState<SavingsTarget | null>(null);
+  const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
+  const [syncInProgress, setSyncInProgress] = useState(false);
+  const [syncStep, setSyncStep] = useState<string>('');
 
   // Fetch financial entries
   const fetchFinancialEntries = useCallback(async (range?: string) => {
@@ -194,24 +197,95 @@ export const useFinancialDashboard = () => {
     }
   }, [user]);
 
-  // Refresh prices
-  const refreshPrices = useCallback(async () => {
-    setLoading(true);
-    try {
-      const { data, error } = await supabase.functions.invoke('refresh-prices');
+  // Sync Now - Single spinner sequence: prices → alerts → tasks digest → holdings/summary/ledger
+  const syncNow = useCallback(async () => {
+    if (syncInProgress || !session) return;
 
-      if (error) throw error;
-      
-      toast.success(`Updated ${data.updated_count} asset prices`);
-      await fetchPortfolioHoldings();
-      await fetchPortfolioSummary();
-    } catch (error) {
-      console.error('Error refreshing prices:', error);
-      toast.error('Failed to refresh prices');
-    } finally {
-      setLoading(false);
+    // Check cooldown (15 minutes)
+    if (lastSyncTime) {
+      const timeSinceLastSync = Date.now() - lastSyncTime.getTime();
+      const cooldownMs = 15 * 60 * 1000; // 15 minutes
+      if (timeSinceLastSync < cooldownMs) {
+        const remainingMinutes = Math.ceil((cooldownMs - timeSinceLastSync) / (60 * 1000));
+        toast.error(`Please wait ${remainingMinutes} minutes before syncing again`);
+        return;
+      }
     }
-  }, [fetchPortfolioHoldings, fetchPortfolioSummary]);
+
+    setSyncInProgress(true);
+    setSyncStep('Preparing sync...');
+
+    try {
+      // Step 1: Refresh prices
+      setSyncStep('Refreshing prices...');
+      const { data: priceData, error: priceError } = await supabase.functions.invoke('refresh-prices');
+      if (priceError) throw new Error(`Price refresh failed: ${priceError.message}`);
+      await new Promise(resolve => setTimeout(resolve, 500)); // Brief pause
+
+      // Step 2: Refresh alerts
+      setSyncStep('Updating alerts...');
+      // Note: alerts-actions function for processing alerts
+      const { error: alertsError } = await supabase.functions.invoke('alerts-actions', {
+        body: { action: 'process' },
+        headers: { Authorization: `Bearer ${session.access_token}` }
+      });
+      if (alertsError) console.warn('Alerts processing failed:', alertsError.message);
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      // Step 3: Process tasks digest
+      setSyncStep('Processing tasks digest...');
+      const { data: digestData, error: digestError } = await supabase.functions.invoke('tasks-actions', {
+        body: { action: 'digest' },
+        headers: { Authorization: `Bearer ${session.access_token}` }
+      });
+      if (digestError) console.warn('Tasks digest failed:', digestError.message);
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      // Step 4: Refresh holdings and summary
+      setSyncStep('Refreshing portfolio...');
+      await Promise.all([
+        fetchPortfolioHoldings(),
+        fetchPortfolioSummary(),
+        fetchFinancialEntries(),
+        fetchInsights()
+      ]);
+
+      // Complete
+      setSyncStep('Sync complete!');
+      setLastSyncTime(new Date());
+      toast.success('All data synchronized successfully');
+
+    } catch (error: any) {
+      console.error('Sync failed:', error);
+      toast.error(`Sync failed: ${error.message}`);
+    } finally {
+      setSyncInProgress(false);
+      setSyncStep('');
+    }
+  }, [syncInProgress, session, lastSyncTime, fetchPortfolioHoldings, fetchPortfolioSummary, fetchFinancialEntries, fetchInsights]);
+
+  // Legacy refresh function for backward compatibility
+  const refreshPrices = useCallback(async () => {
+    await syncNow();
+  }, [syncNow]);
+
+  // Get sync status info
+  const getSyncStatus = useCallback(() => {
+    if (!lastSyncTime) return null;
+
+    const timeSinceLastSync = Date.now() - lastSyncTime.getTime();
+    const cooldownMs = 15 * 60 * 1000;
+    const remainingMs = Math.max(0, cooldownMs - timeSinceLastSync);
+
+    return {
+      lastSync: lastSyncTime,
+      timeSinceLastSync,
+      canSync: remainingMs === 0,
+      cooldownRemainingMinutes: Math.ceil(remainingMs / (60 * 1000)),
+      syncInProgress,
+      syncStep
+    };
+  }, [lastSyncTime, syncInProgress, syncStep]);
 
   // Add financial entry
   const addFinancialEntry = useCallback(async (entry: Omit<FinancialEntry, 'id' | 'created_at'>) => {
@@ -437,6 +511,9 @@ export const useFinancialDashboard = () => {
     news,
     loading,
     savingsTarget,
+    lastSyncTime,
+    syncInProgress,
+    syncStep,
 
     // Financial entries CRUD
     addFinancialEntry,
@@ -455,8 +532,12 @@ export const useFinancialDashboard = () => {
     fetchSavingsTarget,
     getCurrentMonthSavings,
 
+    // Sync functionality
+    syncNow,
+    refreshPrices, // Legacy alias for syncNow
+    getSyncStatus,
+
     // Utilities
-    refreshPrices,
     fetchInsights,
     fetchNews
   };

@@ -29,6 +29,20 @@ import { EquityCurveChart } from './EquityCurveChart';
 import { InsightsPanel } from './InsightsPanel';
 import { NewsPanel } from './NewsPanel';
 
+// Utility function to format time ago
+const formatTimeAgo = (date: Date) => {
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMinutes = Math.floor(diffMs / (1000 * 60));
+  const diffHours = Math.floor(diffMinutes / 60);
+  const diffDays = Math.floor(diffHours / 24);
+
+  if (diffMinutes < 1) return 'just now';
+  if (diffMinutes < 60) return `${diffMinutes}m ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
+  return `${diffDays}d ago`;
+};
+
 interface KPICardProps {
   title: string;
   value: string;
@@ -78,7 +92,12 @@ export const FinancialDashboard: React.FC = () => {
     refreshPrices,
     fetchInsights,
     getCurrentMonthSavings,
-    savingsTarget
+    savingsTarget,
+    syncNow,
+    getSyncStatus,
+    syncInProgress,
+    syncStep,
+    lastSyncTime
   } = useFinancialDashboard();
 
   // Calculate KPIs from financial entries
@@ -223,26 +242,29 @@ export const FinancialDashboard: React.FC = () => {
             ))}
           </div>
 
-          {/* Action Buttons */}
-          <div className="flex gap-2">
+          {/* Sync Status and Button */}
+          <div className="flex items-center gap-4">
+            {lastSyncTime && (
+              <div className="text-sm text-muted-foreground">
+                Last updated: {formatTimeAgo(lastSyncTime)}
+              </div>
+            )}
             <Button
-              onClick={() => setShowLedger(true)}
+              onClick={syncNow}
+              disabled={loading || syncInProgress || !getSyncStatus()?.canSync}
               variant="outline"
               size="sm"
-              className="bg-white/10 border-white/20 hover:bg-white/20"
+              className={`bg-white/10 border-white/20 hover:bg-white/20 ${!getSyncStatus()?.canSync ? 'opacity-50' : ''}`}
+              title={
+                !getSyncStatus()?.canSync
+                  ? `Sync available in ${getSyncStatus()?.cooldownRemainingMinutes} minutes`
+                  : syncInProgress
+                    ? `Syncing: ${syncStep}`
+                    : 'Sync all data'
+              }
             >
-              <FileText className="h-4 w-4 mr-2" />
-              Ledger
-            </Button>
-            <Button
-              onClick={refreshPrices}
-              disabled={loading}
-              variant="outline"
-              size="sm"
-              className="bg-white/10 border-white/20 hover:bg-white/20"
-            >
-              <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-              Refresh
+              <RefreshCw className={`h-4 w-4 mr-2 ${syncInProgress ? 'animate-spin' : ''}`} />
+              {syncInProgress ? syncStep : 'Sync Now'}
             </Button>
           </div>
         </div>
