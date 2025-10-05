@@ -9,6 +9,7 @@ import { useAI, ChatMessage } from '@/hooks/useAI';
 import { useSubscription } from '@/hooks/useSubscription';
 import { useRoles } from '@/hooks/useRoles';
 import { useToast } from '@/hooks/use-toast';
+import PreviewCard from './PreviewCard';
 
 interface ChatInterfaceProps {
   onMessage?: (message: string) => void;
@@ -21,6 +22,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ onMessage }) => {
   const [input, setInput] = useState('');
   const [pendingFunction, setPendingFunction] = useState<any>(null);
   const [awaitingConfirmation, setAwaitingConfirmation] = useState(false);
+  const [previewData, setPreviewData] = useState<any>(null);
   const { canAccessFeature } = useSubscription();
   const { isAdmin } = useRoles();
   const { toast } = useToast();
@@ -36,7 +38,11 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ onMessage }) => {
   };
 
   useEffect(() => {
-    scrollToBottom();
+    const lastMessage = messages[messages.length - 1];
+    const pr = lastMessage?.content && typeof lastMessage.content === 'object' && (lastMessage.content as any).tool_result;
+    if (pr?.preview_mode) {
+      setPreviewData(pr.preview_payload ?? pr);
+    }
   }, [messages]);
 
   const handleSendMessage = async (customInput?: string, mode?: string) => {
@@ -69,9 +75,11 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ onMessage }) => {
       // Handle function results for preview mode
       if (response && typeof response === 'object' && response.function_results?.preview_mode) {
         setPendingFunction(response.function_results.function_call);
+        setPreviewData(response.function_results);
         setAwaitingConfirmation(true);
       } else if (response && typeof response === 'object' && response.mode === 'commit') {
         setPendingFunction(null);
+        setPreviewData(null);
         setAwaitingConfirmation(false);
         
         // Show success toast
@@ -88,22 +96,23 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ onMessage }) => {
     }
   };
 
-  const handleConfirmation = (action: 'yes' | 'no' | 'edit') => {
-    if (action === 'yes') {
-      handleSendMessage('yes', 'commit');
-    } else if (action === 'no') {
-      handleSendMessage('no');
-      setPendingFunction(null);
-      setAwaitingConfirmation(false);
-    } else if (action === 'edit') {
-      setAwaitingConfirmation(false);
-      toast({
-        title: "Edit Mode",
-        description: "Please type your corrections and I'll update the preview.",
-        duration: 3000,
+  const handleConfirmation = async (action?: any) => {
+    if (action) {
+      setPreviewData(null);
+      await fetch("/functions/v1/ai-chat", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${session?.access_token}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ mode: "commit", action }),
       });
+    } else {
+      setPreviewData(null);
     }
   };
+
+  const handleCancel = () => setPreviewData(null);
 
   const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -175,7 +184,23 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ onMessage }) => {
         ))}
 
         {/* Confirmation Buttons */}
-        {awaitingConfirmation && (
+        {awaitingConfirmation && previewData && (
+          <div className="flex justify-center">
+            <PreviewCard
+              data={{
+                title: previewData.title,
+                summary: previewData.summary,
+                items: previewData.items,
+                confirm_action: previewData.confirm_action
+              }}
+              onConfirm={handleConfirmation}
+              onCancel={handleCancel}
+            />
+          </div>
+        )}
+
+        {/* Legacy confirmation buttons - keep for backward compatibility */}
+        {awaitingConfirmation && !previewData && (
           <div className="flex justify-center">
             <Card className="bg-accent/50 border-2 border-primary/20">
               <CardHeader className="pb-2">
@@ -230,18 +255,32 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ onMessage }) => {
 
       {/* Input */}
       <div className="border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 p-4">
+        {previewData && (
+          <div className="mb-3">
+            <PreviewCard
+              data={{
+                title: previewData.title,
+                summary: previewData.summary,
+                items: previewData.items,
+                confirm_action: previewData.confirm_action
+              }}
+              onConfirm={handleConfirmation}
+              onCancel={handleCancel}
+            />
+          </div>
+        )}
         <div className="flex space-x-2">
           <Input
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyPress={handleKeyPress}
-            placeholder={awaitingConfirmation ? "Type 'edit' to modify or use buttons above..." : "Try: 'Jood, note this I spent $20 on coffee'"}
-            disabled={loading}
+            placeholder={previewData ? "Waiting for confirmation..." : "Try: 'Jood, note this I spent $20 on coffee'"}
+            disabled={loading || previewData}
             className="flex-1"
           />
-          <Button 
-            onClick={() => handleSendMessage()} 
-            disabled={loading || !input.trim()}
+          <Button
+            onClick={() => handleSendMessage()}
+            disabled={loading || !input.trim() || previewData}
             size="icon"
           >
             {loading ? (
