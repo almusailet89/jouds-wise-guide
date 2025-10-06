@@ -366,7 +366,7 @@ Always respond as Jood would in a natural conversation - think ChatGPT's convers
     ];
 
     const requestBody: any = {
-      model: 'gpt-5-2025-08-07',
+      model: 'gpt-4-turbo',
       messages: messages,
       max_completion_tokens: 1000,
       stream: false,
