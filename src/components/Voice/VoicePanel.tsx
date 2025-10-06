@@ -5,6 +5,8 @@ import { Mic, MicOff, Volume2, VolumeX, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { useVoiceRecognition } from '@/hooks/useVoiceRecognition';
 import { useAI } from '@/hooks/useAI';
+import { useSubscription } from '@/hooks/useSubscription';
+import { useRoles } from '@/hooks/useRoles';
 
 interface VoicePanelProps {
   onVoiceMessage?: (message: string) => void;
@@ -61,33 +63,52 @@ const useSpeech = () => {
 };
 
 export const VoicePanel: React.FC<VoicePanelProps> = ({ onVoiceMessage }) => {
+  const [isListening, setIsListening] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [volume, setVolume] = useState(0);
   const [hasGreeted, setHasGreeted] = useState(false);
   const { speak } = useSpeech();
   const { speakMessage, speaking } = useAI();
+  const { canAccessFeature } = useSubscription();
+  const { isAdmin } = useRoles();
 
-  const handleTranscription = async (text: string) => {
-    console.log('Voice transcription received:', text);
-    toast.success("Voice message received", {
-      description: `I heard: "${text}"`
-    });
-    
-    // Pass the transcribed text to the parent component
+  const handleTranscription = (text: string) => {
+    console.log('Voice transcription:', text);
     onVoiceMessage?.(text);
   };
 
-  const handleVoiceError = (error: string) => {
-    console.error('Voice recognition error:', error);
-    toast.error("Voice recognition error", {
-      description: error
-    });
-  };
-
-  const { isListening, isProcessing, toggleListening } = useVoiceRecognition({
+  const { toggleListening } = useVoiceRecognition({
     onTranscription: handleTranscription,
-    onError: handleVoiceError
+    onError: (error) => {
+      console.error('Voice recognition error:', error);
+      toast.error("Voice recognition error", {
+        description: error
+      });
+    }
   });
+
+  const handleSpeakMessage = async (content: string) => {
+    if (!canAccessFeature('voice') && !isAdmin()) {
+      toast({
+        title: "Premium Feature",
+        description: "Text-to-speech is available for premium subscribers.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      await speakMessage(content);
+    } catch (error: any) {
+      console.error('Error speaking message:', error);
+      toast({
+        title: "Speech Error",
+        description: "Failed to generate speech. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
 
   useEffect(() => {
     // Show ready notification without speaking

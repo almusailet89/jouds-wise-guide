@@ -9,6 +9,7 @@ import { useAI, ChatMessage } from '@/hooks/useAI';
 import { useSubscription } from '@/hooks/useSubscription';
 import { useRoles } from '@/hooks/useRoles';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 import PreviewCard from './PreviewCard';
 
 interface ChatInterfaceProps {
@@ -91,22 +92,63 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ onMessage }) => {
           });
         }
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error sending message:', error);
+      const errorMessage = error?.message || 'Unknown error occurred';
+
+      // Show specific error messages based on error type
+      let title = "Chat Error";
+      let description = "Failed to get response from Joud AI. Please try again.";
+
+      if (errorMessage.includes('OpenAI')) {
+        title = "AI Service Error";
+        description = "There was an issue with the AI service. Please check your connection and try again.";
+      } else if (errorMessage.includes('network') || errorMessage.includes('fetch')) {
+        title = "Connection Error";
+        description = "Unable to connect to the server. Please check your internet connection.";
+      } else if (errorMessage.includes('auth')) {
+        title = "Authentication Error";
+        description = "Please log in again to continue chatting.";
+      }
+
+      toast({
+        title,
+        description,
+        variant: "destructive",
+      });
     }
   };
 
   const handleConfirmation = async (action?: any) => {
     if (action) {
       setPreviewData(null);
-      await fetch("/functions/v1/ai-chat", {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${session?.access_token}`,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({ mode: "commit", action }),
-      });
+      try {
+        const response = await supabase.functions.invoke('ai-chat', {
+          body: { mode: 'commit', action },
+          headers: {
+            Authorization: `Bearer ${session?.access_token}`,
+          },
+        });
+
+        if (response.error) {
+          throw new Error(response.error.message || 'Failed to execute action');
+        }
+
+        if (response.data?.function_results) {
+          toast({
+            title: "Action Completed",
+            description: response.data.function_results,
+            duration: 3000,
+          });
+        }
+      } catch (error: any) {
+        console.error('Error confirming action:', error);
+        toast({
+          title: "Action Failed",
+          description: error.message || "Failed to execute the requested action.",
+          variant: "destructive",
+        });
+      }
     } else {
       setPreviewData(null);
     }
