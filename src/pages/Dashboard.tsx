@@ -1,10 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, Suspense, lazy } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useSubscription } from '@/hooks/useSubscription';
 import { Button } from '@/components/ui/button';
-import { ChatInterface } from '@/components/Chat/ChatInterface';
-import { VoicePanel } from '@/components/Voice/VoicePanel';
-import { FinancialDashboard } from '@/components/Dashboard/FinancialDashboard';
+
+// Lazy load heavy components for code splitting
+const ChatInterface = lazy(() => import('@/components/Chat/ChatInterface').then(module => ({ default: module.ChatInterface })));
+const VoicePanel = lazy(() => import('@/components/Voice/VoicePanel').then(module => ({ default: module.VoicePanel })));
+const FinancialDashboard = lazy(() => import('@/components/Dashboard/FinancialDashboard').then(module => ({ default: module.FinancialDashboard })));
 import TasksPlanner from '@/components/Tasks/TasksPlanner';
 import MoodTracker from '@/components/Mood/MoodTracker';
 import { ExportPanel } from '@/components/Export/ExportPanel';
@@ -199,17 +201,21 @@ const Dashboard = () => {
                   <span>Chat with Joud</span>
                 </h2>
                 <div className="flex-1 border rounded-lg overflow-hidden">
-                  <ChatInterface onMessage={handleChatMessage} />
+                  <Suspense fallback={<div className="flex items-center justify-center h-full text-white">Loading chat...</div>}>
+                    <ChatInterface onMessage={handleChatMessage} />
+                  </Suspense>
                 </div>
               </div>
-              
+
               <div className="flex flex-col">
                 <h2 className="text-lg font-semibold mb-4 flex items-center space-x-2 text-white">
                   <Brain className="w-5 h-5" />
                   <span>Voice Assistant</span>
                 </h2>
                 <div className="flex-1">
-                  <VoicePanel onVoiceMessage={handleVoiceMessage} />
+                  <Suspense fallback={<div className="flex items-center justify-center h-full text-white">Loading voice...</div>}>
+                    <VoicePanel onVoiceMessage={handleVoiceMessage} />
+                  </Suspense>
                 </div>
               </div>
             </div>
@@ -222,7 +228,9 @@ const Dashboard = () => {
                 <TrendingUp className="w-6 h-6" />
                 <span>Financial Dashboard</span>
               </h2>
-              <FinancialDashboard />
+              <Suspense fallback={<div className="flex items-center justify-center h-64 text-white">Loading dashboard...</div>}>
+                <FinancialDashboard />
+              </Suspense>
             </div>
           </TabsContent>
 
