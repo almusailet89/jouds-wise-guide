@@ -29,6 +29,7 @@ import { EquityCurveChart } from './EquityCurveChart';
 import { InsightsPanel } from './InsightsPanel';
 import { NewsPanel } from './NewsPanel';
 import { ZakatCard } from './ZakatCard';
+import FinanceExtras from './FinanceExtras';
 
 interface KPICardProps {
   title: string;
@@ -274,6 +275,9 @@ export const FinancialDashboard: React.FC = () => {
           <KPICard key={index} {...kpi} />
         ))}
       </div>
+
+      {/* Finance Extras: Salary Countdown + Goals + AI Projections */}
+      <FinanceExtras />
 
       {/* Zakat Calculator */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

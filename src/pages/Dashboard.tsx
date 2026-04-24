@@ -9,11 +9,14 @@ import { FinancialDashboard } from '@/components/Dashboard/FinancialDashboard';
 import TasksPlanner from '@/components/Tasks/TasksPlanner';
 import MoodTracker from '@/components/Mood/MoodTracker';
 import HabitsTracker from '@/components/Habits/HabitsTracker';
+import { HomeOverview } from '@/components/Home/HomeOverview';
+import SmartCalendar from '@/components/Calendar/SmartCalendar';
+import AIRecommendations from '@/components/Recommendations/AIRecommendations';
 import { ExportPanel } from '@/components/Export/ExportPanel';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import {
-  MessageSquare, TrendingUp, Calendar, Heart, Brain,
+  MessageSquare, TrendingUp, Calendar, Heart, Brain, Home,
   LogOut, User, Mic, Download, Sparkles, CheckSquare, Star,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -57,18 +60,21 @@ const useSaudiSignal = () => {
 
 // ─── Nav items ────────────────────────────────────────────────────────────────
 const NAV = [
+  { value: 'home',      label: 'الرئيسية',  icon: Home,           ar: true },
   { value: 'chat',      label: 'جود AI',    icon: MessageSquare,  ar: true },
   { value: 'financial', label: 'المالية',   icon: TrendingUp,     ar: true },
+  { value: 'calendar',  label: 'التقويم',   icon: Calendar,       ar: true },
   { value: 'tasks',     label: 'المهام',    icon: CheckSquare,    ar: true },
   { value: 'habits',    label: 'العادات',   icon: Star,           ar: true },
   { value: 'mood',      label: 'المزاج',    icon: Heart,          ar: true },
+  { value: 'insights',  label: 'التوصيات',  icon: Brain,          ar: true },
   { value: 'voice',     label: 'المجلس',    icon: Mic,            ar: true },
 ];
 
 // ─── Dashboard ────────────────────────────────────────────────────────────────
 const Dashboard = () => {
   const { user, signOut } = useAuth();
-  const [activeTab, setActiveTab] = useState('chat');
+  const [activeTab, setActiveTab] = useState('home');
   const { hijri, prayer } = useSaudiSignal();
 
   return (
@@ -163,6 +169,13 @@ const Dashboard = () => {
             </TabsList>
           </div>
 
+          {/* ── Home / Overview ──────────────────────────────────────────── */}
+          <TabsContent value="home" className="p-4 mt-0">
+            <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }}>
+              <HomeOverview onNavigate={setActiveTab} />
+            </motion.div>
+          </TabsContent>
+
           {/* ── Chat (full height) ────────────────────────────────────────── */}
           <TabsContent value="chat" className="flex-1 p-4 mt-0">
             <div className="h-[calc(100vh-160px)]">
@@ -174,6 +187,14 @@ const Dashboard = () => {
           <TabsContent value="financial" className="p-4 mt-0">
             <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }}>
               <FinancialDashboard />
+            </motion.div>
+          </TabsContent>
+
+          {/* ── Calendar ─────────────────────────────────────────────────── */}
+          <TabsContent value="calendar" className="p-4 mt-0">
+            <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }}>
+              <h2 className="text-xl font-bold font-arabic mb-5 text-foreground">التقويم الذكي</h2>
+              <SmartCalendar />
             </motion.div>
           </TabsContent>
 
@@ -198,6 +219,13 @@ const Dashboard = () => {
             <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }}>
               <h2 className="text-xl font-bold font-arabic mb-5 text-foreground">تتبع المزاج والصحة</h2>
               <MoodTracker />
+            </motion.div>
+          </TabsContent>
+
+          {/* ── AI Recommendations ──────────────────────────────────────── */}
+          <TabsContent value="insights" className="p-4 mt-0">
+            <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }}>
+              <AIRecommendations onNavigate={setActiveTab} />
             </motion.div>
           </TabsContent>
 
