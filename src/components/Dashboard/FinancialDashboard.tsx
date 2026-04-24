@@ -28,6 +28,7 @@ import { AllocationChart } from './AllocationChart';
 import { EquityCurveChart } from './EquityCurveChart';
 import { InsightsPanel } from './InsightsPanel';
 import { NewsPanel } from './NewsPanel';
+import { ZakatCard } from './ZakatCard';
 
 interface KPICardProps {
   title: string;
@@ -272,6 +273,16 @@ export const FinancialDashboard: React.FC = () => {
         {kpis.map((kpi, index) => (
           <KPICard key={index} {...kpi} />
         ))}
+      </div>
+
+      {/* Zakat Calculator */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-1">
+          <ZakatCard />
+        </div>
+        <div className="lg:col-span-2">
+          {/* Savings Target Card (moved inline) */}
+        </div>
       </div>
 
       {/* Savings Target Card */}

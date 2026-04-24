@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { motion } from 'framer-motion';
 import { useAuth } from '@/hooks/useAuth';
 import { useSubscription } from '@/hooks/useSubscription';
 import { Button } from '@/components/ui/button';
@@ -7,257 +8,205 @@ import { VoicePanel } from '@/components/Voice/VoicePanel';
 import { FinancialDashboard } from '@/components/Dashboard/FinancialDashboard';
 import TasksPlanner from '@/components/Tasks/TasksPlanner';
 import MoodTracker from '@/components/Mood/MoodTracker';
+import HabitsTracker from '@/components/Habits/HabitsTracker';
 import { ExportPanel } from '@/components/Export/ExportPanel';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { MessageSquare, TrendingUp, Calendar, Heart, Brain, LogOut, User, Mic, Download, Settings } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import {
+  MessageSquare, TrendingUp, Calendar, Heart, Brain,
+  LogOut, User, Mic, Download, Sparkles, CheckSquare, Star,
+} from 'lucide-react';
+import { cn } from '@/lib/utils';
 
+// ─── Saudi Signal Strip (top of page) ────────────────────────────────────────
+const useSaudiSignal = () => {
+  const [hijri, setHijri] = React.useState('');
+  const [prayer, setPrayer] = React.useState<{ name: string; time: string } | null>(null);
+
+  React.useEffect(() => {
+    // Hijri date
+    try {
+      const h = new Intl.DateTimeFormat('ar-SA-u-ca-islamic', {
+        year: 'numeric', month: 'long', day: 'numeric',
+      }).format(new Date());
+      setHijri(h);
+    } catch { setHijri(''); }
+
+    // Prayer times
+    fetch('https://api.aladhan.com/v1/timingsByCity?city=Riyadh&country=SA&method=4')
+      .then(r => r.json())
+      .then(d => {
+        const t = d?.data?.timings;
+        if (!t) return;
+        const names: [string, string][] = [
+          ['الفجر', t.Fajr], ['الظهر', t.Dhuhr], ['العصر', t.Asr],
+          ['المغرب', t.Maghrib], ['العشاء', t.Isha],
+        ];
+        const now = new Date();
+        const nowMin = now.getHours() * 60 + now.getMinutes();
+        const next = names.find(([, time]) => {
+          const [h2, m2] = time.split(':').map(Number);
+          return h2 * 60 + m2 > nowMin;
+        });
+        if (next) setPrayer({ name: next[0], time: next[1] });
+      }).catch(() => {});
+  }, []);
+
+  return { hijri, prayer };
+};
+
+// ─── Nav items ────────────────────────────────────────────────────────────────
+const NAV = [
+  { value: 'chat',      label: 'جود AI',    icon: MessageSquare,  ar: true },
+  { value: 'financial', label: 'المالية',   icon: TrendingUp,     ar: true },
+  { value: 'tasks',     label: 'المهام',    icon: CheckSquare,    ar: true },
+  { value: 'habits',    label: 'العادات',   icon: Star,           ar: true },
+  { value: 'mood',      label: 'المزاج',    icon: Heart,          ar: true },
+  { value: 'voice',     label: 'المجلس',    icon: Mic,            ar: true },
+];
+
+// ─── Dashboard ────────────────────────────────────────────────────────────────
 const Dashboard = () => {
   const { user, signOut } = useAuth();
-  const [activeTab, setActiveTab] = useState('overview');
-
-  const handleSignOut = async () => {
-    await signOut();
-  };
-
-  const handleVoiceMessage = (message: string) => {
-    console.log('Voice message received:', message);
-    // Handle voice messages here
-  };
-
-  const handleChatMessage = (message: string) => {
-    console.log('Chat message received:', message);
-    // Handle chat messages here
-  };
+  const [activeTab, setActiveTab] = useState('chat');
+  const { hijri, prayer } = useSaudiSignal();
 
   return (
-    <div className="min-h-screen bg-gradient-primary">
-      {/* Header */}
-      <header className="border-b border-white/10 bg-card/10 backdrop-blur-sm">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-gradient-elegant flex items-center justify-center">
-                <Brain className="w-5 h-5 text-white" />
-              </div>
-              <div>
-                <h1 className="text-xl font-bold text-white">Joud AI</h1>
-                <p className="text-white/70 text-sm">Your Elegant Financial Secretary</p>
-              </div>
+    <div className="min-h-screen bg-background flex flex-col" dir="rtl">
+
+      {/* ── Top bar ─────────────────────────────────────────────────────────── */}
+      <header className="border-b border-border/40 bg-card/80 backdrop-blur-sm sticky top-0 z-40">
+        <div className="mx-auto px-4 py-3 max-w-screen-2xl flex items-center gap-4">
+
+          {/* Brand */}
+          <div className="flex items-center gap-2.5 flex-shrink-0">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-jood-teal-700 to-jood-teal-900 flex items-center justify-center shadow-elegant">
+              <Sparkles className="w-4 h-4 text-jood-gold-300" />
             </div>
-            
-            <div className="flex items-center gap-4">
-              <Dialog>
-                <DialogTrigger asChild>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="bg-white/10 border-white/20 text-white hover:bg-white/20"
-                  >
-                    <Download className="w-4 h-4 mr-2" />
-                    Export
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
-                  <DialogHeader>
-                    <DialogTitle>Export Data</DialogTitle>
-                  </DialogHeader>
-                  <ExportPanel />
-                </DialogContent>
-              </Dialog>
-              
-              <div className="flex items-center gap-2 text-white/80">
-                <User className="w-4 h-4" />
-                <span className="text-sm">{user?.email}</span>
-              </div>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={handleSignOut}
-                className="bg-white/10 border-white/20 text-white hover:bg-white/20"
-              >
-                <LogOut className="w-4 h-4 mr-2" />
-                Sign Out
-              </Button>
+            <div>
+              <h1 className="text-base font-bold text-foreground font-arabic leading-none">جود AI</h1>
+              <p className="text-[10px] text-muted-foreground leading-none mt-0.5">مساعدتك المالية الذكية</p>
             </div>
+          </div>
+
+          {/* Saudi Signal Strip */}
+          <div className="hidden md:flex items-center gap-4 mx-auto">
+            {hijri && (
+              <span className="signal-chip font-arabic text-[11px]">
+                🌙 {hijri}
+              </span>
+            )}
+            {prayer && (
+              <span className="signal-chip font-arabic text-[11px]">
+                🕌 {prayer.name} {prayer.time}
+              </span>
+            )}
+            <span className="signal-chip text-[11px] font-mono">SAR/USD 3.75</span>
+          </div>
+
+          {/* Right actions */}
+          <div className="flex items-center gap-2 mr-auto">
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button variant="ghost" size="sm" className="h-8 text-muted-foreground hover:text-foreground gap-1.5">
+                  <Download className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline text-xs font-arabic">تصدير</span>
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle className="font-arabic">تصدير البيانات</DialogTitle>
+                </DialogHeader>
+                <ExportPanel />
+              </DialogContent>
+            </Dialog>
+
+            <div className="flex items-center gap-1.5 text-muted-foreground">
+              <User className="w-3.5 h-3.5" />
+              <span className="text-xs hidden sm:inline">{user?.email?.split('@')[0]}</span>
+            </div>
+
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={signOut}
+              className="h-8 text-muted-foreground hover:text-destructive gap-1.5"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline text-xs font-arabic">خروج</span>
+            </Button>
           </div>
         </div>
       </header>
 
-      <div className="container mx-auto px-4 py-6">
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          {/* Navigation Tabs */}
-          <TabsList className="grid w-full grid-cols-5 bg-card/20 backdrop-blur-sm border border-white/10">
-            <TabsTrigger value="overview" className="flex items-center gap-2">
-              <Brain className="w-4 h-4" />
-              <span className="hidden sm:inline">Overview</span>
-            </TabsTrigger>
-            <TabsTrigger value="chat" className="flex items-center gap-2">
-              <MessageSquare className="w-4 h-4" />
-              <span className="hidden sm:inline">Chat</span>
-            </TabsTrigger>
-            <TabsTrigger value="financial" className="flex items-center gap-2">
-              <TrendingUp className="w-4 h-4" />
-              <span className="hidden sm:inline">Finance</span>
-            </TabsTrigger>
-            <TabsTrigger value="tasks" className="flex items-center gap-2">
-              <Calendar className="w-4 h-4" />
-              <span className="hidden sm:inline">Tasks</span>
-            </TabsTrigger>
-            <TabsTrigger value="mood" className="flex items-center gap-2">
-              <Heart className="w-4 h-4" />
-              <span className="hidden sm:inline">Mood</span>
-            </TabsTrigger>
-            <TabsTrigger value="voice" className="flex items-center gap-2">
-              <Mic className="w-4 h-4" />
-              <span className="hidden sm:inline">Voice</span>
-            </TabsTrigger>
-          </TabsList>
+      {/* ── Main content ─────────────────────────────────────────────────────── */}
+      <div className="flex-1 flex flex-col max-w-screen-2xl mx-auto w-full">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
 
-          {/* Overview Tab */}
-          <TabsContent value="overview" className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              <Card className="bg-card/80 backdrop-blur border-white/10">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-foreground">
-                    <MessageSquare className="w-5 h-5 text-primary" />
-                    AI Assistant
-                  </CardTitle>
-                  <CardDescription>
-                    Your intelligent conversation partner ready to help
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Button 
-                    onClick={() => setActiveTab('chat')}
-                    className="w-full"
-                  >
-                    Start Chatting
-                  </Button>
-                </CardContent>
-              </Card>
+          {/* Tab nav */}
+          <div className="px-4 pt-4">
+            <TabsList className="bg-card/60 border border-border/40 backdrop-blur-sm h-auto p-1 gap-0.5 rounded-2xl">
+              {NAV.map(({ value, label, icon: Icon }) => (
+                <TabsTrigger
+                  key={value}
+                  value={value}
+                  className={cn(
+                    'gap-1.5 px-4 py-2 rounded-xl text-sm font-arabic transition-all duration-200',
+                    'data-[state=active]:bg-jood-teal-900 data-[state=active]:text-white data-[state=active]:shadow-elegant',
+                    'text-muted-foreground hover:text-foreground',
+                  )}
+                >
+                  <Icon className="w-4 h-4 flex-shrink-0" />
+                  <span className="hidden sm:inline">{label}</span>
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </div>
 
-              <Card className="bg-card/80 backdrop-blur border-white/10">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-foreground">
-                    <TrendingUp className="w-5 h-5 text-accent" />
-                    Financial Health
-                  </CardTitle>
-                  <CardDescription>
-                    Track your financial progress and insights
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Button 
-                    onClick={() => setActiveTab('financial')}
-                    className="w-full"
-                  >
-                    View Dashboard
-                  </Button>
-                </CardContent>
-              </Card>
-
-              <Card className="bg-card/80 backdrop-blur border-white/10">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-foreground">
-                    <Mic className="w-5 h-5 text-secondary" />
-                    Voice Interface
-                  </CardTitle>
-                  <CardDescription>
-                    Speak naturally with Joud AI
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Button 
-                    onClick={() => setActiveTab('voice')}
-                    className="w-full"
-                  >
-                    Activate Voice
-                  </Button>
-                </CardContent>
-              </Card>
-            </div>
-
-            <Card className="bg-card/80 backdrop-blur border-white/10">
-              <CardHeader>
-                <CardTitle className="text-foreground">Welcome back!</CardTitle>
-                <CardDescription>
-                  Joud AI is ready to assist you with financial planning, task management, 
-                  mood tracking, and intelligent conversations.
-                </CardDescription>
-              </CardHeader>
-            </Card>
-          </TabsContent>
-
-          {/* Chat Interface */}
-          <TabsContent value="chat">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-[calc(100vh-200px)]">
-              <div className="flex flex-col">
-                <h2 className="text-lg font-semibold mb-4 flex items-center space-x-2 text-white">
-                  <MessageSquare className="w-5 h-5" />
-                  <span>Chat with Joud</span>
-                </h2>
-                <div className="flex-1 border rounded-lg overflow-hidden">
-                  <ChatInterface onMessage={handleChatMessage} />
-                </div>
-              </div>
-              
-              <div className="flex flex-col">
-                <h2 className="text-lg font-semibold mb-4 flex items-center space-x-2 text-white">
-                  <Brain className="w-5 h-5" />
-                  <span>Voice Assistant</span>
-                </h2>
-                <div className="flex-1">
-                  <VoicePanel onVoiceMessage={handleVoiceMessage} />
-                </div>
-              </div>
+          {/* ── Chat (full height) ────────────────────────────────────────── */}
+          <TabsContent value="chat" className="flex-1 p-4 mt-0">
+            <div className="h-[calc(100vh-160px)]">
+              <ChatInterface />
             </div>
           </TabsContent>
 
-          {/* Financial Dashboard */}
-          <TabsContent value="financial">
-            <div>
-              <h2 className="text-2xl font-bold mb-6 flex items-center space-x-2 text-white">
-                <TrendingUp className="w-6 h-6" />
-                <span>Financial Dashboard</span>
-              </h2>
+          {/* ── Finance ──────────────────────────────────────────────────── */}
+          <TabsContent value="financial" className="p-4 mt-0">
+            <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }}>
               <FinancialDashboard />
-            </div>
+            </motion.div>
           </TabsContent>
 
-          {/* Tasks & Planner */}
-          <TabsContent value="tasks">
-            <div>
-              <h2 className="text-2xl font-bold mb-6 flex items-center space-x-2 text-white">
-                <Calendar className="w-6 h-6" />
-                <span>Tasks & Planner</span>
-              </h2>
+          {/* ── Tasks ────────────────────────────────────────────────────── */}
+          <TabsContent value="tasks" className="p-4 mt-0">
+            <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }}>
+              <h2 className="text-xl font-bold font-arabic mb-5 text-foreground">المهام والتخطيط</h2>
               <TasksPlanner />
-            </div>
+            </motion.div>
           </TabsContent>
 
-          {/* Mood Tracker */}
-          <TabsContent value="mood">
-            <div>
-              <h2 className="text-2xl font-bold mb-6 flex items-center space-x-2 text-white">
-                <Heart className="w-6 h-6" />
-                <span>Mood & Wellness</span>
-              </h2>
+          {/* ── Habits ───────────────────────────────────────────────────── */}
+          <TabsContent value="habits" className="p-4 mt-0">
+            <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }}>
+              <h2 className="text-xl font-bold font-arabic mb-5 text-foreground">عاداتي اليومية</h2>
+              <HabitsTracker />
+            </motion.div>
+          </TabsContent>
+
+          {/* ── Mood ─────────────────────────────────────────────────────── */}
+          <TabsContent value="mood" className="p-4 mt-0">
+            <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }}>
+              <h2 className="text-xl font-bold font-arabic mb-5 text-foreground">تتبع المزاج والصحة</h2>
               <MoodTracker />
-            </div>
+            </motion.div>
           </TabsContent>
 
-          {/* Voice Interface */}
-          {/* Voice Interface */}
-          <TabsContent value="voice">
-            <div>
-              <h2 className="text-2xl font-bold mb-6 flex items-center space-x-2 text-white">
-                <Mic className="w-6 h-6" />
-                <span>Voice Assistant</span>
-              </h2>
-              <VoicePanel onVoiceMessage={handleVoiceMessage} />
-            </div>
+          {/* ── Majlis (Voice) ────────────────────────────────────────────── */}
+          <TabsContent value="voice" className="p-4 mt-0">
+            <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }}>
+              <h2 className="text-xl font-bold font-arabic mb-5 text-foreground">المجلس — التجربة الصوتية</h2>
+              <VoicePanel onVoiceMessage={() => {}} />
+            </motion.div>
           </TabsContent>
         </Tabs>
       </div>
