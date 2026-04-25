@@ -329,6 +329,19 @@ export const useChat = () => {
     }
   }, [session, teardownTtsAnalyser]);
 
+  // ── Stop in-flight TTS — used by Majlis Mode to support interruption ─────
+  const stopSpeaking = useCallback(() => {
+    const audio = ttsAudioElRef.current;
+    if (audio) {
+      try {
+        audio.pause();
+        audio.currentTime = 0;
+      } catch { /* ignore */ }
+    }
+    setSpeaking(false);
+    teardownTtsAnalyser();
+  }, [teardownTtsAnalyser]);
+
   // ── Helpers ───────────────────────────────────────────────────────────────
   const startNewChat = useCallback(() => {
     setCurrentSessionId(null);
@@ -363,6 +376,7 @@ export const useChat = () => {
     startNewChat,
     sendMessage,
     speakMessage,
+    stopSpeaking,
     confirmAction,
   };
 };

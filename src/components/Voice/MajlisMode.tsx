@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
-import { X, Mic, MicOff, Volume2, Sparkles, Pause, Play } from 'lucide-react';
+import { X, Mic, MicOff, Volume2, Sparkles, Pause, Play, Headphones } from 'lucide-react';
 import { useChat } from '@/hooks/useChat';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
@@ -80,7 +80,7 @@ const MODE_LABELS: Record<Mode, { ar: string; sub: string }> = {
   listening:  { ar: 'أستمع إليك…',        sub: 'تحدثي بحرّية' },
   processing: { ar: 'جار التعرف…',        sub: 'Whisper يعالج صوتك' },
   thinking:   { ar: 'أفكّر…',             sub: 'لحظة من فضلك' },
-  speaking:   { ar: 'جود تتحدث',          sub: 'اضغطي لمقاطعتها' },
+  speaking:   { ar: 'جود تتحدث',          sub: 'اضغطي على المايك لمقاطعتها' },
 };
 
 // ─── Supported MIME type picker ───────────────────────────────────────────────
@@ -104,7 +104,9 @@ interface MajlisModeProps {
 export const MajlisMode: React.FC<MajlisModeProps> = ({ onClose }) => {
   const { session } = useAuth();
   const { toast } = useToast();
-  const { sendMessage, speakMessage, messages, loading, speaking, speakingIntensity } = useChat();
+  const { sendMessage, speakMessage, stopSpeaking, messages, loading, speaking, speakingIntensity } = useChat();
+  const previewAudioRef = useRef<HTMLAudioElement | null>(null);
+  const [previewPlaying, setPreviewPlaying] = useState(false);
 
   const [mode, setMode] = useState<Mode>('idle');
   const [transcript, setTranscript] = useState('');
@@ -293,6 +295,14 @@ export const MajlisMode: React.FC<MajlisModeProps> = ({ onClose }) => {
 
   // ── Press-and-hold interaction ────────────────────────────────────────────
   const handlePressDown = () => {
+    // ── Speaking-mode short-circuit: tap to interrupt Jood ──────────────
+    if (mode === 'speaking') {
+      stopSpeaking();
+      // Open mic immediately so the user can take the floor without an extra tap
+      setTimeout(() => startRecording(), 80);
+      return;
+    }
+
     isHoldingRef.current = true;
     // Wait 250 ms — if still held → push-to-talk; otherwise treat as tap
     holdTimerRef.current = window.setTimeout(() => {
@@ -312,9 +322,6 @@ export const MajlisMode: React.FC<MajlisModeProps> = ({ onClose }) => {
       // Pure tap → toggle continuous mode
       setContinuous(true);
       startRecording();
-    } else if (mode === 'speaking') {
-      // Interrupt TTS — we don't have direct handle to <Audio>, but speaking
-      // ends naturally; user can wait or we set speaking=false via hook
     }
   };
 
@@ -348,11 +355,33 @@ export const MajlisMode: React.FC<MajlisModeProps> = ({ onClose }) => {
     if (lastReply && mode === 'idle') speakMessage(lastReply, 'neutral', false);
   };
 
+  // ── Voice signature preview (target ElevenLabs Jood voice clip) ──────────
+  // During the dev/free phase TTS uses OpenAI nova as a placeholder. This
+  // button plays the actual cloned voice MP3 from /public/avatar so users
+  // can hear what the final voice will sound like.
+  const togglePreview = useCallback(() => {
+    if (previewPlaying) {
+      previewAudioRef.current?.pause();
+      previewAudioRef.current = null;
+      setPreviewPlaying(false);
+      return;
+    }
+    // Stop any current TTS first
+    stopSpeaking();
+    const a = new Audio('/avatar/voice-preview.mp3');
+    previewAudioRef.current = a;
+    a.onended = () => { setPreviewPlaying(false); previewAudioRef.current = null; };
+    a.onerror = () => { setPreviewPlaying(false); previewAudioRef.current = null; };
+    setPreviewPlaying(true);
+    a.play().catch(() => setPreviewPlaying(false));
+  }, [previewPlaying, stopSpeaking]);
+
   // ── Cleanup on unmount ────────────────────────────────────────────────────
   useEffect(() => {
     return () => {
       stopRecording();
       stopAnalyser();
+      previewAudioRef.current?.pause();
     };
   }, [stopRecording, stopAnalyser]);
 
@@ -404,14 +433,29 @@ export const MajlisMode: React.FC<MajlisModeProps> = ({ onClose }) => {
             Whisper · ElevenLabs
           </span>
         </div>
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => { stopRecording(); onClose(); }}
-          className="text-white hover:bg-white/10 rounded-full h-10 w-10"
-        >
-          <X className="w-5 h-5" />
-        </Button>
+        <div className="flex items-center gap-1">
+          {/* Voice signature preview */}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={togglePreview}
+            className={cn(
+              'rounded-full h-10 w-10 text-white hover:bg-white/10',
+              previewPlaying && 'bg-jood-gold-500/30 ring-2 ring-jood-gold-300/40',
+            )}
+            title="استمعي لصوت جود الأصلي"
+          >
+            <Headphones className="w-4 h-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => { stopRecording(); stopSpeaking(); onClose(); }}
+            className="text-white hover:bg-white/10 rounded-full h-10 w-10"
+          >
+            <X className="w-5 h-5" />
+          </Button>
+        </div>
       </div>
 
       {/* ── Center: Avatar + Visualizer ──────────────────────────────────── */}
@@ -522,6 +566,8 @@ export const MajlisMode: React.FC<MajlisModeProps> = ({ onClose }) => {
             'select-none touch-none disabled:cursor-not-allowed disabled:opacity-50',
             mode === 'listening'
               ? 'bg-destructive scale-110'
+              : mode === 'speaking'
+              ? 'bg-gradient-to-br from-amber-500 to-orange-600 ring-2 ring-amber-300/60 hover:scale-105'
               : 'bg-gradient-to-br from-jood-gold-500 to-amber-700 hover:scale-105',
           )}
         >
