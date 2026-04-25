@@ -12,6 +12,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useProfile, useTasks, useFinancialData } from '@/hooks/useDatabase';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
+import { MorningBrief } from './MorningBrief';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface Recommendation {
@@ -145,6 +146,9 @@ export const HomeOverview: React.FC<HomeOverviewProps> = ({ onNavigate }) => {
 
   return (
     <div className="space-y-5 max-w-4xl mx-auto">
+
+      {/* ── Morning Brief (memory-driven hero) ────────────────────────────── */}
+      <MorningBrief onActionClick={() => onNavigate('chat')} />
 
       {/* ── Greeting card (Slide 4) ────────────────────────────────────────── */}
       <motion.div
