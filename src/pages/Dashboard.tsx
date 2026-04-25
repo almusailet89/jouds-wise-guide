@@ -13,6 +13,7 @@ import { HomeOverview } from '@/components/Home/HomeOverview';
 import SmartCalendar from '@/components/Calendar/SmartCalendar';
 import AIRecommendations from '@/components/Recommendations/AIRecommendations';
 import SecurityCenter from '@/components/Security/SecurityCenter';
+import MemoryCenter from '@/components/Memory/MemoryCenter';
 import Onboarding from '@/components/Onboarding/Onboarding';
 import MajlisMode from '@/components/Voice/MajlisMode';
 import { ExportPanel } from '@/components/Export/ExportPanel';
@@ -20,7 +21,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import {
   MessageSquare, TrendingUp, Calendar, Heart, Brain, Home,
-  LogOut, User, Mic, Download, Sparkles, CheckSquare, Star, Shield,
+  LogOut, User, Mic, Download, Sparkles, CheckSquare, Star, Shield, BookHeart,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -72,6 +73,7 @@ const NAV = [
   { value: 'mood',      label: 'المزاج',    icon: Heart,          ar: true },
   { value: 'insights',  label: 'التوصيات',  icon: Brain,          ar: true },
   { value: 'voice',     label: 'المجلس',    icon: Mic,            ar: true },
+  { value: 'memory',    label: 'الذاكرة',   icon: BookHeart,      ar: true },
   { value: 'security',  label: 'الخصوصية',  icon: Shield,         ar: true },
 ];
 
@@ -272,6 +274,13 @@ const Dashboard = () => {
                 </Button>
               </div>
               <VoicePanel onVoiceMessage={() => {}} />
+            </motion.div>
+          </TabsContent>
+
+          {/* ── Memory Center ────────────────────────────────────────────── */}
+          <TabsContent value="memory" className="p-4 mt-0">
+            <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }}>
+              <MemoryCenter />
             </motion.div>
           </TabsContent>
 

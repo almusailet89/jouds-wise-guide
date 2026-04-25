@@ -7,6 +7,107 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// ═══════════════════════════════════════════════════════════════════════════
+// Memory Extraction — runs after each turn to harvest durable facts
+// from the conversation. Uses gpt-4o-mini (cheap, ~$0.0001/turn) and
+// inserts findings into user_memories. Fire-and-forget — never blocks
+// the user's response.
+// ═══════════════════════════════════════════════════════════════════════════
+async function extractAndStoreMemories(args: {
+  userId: string;
+  userMessage: string;
+  assistantMessage: string;
+  sessionId?: string;
+  openAIApiKey: string;
+  supabase: any;
+}) {
+  const { userId, userMessage, assistantMessage, sessionId, openAIApiKey, supabase } = args;
+
+  // Skip if message is too short (probably a greeting / acknowledgement)
+  if (userMessage.length < 12) return;
+
+  const EXTRACTION_PROMPT = `You are a memory extractor for a Saudi executive AI assistant called Jood.
+
+Your job: read the user's message and the assistant's reply, then output ANY durable facts about the user worth remembering across future sessions.
+
+Output strict JSON: { "memories": [{"kind": ..., "content": ..., "importance": ...}] }
+
+kind ∈ ["fact", "preference", "goal", "pattern", "relationship", "context"]
+- fact:         static personal info (job, family size, location)
+- preference:   stable likes/dislikes (halal investments, Arabic UI, conservative risk)
+- goal:         financial or life goals (save 100k for Hajj, buy apartment)
+- pattern:      recurring behaviors (trades on Sundays, coffee at 7am)
+- relationship: important people in their life (wife, manager, parents)
+- context:      situational (lives in Riyadh, drives Lexus)
+
+content: short, third-person, in the language the user used. Example: "يفضل الاستثمارات الحلال" or "Wife's name is Layla"
+
+importance: 0.0-1.0 — how critical is this for personalizing future advice?
+
+Rules:
+- Output ONLY durable facts. Skip transient stuff like "feeling tired today".
+- Skip stuff already obvious from a profile (e.g., "user has a name").
+- If nothing memorable, return {"memories": []}.
+- Max 5 memories per call.
+
+USER: ${userMessage}
+ASSISTANT: ${assistantMessage}`;
+
+  try {
+    const res = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${openAIApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        messages: [
+          { role: 'system', content: 'You are a precise JSON-only memory extractor.' },
+          { role: 'user',   content: EXTRACTION_PROMPT },
+        ],
+        response_format: { type: 'json_object' },
+        temperature: 0.2,
+        max_tokens: 500,
+      }),
+    });
+
+    if (!res.ok) {
+      console.warn('[memory-extract] API failed:', res.status);
+      return;
+    }
+
+    const json = await res.json();
+    const raw = json.choices?.[0]?.message?.content ?? '{"memories":[]}';
+    let parsed: any;
+    try { parsed = JSON.parse(raw); } catch { return; }
+
+    const memories = Array.isArray(parsed?.memories) ? parsed.memories : [];
+    if (memories.length === 0) return;
+
+    const VALID_KINDS = ['fact', 'preference', 'goal', 'pattern', 'relationship', 'context'];
+    const rows = memories
+      .filter((m: any) => m && typeof m.content === 'string' && VALID_KINDS.includes(m.kind))
+      .slice(0, 5)
+      .map((m: any) => ({
+        user_id:           userId,
+        kind:              m.kind,
+        content:           String(m.content).slice(0, 500),
+        importance:        Math.max(0, Math.min(1, Number(m.importance) || 0.5)),
+        confidence:        0.8, // extractor is reasonably confident
+        source_session_id: sessionId ?? null,
+      }));
+
+    if (rows.length === 0) return;
+
+    const { error } = await supabase.from('user_memories').insert(rows);
+    if (error) console.warn('[memory-extract] insert failed:', error.message);
+    else console.log(`[memory-extract] saved ${rows.length} memories for user ${userId}`);
+  } catch (err) {
+    console.warn('[memory-extract] unexpected error:', err);
+  }
+}
+
 // Function calling tools for "Jood, note this" actions
 const functionTools = [
   {
@@ -226,6 +327,7 @@ serve(async (req) => {
       context,
       mode,
       pendingFunction,
+      session_id,           // chat session id (used as memory provenance)
       voice_mode = false,   // true = Majlis Mode — brevity enforced, Saudi dialect
       detected_language = "ar", // "ar" | "en" | "mixed" — from whisper-transcribe
     } = await req.json();
@@ -242,22 +344,24 @@ serve(async (req) => {
     // Get user context for personalized responses
     const authHeader = req.headers.get("Authorization");
     let userContext = "";
-    let userId = null;
-    
+    let memorySection = "";
+    let injectedMemoryIds: string[] = [];
+    let userId: string | null = null;
+
     const supabaseClient = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
       { auth: { persistSession: false } }
     );
-    
+
     if (authHeader) {
       const token = authHeader.replace("Bearer ", "");
       const { data: userData } = await supabaseClient.auth.getUser(token);
-      
+
       if (userData.user) {
         userId = userData.user.id;
-        
-        // Get user profile for context
+
+        // ── Profile context ───────────────────────────────────────────────
         const { data: profile } = await supabaseClient
           .from('profiles')
           .select('*')
@@ -266,6 +370,47 @@ serve(async (req) => {
 
         if (profile) {
           userContext = `User profile: ${profile.display_name || 'User'}, interests: ${profile.interests?.join(', ') || 'Not specified'}, base currency: ${profile.base_currency}, risk profile: ${profile.risk_profile}`;
+        }
+
+        // ── Memory layer: top-N most relevant memories ─────────────────────
+        // Pulled via RPC (importance × confidence ranking, capped at 12).
+        // Injected into the system prompt so Jood remembers across sessions.
+        try {
+          const { data: memories } = await supabaseClient
+            .rpc('get_user_memories_for_prompt', { p_user_id: userId, p_limit: 12 });
+
+          if (memories && memories.length > 0) {
+            injectedMemoryIds = memories.map((m: any) => m.id);
+
+            // Group by kind for readability
+            const grouped: Record<string, string[]> = {};
+            for (const m of memories) {
+              const k = m.kind as string;
+              if (!grouped[k]) grouped[k] = [];
+              grouped[k].push(m.content);
+            }
+
+            const KIND_AR: Record<string, string> = {
+              fact:         "حقائق",
+              preference:   "تفضيلات",
+              goal:         "أهداف",
+              pattern:      "أنماط",
+              relationship: "علاقات",
+              context:      "سياق",
+            };
+
+            memorySection = "\n\nما تعرفينه عن المستخدم (من محادثات سابقة — استخدميه طبيعياً دون أن تذكري أنكِ تتذكرينه):\n";
+            for (const [kind, items] of Object.entries(grouped)) {
+              memorySection += `• ${KIND_AR[kind] ?? kind}: ${items.join(" · ")}\n`;
+            }
+
+            // Mark these memories as recently used (background, non-blocking)
+            supabaseClient.rpc('touch_user_memories', { p_memory_ids: injectedMemoryIds })
+              .then(() => {/* fire-and-forget */})
+              .catch(() => {/* ignore */});
+          }
+        } catch (memErr) {
+          console.warn('[memory] load failed (non-fatal):', memErr);
         }
       }
     }
@@ -319,7 +464,7 @@ serve(async (req) => {
 - تعرفين رواتب القطاع الحكومي ومستوى المعيشة في المملكة
 - تحترمين القيم الثقافية والدينية في كل ردودك
 
-${userContext ? `بيانات المستخدم: ${userContext}` : ""}`;
+${userContext ? `بيانات المستخدم: ${userContext}` : ""}${memorySection}`;
 
     // ── Response format rules ────────────────────────────────────────────────
     // Voice mode (Majlis): Answer + Insight + Next Action ≤ 15 words each
@@ -504,6 +649,33 @@ ${userContext ? `بيانات المستخدم: ${userContext}` : ""}`;
       if (pattern.test(assistantMessage)) { suggestedEmotion = emo; break; }
     }
 
+    // ── Background memory extraction ───────────────────────────────────────
+    // Runs AFTER the response is constructed so it never blocks the user.
+    // Uses Deno's EdgeRuntime.waitUntil if available (lets the function exit
+    // while the task continues); otherwise fire-and-forget Promise.
+    if (userId && !shouldPreview && !shouldCommit && !isCancel && assistantMessage) {
+      const extractionTask = extractAndStoreMemories({
+        userId,
+        userMessage:      message,
+        assistantMessage,
+        sessionId:        session_id,
+        openAIApiKey,
+        supabase:         supabaseClient,
+      });
+
+      try {
+        // @ts-ignore — EdgeRuntime is Supabase-specific
+        if (typeof EdgeRuntime !== 'undefined' && EdgeRuntime?.waitUntil) {
+          // @ts-ignore
+          EdgeRuntime.waitUntil(extractionTask);
+        } else {
+          extractionTask.catch(() => {/* fire-and-forget */});
+        }
+      } catch {
+        extractionTask.catch(() => {/* fire-and-forget */});
+      }
+    }
+
     return new Response(JSON.stringify({
       message: assistantMessage,
       function_results: functionResults,
@@ -512,6 +684,7 @@ ${userContext ? `بيانات المستخدم: ${userContext}` : ""}`;
       detected_language,
       suggested_emotion: suggestedEmotion,   // Used by frontend to pick ElevenLabs settings
       model_used: selectedModel,
+      memories_used: injectedMemoryIds.length, // Telemetry: how many memories influenced this turn
       timestamp: new Date().toISOString()
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
