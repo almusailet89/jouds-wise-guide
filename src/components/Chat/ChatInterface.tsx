@@ -28,13 +28,13 @@ const CATEGORIES: { value: Cat; label: string; icon: string }[] = [
 ];
 
 const SUGGESTED_PROMPTS: { icon: string; ar: string; en: string; cat: Cat }[] = [
-  { icon: '💸', ar: 'Jood, note this — أنفقت 150 ريال على الغداء اليوم', en: 'Log an expense', cat: 'finance' },
+  { icon: '💸', ar: 'أنفقت ١٥٠ ريال على الغداء اليوم', en: 'Log an expense', cat: 'finance' },
   { icon: '📈', ar: 'ما رأيك في أسهم أرامكو الآن؟', en: 'Saudi market view', cat: 'finance' },
   { icon: '📊', ar: 'كيف حال محفظتي الاستثمارية هذا الشهر؟', en: 'Portfolio check', cat: 'finance' },
   { icon: '🤲', ar: 'احسبي لي الزكاة بناءً على ثروتي الحالية', en: 'Zakat calculator', cat: 'finance' },
   { icon: '🕌', ar: 'ذكّرني بمواعيد الصلاة اليوم', en: 'Prayer times', cat: 'personal' },
   { icon: '🌙', ar: 'كم باقي على رمضان؟', en: 'Hijri countdown', cat: 'personal' },
-  { icon: '✅', ar: 'Jood, note this — أضيفي مهمة مراجعة الميزانية الشهرية', en: 'Add a task', cat: 'planning' },
+  { icon: '✅', ar: 'أضيفي مهمة مراجعة الميزانية الشهرية', en: 'Add a task', cat: 'planning' },
   { icon: '📆', ar: 'رتّبي لي جدول الأسبوع القادم', en: 'Plan my week', cat: 'planning' },
   { icon: '💚', ar: 'كيف أحسّن نومي؟', en: 'Sleep tips', cat: 'health' },
   { icon: '🧘', ar: 'سجّلي مزاجي اليوم: متوتر', en: 'Log mood', cat: 'health' },
@@ -583,7 +583,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ onMessage }) => {
                 placeholder={
                   awaitingConfirmation
                     ? 'اكتب تعديلاتك أو استخدم الأزرار أعلاه…'
-                    : 'اكتب لجود… أو قل "Jood, note this" لتسجيل إجراء'
+                    : 'اكتب لجود… مثال: «صرفت ٣٠٠ ريال» أو «أضيفي مهمة»'
                 }
                 disabled={loading}
                 rows={1}

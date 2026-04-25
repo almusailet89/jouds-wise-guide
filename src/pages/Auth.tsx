@@ -70,7 +70,7 @@ export default function Auth() {
     <div className="min-h-screen bg-gradient-primary flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-white mb-2">Joud AI</h1>
+          <h1 className="text-4xl font-bold text-white mb-2">JOOD AI</h1>
           <p className="text-white/80">Your Elegant Financial Secretary</p>
         </div>
 

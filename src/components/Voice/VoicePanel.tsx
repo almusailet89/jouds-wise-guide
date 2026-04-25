@@ -10,26 +10,26 @@ interface VoicePanelProps {
   onVoiceMessage?: (message: string) => void;
 }
 
-// Local Storage Manager for Joud AI
-const JoudStorage = {
-  saveUserProfile: (profile: any) => localStorage.setItem('joud_user_profile', JSON.stringify(profile)),
+// Local Storage Manager for JOOD AI
+const JoodStorage = {
+  saveUserProfile: (profile: any) => localStorage.setItem('jood_user_profile', JSON.stringify(profile)),
   getUserProfile: () => {
-    const data = localStorage.getItem('joud_user_profile');
+    const data = localStorage.getItem('jood_user_profile');
     return data ? JSON.parse(data) : { preferences: {}, routines: [], values: [] };
   },
   saveMood: (mood: string) => {
-    const moods = JSON.parse(localStorage.getItem('joud_mood_log') || '[]');
+    const moods = JSON.parse(localStorage.getItem('jood_mood_log') || '[]');
     moods.push({ mood, timestamp: new Date().toISOString(), id: Date.now() });
-    localStorage.setItem('joud_mood_log', JSON.stringify(moods));
+    localStorage.setItem('jood_mood_log', JSON.stringify(moods));
   },
-  getMoods: () => JSON.parse(localStorage.getItem('joud_mood_log') || '[]'),
+  getMoods: () => JSON.parse(localStorage.getItem('jood_mood_log') || '[]'),
   saveTask: (task: any) => {
-    const tasks = JSON.parse(localStorage.getItem('joud_tasks') || '[]');
+    const tasks = JSON.parse(localStorage.getItem('jood_tasks') || '[]');
     tasks.push({ ...task, id: Date.now(), createdAt: new Date().toISOString() });
-    localStorage.setItem('joud_tasks', JSON.stringify(tasks));
+    localStorage.setItem('jood_tasks', JSON.stringify(tasks));
   },
-  getTasks: () => JSON.parse(localStorage.getItem('joud_tasks') || '[]'),
-  saveFinanceData: (data: any) => localStorage.setItem('joud_finance_data', JSON.stringify(data))
+  getTasks: () => JSON.parse(localStorage.getItem('jood_tasks') || '[]'),
+  saveFinanceData: (data: any) => localStorage.setItem('jood_finance_data', JSON.stringify(data))
 };
 
 // Text-to-Speech Engine

@@ -115,8 +115,10 @@ serve(async (req) => {
     const [profileRes, memoriesRes, eventsRes, financeRes, prayer] = await Promise.all([
       supabase.from('profiles').select('display_name, base_currency, risk_profile').eq('user_id', user.id).maybeSingle(),
       supabase.rpc('get_user_memories_for_prompt', { p_user_id: user.id, p_limit: 10 }),
-      supabase.from('events').select('title, starts_at, hijri').eq('user_id', user.id)
-        .gte('starts_at', `${today}T00:00:00`).lte('starts_at', `${today}T23:59:59`).limit(5),
+      // NOTE: existing DB schema uses start_at (not starts_at). Adapt query to
+      // match deployed schema and gracefully handle absence of the column.
+      supabase.from('events').select('title, start_at').eq('user_id', user.id)
+        .gte('start_at', `${today}T00:00:00`).lte('start_at', `${today}T23:59:59`).limit(5),
       supabase.from('financial_entries').select('type, amount, currency, category, created_at')
         .eq('user_id', user.id).order('created_at', { ascending: false }).limit(10),
       fetchPrayerTimes(),

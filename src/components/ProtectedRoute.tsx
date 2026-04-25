@@ -12,7 +12,7 @@ export const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-primary flex items-center justify-center">
-        <div className="animate-pulse text-white text-xl">Loading Joud AI...</div>
+        <div className="animate-pulse text-white text-xl">Loading JOOD AI...</div>
       </div>
     );
   }
