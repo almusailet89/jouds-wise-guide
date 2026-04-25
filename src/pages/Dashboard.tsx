@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/hooks/useAuth';
 import { useSubscription } from '@/hooks/useSubscription';
 import { Button } from '@/components/ui/button';
@@ -12,12 +12,15 @@ import HabitsTracker from '@/components/Habits/HabitsTracker';
 import { HomeOverview } from '@/components/Home/HomeOverview';
 import SmartCalendar from '@/components/Calendar/SmartCalendar';
 import AIRecommendations from '@/components/Recommendations/AIRecommendations';
+import SecurityCenter from '@/components/Security/SecurityCenter';
+import Onboarding from '@/components/Onboarding/Onboarding';
+import MajlisMode from '@/components/Voice/MajlisMode';
 import { ExportPanel } from '@/components/Export/ExportPanel';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import {
   MessageSquare, TrendingUp, Calendar, Heart, Brain, Home,
-  LogOut, User, Mic, Download, Sparkles, CheckSquare, Star,
+  LogOut, User, Mic, Download, Sparkles, CheckSquare, Star, Shield,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -69,6 +72,7 @@ const NAV = [
   { value: 'mood',      label: 'المزاج',    icon: Heart,          ar: true },
   { value: 'insights',  label: 'التوصيات',  icon: Brain,          ar: true },
   { value: 'voice',     label: 'المجلس',    icon: Mic,            ar: true },
+  { value: 'security',  label: 'الخصوصية',  icon: Shield,         ar: true },
 ];
 
 // ─── Dashboard ────────────────────────────────────────────────────────────────
@@ -76,9 +80,20 @@ const Dashboard = () => {
   const { user, signOut } = useAuth();
   const [activeTab, setActiveTab] = useState('home');
   const { hijri, prayer } = useSaudiSignal();
+  const [showOnboarding, setShowOnboarding] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return localStorage.getItem('jood.onboarding.done') !== '1';
+  });
+  const [majlisOpen, setMajlisOpen] = useState(false);
 
   return (
     <div className="min-h-screen bg-background flex flex-col" dir="rtl">
+
+      {/* First-run onboarding (5 steps, <90s) */}
+      {showOnboarding && (
+        <Onboarding onComplete={() => setShowOnboarding(false)} />
+      )}
+
 
       {/* ── Top bar ─────────────────────────────────────────────────────────── */}
       <header className="border-b border-border/40 bg-card/80 backdrop-blur-sm sticky top-0 z-40">
@@ -232,12 +247,34 @@ const Dashboard = () => {
           {/* ── Majlis (Voice) ────────────────────────────────────────────── */}
           <TabsContent value="voice" className="p-4 mt-0">
             <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }}>
-              <h2 className="text-xl font-bold font-arabic mb-5 text-foreground">المجلس — التجربة الصوتية</h2>
+              <div className="flex items-center justify-between mb-5">
+                <h2 className="text-xl font-bold font-arabic text-foreground">المجلس — التجربة الصوتية</h2>
+                <Button
+                  onClick={() => setMajlisOpen(true)}
+                  className="bg-gradient-to-r from-jood-gold-500 to-amber-700 hover:from-amber-600 hover:to-amber-800 text-white gap-2 font-arabic shadow-luxury"
+                >
+                  <Mic className="w-4 h-4" />
+                  ادخلي المجلس الكامل
+                  <Sparkles className="w-3.5 h-3.5" />
+                </Button>
+              </div>
               <VoicePanel onVoiceMessage={() => {}} />
+            </motion.div>
+          </TabsContent>
+
+          {/* ── Security Center ──────────────────────────────────────────── */}
+          <TabsContent value="security" className="p-4 mt-0">
+            <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }}>
+              <SecurityCenter />
             </motion.div>
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* ── Majlis Mode (full-screen voice overlay) ──────────────────────── */}
+      <AnimatePresence>
+        {majlisOpen && <MajlisMode onClose={() => setMajlisOpen(false)} />}
+      </AnimatePresence>
     </div>
   );
 };

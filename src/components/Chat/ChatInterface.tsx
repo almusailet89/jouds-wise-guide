@@ -16,15 +16,48 @@ import { useSubscription } from '@/hooks/useSubscription';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 
-// ─── Suggested prompts (contextual) ────────────────────────────────────────
-const SUGGESTED_PROMPTS = [
-  { icon: '💸', ar: 'Jood, note this — أنفقت 150 ريال على الغداء اليوم', en: 'Log an expense' },
-  { icon: '📈', ar: 'ما رأيك في أسهم أرامكو الآن؟', en: 'Saudi market view' },
-  { icon: '🕌', ar: 'ذكّرني بمواعيد الصلاة اليوم', en: 'Prayer times' },
-  { icon: '✅', ar: 'Jood, note this — أضيفي مهمة مراجعة الميزانية الشهرية', en: 'Add a task' },
-  { icon: '📊', ar: 'كيف حال محفظتي الاستثمارية هذا الشهر؟', en: 'Portfolio check' },
-  { icon: '🤲', ar: 'احسبي لي الزكاة بناءً على ثروتي الحالية', en: 'Zakat calculator' },
+// ─── Categories & suggested prompts ──────────────────────────────────────────
+type Cat = 'all' | 'finance' | 'health' | 'planning' | 'personal';
+
+const CATEGORIES: { value: Cat; label: string; icon: string }[] = [
+  { value: 'all',      label: 'الكل',     icon: '✨' },
+  { value: 'finance',  label: 'مالية',    icon: '💰' },
+  { value: 'health',   label: 'صحة',      icon: '💚' },
+  { value: 'planning', label: 'تخطيط',    icon: '📅' },
+  { value: 'personal', label: 'شخصية',    icon: '🌙' },
 ];
+
+const SUGGESTED_PROMPTS: { icon: string; ar: string; en: string; cat: Cat }[] = [
+  { icon: '💸', ar: 'Jood, note this — أنفقت 150 ريال على الغداء اليوم', en: 'Log an expense', cat: 'finance' },
+  { icon: '📈', ar: 'ما رأيك في أسهم أرامكو الآن؟', en: 'Saudi market view', cat: 'finance' },
+  { icon: '📊', ar: 'كيف حال محفظتي الاستثمارية هذا الشهر؟', en: 'Portfolio check', cat: 'finance' },
+  { icon: '🤲', ar: 'احسبي لي الزكاة بناءً على ثروتي الحالية', en: 'Zakat calculator', cat: 'finance' },
+  { icon: '🕌', ar: 'ذكّرني بمواعيد الصلاة اليوم', en: 'Prayer times', cat: 'personal' },
+  { icon: '🌙', ar: 'كم باقي على رمضان؟', en: 'Hijri countdown', cat: 'personal' },
+  { icon: '✅', ar: 'Jood, note this — أضيفي مهمة مراجعة الميزانية الشهرية', en: 'Add a task', cat: 'planning' },
+  { icon: '📆', ar: 'رتّبي لي جدول الأسبوع القادم', en: 'Plan my week', cat: 'planning' },
+  { icon: '💚', ar: 'كيف أحسّن نومي؟', en: 'Sleep tips', cat: 'health' },
+  { icon: '🧘', ar: 'سجّلي مزاجي اليوم: متوتر', en: 'Log mood', cat: 'health' },
+];
+
+// ─── Smart-reply chip generator ──────────────────────────────────────────────
+// Heuristic: match recent assistant message keywords to follow-up suggestions.
+const generateSmartReplies = (lastAssistant: string): string[] => {
+  const t = lastAssistant.toLowerCase();
+  const arHas = (...needles: string[]) => needles.some(n => lastAssistant.includes(n));
+
+  // Priority order: most specific first
+  if (arHas('زكاة', 'zakat'))           return ['احسبيها الآن', 'أضيفيها للتقويم', 'أرسلي تذكيراً'];
+  if (arHas('سهم', 'محفظة', 'استثمار')) return ['اعرضي لي المحفظة', 'وش التوقع لخمس سنوات؟', 'اشتري لي اقتراح'];
+  if (arHas('مصروف', 'صرف', 'أنفقت'))   return ['كم صرفت هذا الشهر؟', 'صنّفيها', 'احذفي آخر إدخال'];
+  if (arHas('صلاة', 'الفجر', 'الظهر'))  return ['ذكّريني بـ١٠ دقائق', 'أضيفي للتقويم', 'باقي وقت كم؟'];
+  if (arHas('مهمة', 'مهام', 'تذكير'))   return ['اعرضي مهام اليوم', 'أضيفي مهمة', 'علّمي كمكتمل'];
+  if (arHas('مزاج', 'متوتر', 'سعيد'))   return ['ليش؟', 'عطيني نصيحة', 'سجّلي مرة ثانية'];
+  if (arHas('عادة', 'سلسلة', 'streak')) return ['كم سلسلتي؟', 'أضيفي عادة', 'تذكير يومي'];
+
+  // Generic fallbacks
+  return ['اشرحي أكثر', 'أعطني مثالاً', 'احفظي هذا'];
+};
 
 // ─── Typing dots animation ──────────────────────────────────────────────────
 const TypingIndicator = () => (
@@ -187,6 +220,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ onMessage }) => {
   const [input, setInput] = useState('');
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [listening, setListening] = useState(false);
+  const [activeCat, setActiveCat] = useState<Cat>('all');
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const recognitionRef = useRef<any>(null);
@@ -395,22 +429,43 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ onMessage }) => {
                   مساعدتك الذكية للتخطيط المالي وإدارة حياتك اليومية بأسلوب سعودي أصيل
                 </p>
 
+                {/* Category filter chips */}
+                <div className="flex items-center gap-1.5 mb-3 flex-wrap justify-center">
+                  {CATEGORIES.map(c => (
+                    <button
+                      key={c.value}
+                      onClick={() => setActiveCat(c.value)}
+                      className={cn(
+                        'px-3 py-1.5 rounded-full text-[11px] font-arabic transition-all border',
+                        activeCat === c.value
+                          ? 'bg-jood-teal-900 text-white border-jood-teal-900 shadow-elegant'
+                          : 'bg-card/40 text-muted-foreground border-border/40 hover:border-jood-teal-500/50',
+                      )}
+                    >
+                      <span className="ml-1">{c.icon}</span>
+                      {c.label}
+                    </button>
+                  ))}
+                </div>
+
                 {/* Suggested prompts grid */}
                 <div className="grid grid-cols-2 gap-2 w-full max-w-lg">
-                  {SUGGESTED_PROMPTS.map((p, i) => (
-                    <motion.button
-                      key={i}
-                      initial={{ opacity: 0, y: 16 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: 0.1 + i * 0.06, duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
-                      onClick={() => handleSend(p.ar)}
-                      className="group jood-card p-3 text-left hover:border-jood-teal-500/50 hover:shadow-elegant transition-all duration-200 cursor-pointer"
-                    >
-                      <span className="text-lg block mb-1">{p.icon}</span>
-                      <p className="text-[10px] text-muted-foreground mb-0.5">{p.en}</p>
-                      <p className="text-xs text-foreground font-arabic leading-snug line-clamp-2">{p.ar}</p>
-                    </motion.button>
-                  ))}
+                  {SUGGESTED_PROMPTS
+                    .filter(p => activeCat === 'all' || p.cat === activeCat)
+                    .map((p, i) => (
+                      <motion.button
+                        key={`${activeCat}-${i}`}
+                        initial={{ opacity: 0, y: 16 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.05 + i * 0.05, duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+                        onClick={() => handleSend(p.ar)}
+                        className="group jood-card p-3 text-left hover:border-jood-teal-500/50 hover:shadow-elegant transition-all duration-200 cursor-pointer"
+                      >
+                        <span className="text-lg block mb-1">{p.icon}</span>
+                        <p className="text-[10px] text-muted-foreground mb-0.5">{p.en}</p>
+                        <p className="text-xs text-foreground font-arabic leading-snug line-clamp-2">{p.ar}</p>
+                      </motion.button>
+                    ))}
                 </div>
               </motion.div>
             )}
@@ -426,6 +481,34 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ onMessage }) => {
               speaking={speaking}
             />
           ))}
+
+          {/* Smart reply chips (after last assistant message) */}
+          <AnimatePresence>
+            {!loading && !awaitingConfirmation && messages.length > 0 &&
+              messages[messages.length - 1].role === 'assistant' && (
+                <motion.div
+                  key="smart-replies"
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.3, delay: 0.15 }}
+                  className="flex items-center gap-1.5 px-4 mb-3 mr-10 flex-wrap"
+                >
+                  {generateSmartReplies(messages[messages.length - 1].content).map((chip, i) => (
+                    <motion.button
+                      key={chip}
+                      initial={{ opacity: 0, scale: 0.9 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={{ delay: 0.2 + i * 0.05 }}
+                      onClick={() => handleSend(chip)}
+                      className="px-3 py-1.5 rounded-full text-[11px] font-arabic bg-jood-teal-500/10 text-jood-teal-700 border border-jood-teal-500/30 hover:bg-jood-teal-500/20 hover:border-jood-teal-500/50 transition-all"
+                    >
+                      {chip}
+                    </motion.button>
+                  ))}
+                </motion.div>
+              )}
+          </AnimatePresence>
 
           {/* Typing indicator */}
           <AnimatePresence>
