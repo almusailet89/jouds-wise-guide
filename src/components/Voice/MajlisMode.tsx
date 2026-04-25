@@ -7,6 +7,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
+import { JoodAvatar, type AvatarMode } from './JoodAvatar';
 
 // ─── Audio-reactive visualizer rings ─────────────────────────────────────────
 const PulseRings: React.FC<{ active: boolean; intensity: number }> = ({ active, intensity }) => (
@@ -103,7 +104,7 @@ interface MajlisModeProps {
 export const MajlisMode: React.FC<MajlisModeProps> = ({ onClose }) => {
   const { session } = useAuth();
   const { toast } = useToast();
-  const { sendMessage, speakMessage, messages, loading, speaking } = useChat();
+  const { sendMessage, speakMessage, messages, loading, speaking, speakingIntensity } = useChat();
 
   const [mode, setMode] = useState<Mode>('idle');
   const [transcript, setTranscript] = useState('');
@@ -416,38 +417,21 @@ export const MajlisMode: React.FC<MajlisModeProps> = ({ onClose }) => {
       {/* ── Center: Avatar + Visualizer ──────────────────────────────────── */}
       <div className="absolute inset-0 flex flex-col items-center justify-center px-6">
 
-        {/* Pulse rings */}
-        <div className="relative w-72 h-72 flex items-center justify-center">
+        {/* Pulse rings + live video avatar */}
+        <div className="relative w-80 h-80 flex items-center justify-center">
           <PulseRings
             active={mode === 'listening' || mode === 'speaking'}
             intensity={intensity}
           />
 
-          {/* Avatar orb */}
-          <motion.div
-            animate={{
-              scale: mode === 'speaking'    ? [1, 1.06, 1]   :
-                     mode === 'thinking' ||
-                     mode === 'processing'  ? [1, 0.96, 1]   :
-                     mode === 'listening'   ? 1 + intensity * 0.15 : 1,
-            }}
-            transition={{
-              duration: mode === 'speaking' ? 1.2 :
-                        (mode === 'thinking' || mode === 'processing') ? 1.6 : 0.2,
-              repeat: (mode === 'speaking' || mode === 'thinking' || mode === 'processing')
-                ? Infinity : 0,
-              ease: 'easeInOut',
-            }}
-            className={cn(
-              'w-44 h-44 rounded-full flex items-center justify-center shadow-luxury',
-              'bg-gradient-to-br from-jood-gold-300 via-jood-gold-500 to-jood-gold-700',
-              'relative z-10',
-            )}
-          >
-            <div className="w-40 h-40 rounded-full bg-gradient-to-br from-jood-teal-700 to-jood-teal-900 flex items-center justify-center">
-              <span className="text-7xl font-display text-jood-gold-300 select-none">ج</span>
-            </div>
-          </motion.div>
+          {/* ── Jood video avatar (lip-sync via state crossfade) ──────── */}
+          {/* During speaking → use TTS amplitude. During listening → mic.   */}
+          <JoodAvatar
+            mode={(mode === 'processing' ? 'thinking' : mode) as AvatarMode}
+            intensity={mode === 'speaking' ? speakingIntensity : intensity}
+            size={280}
+            className="relative z-10"
+          />
         </div>
 
         {/* Frequency bars / thinking dots */}

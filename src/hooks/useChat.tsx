@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 import { useToast } from './use-toast';
@@ -57,8 +57,14 @@ export const useChat = () => {
   const [loading, setLoading] = useState(false);
   const [sessionsLoading, setSessionsLoading] = useState(false);
   const [speaking, setSpeaking] = useState(false);
+  const [speakingIntensity, setSpeakingIntensity] = useState(0); // 0..1 — TTS audio amplitude for avatar lip-sync
   const [pendingFunction, setPendingFunction] = useState<any>(null);
   const [awaitingConfirmation, setAwaitingConfirmation] = useState(false);
+
+  // ── Refs for TTS audio analyser pipeline (lip-sync illusion) ─────────────
+  const ttsAudioCtxRef = useRef<AudioContext | null>(null);
+  const ttsAudioElRef  = useRef<HTMLAudioElement | null>(null);
+  const ttsRafRef      = useRef<number | null>(null);
 
   // ── Session management ────────────────────────────────────────────────────
   const loadSessions = useCallback(async () => {
@@ -245,13 +251,25 @@ export const useChat = () => {
     }
   }, [session, loading, currentSessionId, messages, createSession, loadSessions, toast]);
 
-  // ── ElevenLabs TTS (primary engine, Azure/OpenAI fallback in edge fn) ─────
+  // ── Tear down TTS analyser pipeline ───────────────────────────────────────
+  const teardownTtsAnalyser = useCallback(() => {
+    if (ttsRafRef.current) cancelAnimationFrame(ttsRafRef.current);
+    ttsRafRef.current = null;
+    ttsAudioCtxRef.current?.close().catch(() => {});
+    ttsAudioCtxRef.current = null;
+    ttsAudioElRef.current = null;
+    setSpeakingIntensity(0);
+  }, []);
+
+  // ── ElevenLabs TTS — routes audio through Web Audio API + AnalyserNode ───
+  // so MajlisMode's avatar can lip-sync to real TTS amplitude in real time.
   const speakMessage = useCallback(async (
     text: string,
     emotion: string = 'neutral',
     voiceMode: boolean = false,
   ) => {
     if (!session || !text) return;
+    teardownTtsAnalyser();
     setSpeaking(true);
     try {
       const { data, error } = await supabase.functions.invoke('elevenlabs-tts', {
@@ -266,18 +284,50 @@ export const useChat = () => {
 
       if (error) throw error;
 
-      // data is raw ArrayBuffer (audio/mpeg)
       const blob = new Blob([data], { type: 'audio/mpeg' });
       const url = URL.createObjectURL(blob);
       const audio = new Audio(url);
-      audio.onended = () => { setSpeaking(false); URL.revokeObjectURL(url); };
-      audio.onerror = () => { setSpeaking(false); URL.revokeObjectURL(url); };
+      ttsAudioElRef.current = audio;
+
+      const cleanup = () => {
+        setSpeaking(false);
+        teardownTtsAnalyser();
+        URL.revokeObjectURL(url);
+      };
+      audio.onended = cleanup;
+      audio.onerror = cleanup;
+
+      // ── Web Audio analyser tap for lip-sync amplitude ───────────────────
+      try {
+        const ctx = new AudioContext();
+        ttsAudioCtxRef.current = ctx;
+        const source = ctx.createMediaElementSource(audio);
+        const analyser = ctx.createAnalyser();
+        analyser.fftSize = 64;
+        source.connect(analyser);
+        analyser.connect(ctx.destination); // keep playing through speakers
+
+        const buf = new Uint8Array(analyser.frequencyBinCount);
+        const tick = () => {
+          analyser.getByteFrequencyData(buf);
+          const avg = buf.reduce((s, v) => s + v, 0) / buf.length / 255;
+          setSpeakingIntensity(avg);
+          ttsRafRef.current = requestAnimationFrame(tick);
+        };
+        tick();
+      } catch (audioErr) {
+        // Some browsers reject createMediaElementSource — TTS still plays,
+        // avatar falls back to scripted animation.
+        console.warn('[TTS analyser] disabled:', audioErr);
+      }
+
       await audio.play();
     } catch (err) {
       console.error('[elevenlabs-tts] error:', err);
       setSpeaking(false);
+      teardownTtsAnalyser();
     }
-  }, [session]);
+  }, [session, teardownTtsAnalyser]);
 
   // ── Helpers ───────────────────────────────────────────────────────────────
   const startNewChat = useCallback(() => {
@@ -306,6 +356,7 @@ export const useChat = () => {
     loading,
     sessionsLoading,
     speaking,
+    speakingIntensity,
     awaitingConfirmation,
     loadSessions,
     loadMessages,
