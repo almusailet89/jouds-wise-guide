@@ -273,7 +273,7 @@ const Dashboard = () => {
                   <Sparkles className="w-3.5 h-3.5" />
                 </Button>
               </div>
-              <VoicePanel onVoiceMessage={() => {}} />
+              <VoicePanel />
             </motion.div>
           </TabsContent>
 

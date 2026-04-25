@@ -1,228 +1,320 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { Mic, MicOff, Volume2, VolumeX, Sparkles } from "lucide-react";
-import { toast } from "sonner";
-import { useVoiceRecognition } from '@/hooks/useVoiceRecognition';
-import { useAI } from '@/hooks/useAI';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Mic, MicOff, Volume2, Sparkles, RefreshCw } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { useChat } from '@/hooks/useChat';
+import { useAuth } from '@/hooks/useAuth';
+import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
+import { cn } from '@/lib/utils';
 
-interface VoicePanelProps {
-  onVoiceMessage?: (message: string) => void;
+// ─── Mode types ───────────────────────────────────────────────────────────────
+type VoiceMode = 'idle' | 'listening' | 'processing' | 'thinking' | 'speaking';
+
+const MODE_CONFIG: Record<VoiceMode, { ar: string; color: string }> = {
+  idle:       { ar: 'اضغطي للتحدث مع جود',   color: 'from-jood-teal-700 to-jood-teal-900' },
+  listening:  { ar: 'أستمع إليك…',           color: 'from-red-600 to-red-800' },
+  processing: { ar: 'جار التعرف على صوتك…',  color: 'from-amber-600 to-amber-800' },
+  thinking:   { ar: 'جود تفكّر…',            color: 'from-jood-teal-600 to-jood-teal-800' },
+  speaking:   { ar: 'جود تتحدث',             color: 'from-jood-gold-500 to-amber-700' },
+};
+
+// ─── Waveform bars ────────────────────────────────────────────────────────────
+const WaveformBars: React.FC<{ active: boolean }> = ({ active }) => (
+  <div className="flex items-center justify-center gap-1 h-10">
+    {Array.from({ length: 11 }).map((_, i) => (
+      <motion.span
+        key={i}
+        className="w-1 rounded-full bg-jood-gold-500/80"
+        animate={active
+          ? { height: ['4px', `${14 + Math.sin(i * 0.7) * 12}px`, '4px'] }
+          : { height: '4px' }
+        }
+        transition={{
+          duration: 0.7 + i * 0.06,
+          repeat: active ? Infinity : 0,
+          delay: i * 0.05,
+          ease: 'easeInOut',
+        }}
+      />
+    ))}
+  </div>
+);
+
+// ─── Typing dots ──────────────────────────────────────────────────────────────
+const ThinkingDots: React.FC = () => (
+  <div className="flex gap-1.5 items-center justify-center h-10">
+    {[0, 1, 2].map(i => (
+      <motion.span
+        key={i}
+        className="w-2 h-2 rounded-full bg-jood-teal-400"
+        animate={{ opacity: [0.3, 1, 0.3], scale: [0.8, 1.2, 0.8] }}
+        transition={{ duration: 1.2, repeat: Infinity, delay: i * 0.18 }}
+      />
+    ))}
+  </div>
+);
+
+function getBestMimeType(): string {
+  const candidates = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus', 'audio/mp4'];
+  return candidates.find(t => { try { return MediaRecorder.isTypeSupported(t); } catch { return false; } }) ?? '';
 }
 
-// Local Storage Manager for JOOD AI
-const JoodStorage = {
-  saveUserProfile: (profile: any) => localStorage.setItem('jood_user_profile', JSON.stringify(profile)),
-  getUserProfile: () => {
-    const data = localStorage.getItem('jood_user_profile');
-    return data ? JSON.parse(data) : { preferences: {}, routines: [], values: [] };
-  },
-  saveMood: (mood: string) => {
-    const moods = JSON.parse(localStorage.getItem('jood_mood_log') || '[]');
-    moods.push({ mood, timestamp: new Date().toISOString(), id: Date.now() });
-    localStorage.setItem('jood_mood_log', JSON.stringify(moods));
-  },
-  getMoods: () => JSON.parse(localStorage.getItem('jood_mood_log') || '[]'),
-  saveTask: (task: any) => {
-    const tasks = JSON.parse(localStorage.getItem('jood_tasks') || '[]');
-    tasks.push({ ...task, id: Date.now(), createdAt: new Date().toISOString() });
-    localStorage.setItem('jood_tasks', JSON.stringify(tasks));
-  },
-  getTasks: () => JSON.parse(localStorage.getItem('jood_tasks') || '[]'),
-  saveFinanceData: (data: any) => localStorage.setItem('jood_finance_data', JSON.stringify(data))
-};
+// ═══════════════════════════════════════════════════════════════════════════════
+export const VoicePanel: React.FC = () => {
+  const { session } = useAuth();
+  const { toast } = useToast();
+  const { sendMessage, speakMessage, stopSpeaking, messages, loading, speaking, speakingIntensity } = useChat();
 
-// Text-to-Speech Engine
-const useSpeech = () => {
-  const synth = useRef(window.speechSynthesis);
-  
-  const speak = (text: string, voice: 'elegant' | 'professional' = 'elegant') => {
-    if (!synth.current) return;
-    
-    const utterance = new SpeechSynthesisUtterance(text);
-    const voices = synth.current.getVoices();
-    
-    // Find a suitable female voice
-    const femaleVoice = voices.find(v => 
-      v.name.includes('Female') || v.name.includes('Samantha') || 
-      v.name.includes('Karen') || v.name.includes('Zira')
-    ) || voices[0];
-    
-    if (femaleVoice) utterance.voice = femaleVoice;
-    utterance.rate = voice === 'elegant' ? 0.9 : 1.0;
-    utterance.pitch = voice === 'elegant' ? 1.1 : 1.0;
-    utterance.volume = 0.8;
-    
-    synth.current.speak(utterance);
-    return utterance;
-  };
-  
-  return { speak };
-};
+  const [mode, setMode] = useState<VoiceMode>('idle');
+  const [transcript, setTranscript] = useState('');
 
-export const VoicePanel: React.FC<VoicePanelProps> = ({ onVoiceMessage }) => {
-  const [isSpeaking, setIsSpeaking] = useState(false);
-  const [volume, setVolume] = useState(0);
-  const [hasGreeted, setHasGreeted] = useState(false);
-  const { speak } = useSpeech();
-  const { speakMessage, speaking } = useAI();
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const chunksRef = useRef<BlobPart[]>([]);
+  const mimeTypeRef = useRef<string>('audio/webm');
+  const streamRef = useRef<MediaStream | null>(null);
+  const isProcessingRef = useRef(false);
 
-  const handleTranscription = async (text: string) => {
-    console.log('Voice transcription received:', text);
-    toast.success("Voice message received", {
-      description: `I heard: "${text}"`
-    });
-    
-    // Pass the transcribed text to the parent component
-    onVoiceMessage?.(text);
-  };
-
-  const handleVoiceError = (error: string) => {
-    console.error('Voice recognition error:', error);
-    toast.error("Voice recognition error", {
-      description: error
-    });
-  };
-
-  const { isListening, isProcessing, toggleListening } = useVoiceRecognition({
-    onTranscription: handleTranscription,
-    onError: handleVoiceError
-  });
-
+  // Sync mode with chat state
   useEffect(() => {
-    // Show ready notification without speaking
-    if (!hasGreeted) {
-      toast.success("Jood AI is ready to assist you", {
-        description: "Your elegant financial secretary is now online. Tap the microphone to start voice conversation."
+    if (isProcessingRef.current) return;
+    if (loading) setMode('thinking');
+    else if (speaking) setMode('speaking');
+    else if (mode === 'thinking' || mode === 'speaking') setMode('idle');
+  }, [loading, speaking]); // eslint-disable-line
+
+  const lastMessages = messages.slice(-4);
+
+  const startRecording = useCallback(async () => {
+    if (mediaRecorderRef.current || !session) return;
+
+    let stream: MediaStream;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+    } catch {
+      toast({
+        title: 'لا يمكن الوصول للميكروفون',
+        description: 'يرجى السماح بالوصول للميكروفون في إعدادات المتصفح',
+        variant: 'destructive',
       });
-      setHasGreeted(true);
+      return;
     }
-  }, [hasGreeted]);
 
-  // Update volume animation when listening or processing
-  useEffect(() => {
-    let interval: NodeJS.Timeout;
-    
-    if (isListening || isProcessing) {
-      interval = setInterval(() => {
-        setVolume(Math.random() * 50);
-      }, 100);
-      
-      // Greet user when they start voice interaction (only first time)
-      if (isListening && !isSpeaking && !hasGreeted) {
-        const greeting = "Hi I'm Jood, how can I help?";
-        speakMessage(greeting, 'nova');
-        setIsSpeaking(true);
+    streamRef.current = stream;
+    chunksRef.current = [];
+    const mimeType = getBestMimeType();
+    mimeTypeRef.current = mimeType;
+
+    const mr = new MediaRecorder(stream, mimeType ? { mimeType } : {});
+    mediaRecorderRef.current = mr;
+
+    mr.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data); };
+
+    mr.onstop = async () => {
+      streamRef.current?.getTracks().forEach(t => t.stop());
+      streamRef.current = null;
+      mediaRecorderRef.current = null;
+
+      const blob = new Blob(chunksRef.current, { type: mimeTypeRef.current || 'audio/webm' });
+      chunksRef.current = [];
+
+      if (blob.size < 500) { isProcessingRef.current = false; setMode('idle'); return; }
+
+      isProcessingRef.current = true;
+      setMode('processing');
+      setTranscript('جار التعرف على صوتك…');
+
+      try {
+        const ext = mimeTypeRef.current.includes('mp4') ? 'mp4'
+                  : mimeTypeRef.current.includes('ogg') ? 'ogg' : 'webm';
+        const formData = new FormData();
+        formData.append('audio', blob, `recording.${ext}`);
+
+        const { data: sttData, error: sttErr } = await supabase.functions.invoke('whisper-transcribe', {
+          body: formData,
+          headers: { Authorization: `Bearer ${session.access_token}` },
+        });
+
+        if (sttErr || !sttData?.text?.trim()) throw new Error(sttErr?.message ?? 'Empty transcript');
+
+        const text: string = sttData.text.trim();
+        const lang: 'ar' | 'en' | 'mixed' = sttData.language ?? 'ar';
+        setTranscript(text);
+
+        isProcessingRef.current = false;
+        const result = await sendMessage(text, { voice_mode: true, detected_language: lang });
+        setTranscript('');
+
+        if (result?.message) {
+          await speakMessage(result.message, result.suggested_emotion ?? 'neutral', true);
+        }
+      } catch (err: any) {
+        console.error('[VoicePanel] pipeline error:', err);
+        isProcessingRef.current = false;
+        setMode('idle');
+        setTranscript('');
+        toast({ title: 'لم أستطع التعرف على صوتك', description: 'حاولي مجدداً', variant: 'destructive' });
       }
-    } else {
-      setVolume(0);
-    }
-
-    return () => {
-      if (interval) clearInterval(interval);
     };
-  }, [isListening, isProcessing, hasGreeted, isSpeaking, speakMessage]);
 
-  // Update speaking state based on AI speaking
-  useEffect(() => {
-    setIsSpeaking(speaking);
-  }, [speaking]);
+    mr.start(250);
+    setMode('listening');
+  }, [session, sendMessage, speakMessage, toast]);
+
+  const stopRecording = useCallback(() => {
+    const mr = mediaRecorderRef.current;
+    if (!mr || mr.state === 'inactive') return;
+    try { mr.stop(); } catch { /* already stopped */ }
+  }, []);
+
+  const handleMicPress = () => {
+    if (mode === 'speaking') { stopSpeaking(); return; }
+    if (mode === 'listening') { stopRecording(); return; }
+    if (mode === 'idle') startRecording();
+  };
+
+  const replay = () => {
+    const last = messages[messages.length - 1];
+    if (last?.role === 'assistant' && mode === 'idle') {
+      speakMessage(last.content, 'neutral', false);
+    }
+  };
+
+  useEffect(() => () => { stopRecording(); streamRef.current?.getTracks().forEach(t => t.stop()); }, [stopRecording]);
+
+  const cfg = MODE_CONFIG[mode];
+  const isActive = mode === 'listening' || mode === 'speaking';
 
   return (
-    <Card className="h-full luxury-card p-8 flex flex-col items-center justify-center">
-      {/* Luxury Avatar */}
-      <div className="relative mb-8">
-        <div className={`
-          w-40 h-40 rounded-full bg-gradient-luxury
-          flex items-center justify-center transition-luxury
-          ${isSpeaking ? 'scale-110 avatar-glow' : 'scale-100'}
-          ${isListening ? 'ring-4 ring-primary ring-opacity-60 animate-pulse' : ''}
-        `}>
-          <div className="w-36 h-36 rounded-full bg-gradient-to-b from-background to-muted/30 flex items-center justify-center shadow-elegant">
-            <div className="relative">
-              <div className="text-5xl">👩🏻‍💼</div>
-              {isSpeaking && (
-                <Sparkles className="absolute -top-2 -right-2 w-6 h-6 text-secondary animate-pulse" />
-              )}
-            </div>
-          </div>
-        </div>
+    <div className="flex flex-col items-center gap-6 py-6 px-4">
 
-        {/* Luxury Glow Effect */}
-        {isSpeaking && (
-          <div className="absolute inset-0 rounded-full bg-gradient-luxury opacity-30 animate-pulse blur-md"></div>
-        )}
-        
-        {/* Listening Ring */}
-        {isListening && (
-          <div className="absolute inset-0 rounded-full border-4 border-primary animate-ping opacity-60"></div>
-        )}
-      </div>
-
-      {/* Luxury Waveform Visualization */}
-      <div className="flex items-center justify-center space-x-2 mb-8 h-16 px-4">
-        {[...Array(15)].map((_, i) => (
-          <div
+      {/* Avatar orb + mic button */}
+      <div className="relative flex items-center justify-center">
+        {/* Pulse rings */}
+        {isActive && [0, 1, 2].map(i => (
+          <motion.div
             key={i}
-            className="waveform-bar transition-all duration-75"
-            style={{
-              width: '4px',
-              height: (isSpeaking || isListening) 
-                ? `${Math.max(6, (Math.sin(Date.now() * 0.02 + i * 0.5) + 1) * volume / 3 + 10)}px`
-                : '6px',
-              animationDelay: `${i * 50}ms`
-            }}
+            className="absolute rounded-full border border-jood-gold-400/40"
+            animate={{ scale: [1, 1.6 + i * 0.3], opacity: [0.6, 0] }}
+            transition={{ duration: 2, repeat: Infinity, delay: i * 0.5, ease: 'easeOut' }}
+            style={{ width: 120, height: 120 }}
           />
         ))}
-      </div>
 
-      {/* Luxury Status Display */}
-      <div className="text-center mb-8">
-        <h3 className="text-xl font-semibold mb-3 bg-gradient-luxury bg-clip-text text-transparent">
-          {isSpeaking ? "Jood AI is speaking..." : 
-           isProcessing ? "Processing your voice..." :
-           isListening ? "I'm listening..." : 
-           "Jood AI Voice Assistant"}
-        </h3>
-        <p className="text-muted-foreground text-base leading-relaxed max-w-md">
-          {isSpeaking ? "Your Jood AI assistant is ready to assist with premium insights and personalized guidance." :
-           isProcessing ? "Converting your speech to text..." :
-           isListening ? "Please share your financial questions or goals..." :
-           "Activate voice mode to experience Jood AI's sophisticated assistance"}
-        </p>
-      </div>
-
-      {/* Luxury Controls */}
-      <div className="flex space-x-6 mb-8">
-        <Button
-          onClick={toggleListening}
-          variant={isListening ? "destructive" : "default"}
-          size="lg"
-          className="luxury-button rounded-full w-20 h-20 shadow-luxury hover:shadow-gold transition-luxury"
-          disabled={isSpeaking || isProcessing}
+        <button
+          onClick={handleMicPress}
+          disabled={mode === 'processing' || mode === 'thinking'}
+          className={cn(
+            'relative w-28 h-28 rounded-full flex items-center justify-center transition-all shadow-luxury',
+            'select-none disabled:opacity-50 disabled:cursor-not-allowed',
+            `bg-gradient-to-br ${cfg.color}`,
+            mode === 'listening' && 'scale-110',
+            mode === 'idle' && 'hover:scale-105',
+          )}
         >
-          {isListening ? <MicOff className="h-7 w-7" /> : <Mic className="h-7 w-7" />}
-        </Button>
-        
+          {mode === 'listening'
+            ? <MicOff className="w-10 h-10 text-white" />
+            : <Mic className="w-10 h-10 text-white" />
+          }
+        </button>
+      </div>
+
+      {/* Visualizer */}
+      <div className="h-10 flex items-center justify-center">
+        {mode === 'processing' || mode === 'thinking'
+          ? <ThinkingDots />
+          : <WaveformBars active={isActive} />
+        }
+      </div>
+
+      {/* Status label */}
+      <AnimatePresence mode="wait">
+        <motion.p
+          key={mode}
+          initial={{ opacity: 0, y: 6 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0 }}
+          className="text-base font-arabic font-semibold text-foreground text-center"
+        >
+          {cfg.ar}
+        </motion.p>
+      </AnimatePresence>
+
+      {/* Live transcript */}
+      <AnimatePresence>
+        {transcript && (
+          <motion.div
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+            className="w-full max-w-sm bg-muted/60 border border-border/50 rounded-2xl px-4 py-3"
+          >
+            <p className="text-sm font-arabic text-center text-foreground/80 leading-relaxed">{transcript}</p>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Conversation history (last 4 messages) */}
+      {lastMessages.length > 0 && !transcript && (
+        <div className="w-full max-w-sm space-y-2">
+          {lastMessages.map(msg => (
+            <motion.div
+              key={msg.id}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              className={cn(
+                'px-3 py-2 rounded-xl text-xs font-arabic leading-relaxed',
+                msg.role === 'user'
+                  ? 'bg-jood-teal-700/15 text-jood-teal-900 dark:text-jood-teal-300 text-right mr-4'
+                  : 'bg-card border border-border/40 text-foreground ml-4',
+              )}
+            >
+              {msg.content}
+            </motion.div>
+          ))}
+        </div>
+      )}
+
+      {/* Controls */}
+      <div className="flex items-center gap-3">
         <Button
           variant="outline"
-          size="lg"
-          className="rounded-full w-20 h-20 border-2 border-primary/30 hover:border-primary hover:bg-primary/10 transition-luxury shadow-elegant"
-          disabled={isSpeaking || isProcessing}
+          size="icon"
+          onClick={replay}
+          disabled={!messages.some(m => m.role === 'assistant') || mode !== 'idle'}
+          className="rounded-full h-10 w-10"
+          title="إعادة الاستماع"
         >
-          {isSpeaking ? <VolumeX className="h-7 w-7 text-primary" /> : <Volume2 className="h-7 w-7 text-primary" />}
+          <Volume2 className="w-4 h-4" />
+        </Button>
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={() => { stopSpeaking(); stopRecording(); setMode('idle'); setTranscript(''); }}
+          disabled={mode === 'idle'}
+          className="rounded-full h-10 w-10"
+          title="إعادة التعيين"
+        >
+          <RefreshCw className="w-4 h-4" />
         </Button>
       </div>
 
-      {/* Luxury Voice Suggestions */}
-      <div className="text-center max-w-lg">
-        <p className="text-sm text-muted-foreground font-medium mb-2">Elegant Voice Commands:</p>
-        <div className="grid grid-cols-1 gap-2 text-xs text-muted-foreground">
-          <p>"Show me my financial portfolio analysis"</p>
-          <p>"What are my personalized investment suggestions?"</p>
-          <p>"How am I progressing toward my savings goals?"</p>
-        </div>
+      {/* Hint */}
+      <p className="text-[10px] text-muted-foreground text-center font-arabic">
+        {mode === 'idle'
+          ? 'اضغطي المايك للتحدث · للمجلس الكامل استخدمي الزر أعلاه'
+          : mode === 'listening'
+          ? 'اضغطي مجدداً عند الانتهاء'
+          : mode === 'speaking'
+          ? 'اضغطي المايك لمقاطعة جود'
+          : ''}
+      </p>
+
+      {/* Engine badge */}
+      <div className="flex items-center gap-1.5 px-3 py-1.5 bg-muted/40 rounded-full">
+        <Sparkles className="w-3 h-3 text-jood-gold-500" />
+        <span className="text-[10px] text-muted-foreground">Whisper · ElevenLabs · GPT-5</span>
       </div>
-    </Card>
+    </div>
   );
 };
