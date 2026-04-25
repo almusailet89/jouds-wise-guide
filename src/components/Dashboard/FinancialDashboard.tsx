@@ -1,425 +1,238 @@
 import React, { useState, useMemo } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
-import { 
-  TrendingUp, 
-  TrendingDown, 
-  DollarSign, 
-  PiggyBank, 
-  Target, 
-  Crown, 
-  Sparkles, 
-  Plus, 
-  RefreshCw,
-  FileText,
-  BarChart3,
-  Settings
-} from "lucide-react";
-import { toast } from "sonner";
+import { motion } from 'framer-motion';
+import { Button } from '@/components/ui/button';
+import { Plus, RefreshCw, FileText } from 'lucide-react';
 import { useFinancialDashboard } from '@/hooks/useFinancialDashboard';
+import { WalletSummary } from './WalletSummary';
+import { SpendingBreakdownChart } from './SpendingBreakdownChart';
+import { MonthlyFlowChart } from './MonthlyFlowChart';
 import { AddEntryModal } from './AddEntryModal';
 import { AddHoldingModal } from './AddHoldingModal';
-import { SetSavingsTargetModal } from './SetSavingsTargetModal';
 import { FinancialLedgerDrawer } from './FinancialLedgerDrawer';
 import { PortfolioTable } from './PortfolioTable';
 import { AllocationChart } from './AllocationChart';
-import { EquityCurveChart } from './EquityCurveChart';
 import { InsightsPanel } from './InsightsPanel';
 import { NewsPanel } from './NewsPanel';
 import { ZakatCard } from './ZakatCard';
 import FinanceExtras from './FinanceExtras';
+import { cn } from '@/lib/utils';
 
-interface KPICardProps {
-  title: string;
-  value: string;
-  change: string;
-  icon: React.ReactNode;
-  trend: 'up' | 'down' | 'neutral';
+// ─── Time filter options ────────────────────────────────────────────────────
+type Period = 'month' | '30d' | 'ytd';
+const PERIODS: { value: Period; label: string }[] = [
+  { value: 'month', label: 'هذا الشهر' },
+  { value: '30d',   label: '٣٠ يوم' },
+  { value: 'ytd',   label: 'هذا العام' },
+];
+
+// ─── Filter entries by period ────────────────────────────────────────────────
+function filterByPeriod(entries: any[], period: Period) {
+  const now = new Date();
+  return entries.filter(e => {
+    const d = new Date(e.date);
+    if (period === 'month') {
+      return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+    }
+    if (period === '30d') {
+      return (now.getTime() - d.getTime()) <= 30 * 24 * 60 * 60 * 1000;
+    }
+    // ytd
+    return d.getFullYear() === now.getFullYear();
+  });
 }
 
-const KPICard: React.FC<KPICardProps> = ({ title, value, change, icon, trend }) => (
-  <Card className="luxury-card hover:shadow-gold transition-luxury group">
-    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-      <CardTitle className="text-sm font-semibold text-muted-foreground">{title}</CardTitle>
-      <div className="text-primary group-hover:text-secondary transition-colors">
-        {icon}
-      </div>
-    </CardHeader>
-    <CardContent>
-      <div className="text-3xl font-bold bg-gradient-luxury bg-clip-text text-transparent mb-2">
-        {value}
-      </div>
-      <div className={`text-sm flex items-center font-medium ${
-        trend === 'up' ? 'text-primary' : 
-        trend === 'down' ? 'text-destructive' : 'text-muted-foreground'
-      }`}>
-        {trend === 'up' && <TrendingUp className="w-4 h-4 mr-2" />}
-        {trend === 'down' && <TrendingDown className="w-4 h-4 mr-2" />}
-        {change}
-      </div>
-    </CardContent>
-  </Card>
-);
+const PERIOD_LABEL: Record<Period, string> = {
+  month: 'هذا الشهر',
+  '30d': '٣٠ يوم',
+  ytd:   'هذا العام',
+};
 
+// ═══════════════════════════════════════════════════════════════════════════
 export const FinancialDashboard: React.FC = () => {
-  const [timeFilter, setTimeFilter] = useState<'7d' | '30d' | 'ytd'>('30d');
-  const [showAddEntry, setShowAddEntry] = useState(false);
+  const [period, setPeriod] = useState<Period>('month');
+  const [showAddEntry,   setShowAddEntry]   = useState(false);
   const [showAddHolding, setShowAddHolding] = useState(false);
-  const [showSetTarget, setShowSetTarget] = useState(false);
-  const [showLedger, setShowLedger] = useState(false);
-  
+  const [showLedger,     setShowLedger]     = useState(false);
+
   const {
-    financialEntries,
-    portfolioHoldings,
-    portfolioSummary,
-    insights,
-    news,
-    loading,
-    refreshPrices,
-    fetchInsights,
-    getCurrentMonthSavings,
-    savingsTarget
+    financialEntries, portfolioHoldings, portfolioSummary,
+    insights, news, loading,
+    monthlyBudget, updateMonthlyBudget,
+    getMonthlyFlow,
+    refreshPrices, fetchInsights,
   } = useFinancialDashboard();
 
-  // Calculate KPIs from financial entries
-  const calculateKPIs = () => {
-    const currentMonth = new Date().getMonth();
-    const currentYear = new Date().getFullYear();
-    
-    const monthlyData = financialEntries.filter(entry => {
-      const entryDate = new Date(entry.date);
-      return entryDate.getMonth() === currentMonth && entryDate.getFullYear() === currentYear;
-    });
+  // Filtered entries for the selected period
+  const filteredEntries = useMemo(() => filterByPeriod(financialEntries, period), [financialEntries, period]);
 
-    const monthlyIncome = monthlyData
-      .filter(entry => entry.type === 'income')
-      .reduce((sum, entry) => sum + entry.amount, 0);
-
-    const monthlyExpenses = monthlyData
-      .filter(entry => entry.type === 'expense')
-      .reduce((sum, entry) => sum + entry.amount, 0);
-
-    const totalSavings = financialEntries
-      .filter(entry => entry.type === 'savings')
-      .reduce((sum, entry) => sum + entry.amount, 0);
-
-    const portfolioValue = portfolioSummary?.total_value || 0;
-
-    return {
-      monthlyIncome,
-      monthlyExpenses,
-      totalSavings,
-      portfolioValue,
-      currency: 'SAR'
-    };
-  };
-
-  const kpiData = calculateKPIs();
-  const savingsProgress = getCurrentMonthSavings();
-
-  const kpis = [
-    {
-      title: "Monthly Income",
-      value: `${kpiData.currency} ${kpiData.monthlyIncome.toLocaleString()}`,
-      change: `${kpiData.monthlyIncome > 0 ? '+' : ''}${Math.round((Math.random() * 20) - 5)}% from last month`,
-      icon: <Crown className="h-5 w-5" />,
-      trend: 'up' as const
-    },
-    {
-      title: "Monthly Expenses", 
-      value: `${kpiData.currency} ${kpiData.monthlyExpenses.toLocaleString()}`,
-      change: `${Math.round((Math.random() * 10) - 15)}% from last month`,
-      icon: <TrendingDown className="h-5 w-5" />,
-      trend: 'down' as const
-    },
-    {
-      title: "Total Savings",
-      value: `${kpiData.currency} ${kpiData.totalSavings.toLocaleString()}`,
-      change: `+${Math.round(Math.random() * 15 + 5)}% this month`, 
-      icon: <PiggyBank className="h-5 w-5" />,
-      trend: 'up' as const
-    },
-    {
-      title: "Portfolio Value",
-      value: `${kpiData.currency} ${kpiData.portfolioValue.toLocaleString()}`,
-      change: portfolioSummary?.total_pnl_percent ? 
-        `${portfolioSummary.total_pnl_percent > 0 ? '+' : ''}${portfolioSummary.total_pnl_percent.toFixed(2)}% total` :
-        'No change',
-      icon: <Sparkles className="h-5 w-5" />,
-      trend: (() => {
-        if (!portfolioSummary?.total_pnl_percent) return 'neutral' as const;
-        return portfolioSummary.total_pnl_percent > 0 ? 'up' as const : 'down' as const;
-      })()
-    }
-  ];
-
-  // Prepare allocation chart data
+  // Allocation chart data
   const allocationData = useMemo(() => {
     if (!portfolioSummary?.asset_allocation) return [];
-    
-    return Object.entries(portfolioSummary.asset_allocation).map(([type, percentage]) => ({
-      name: type.charAt(0).toUpperCase() + type.slice(1),
-      value: Number(percentage),
-      color: ''
+    return Object.entries(portfolioSummary.asset_allocation).map(([type, pct]) => ({
+      name: type === 'stock' ? 'أسهم' : type === 'crypto' ? 'كريبتو' : type === 'real_estate' ? 'عقار' : type,
+      value: Number(pct),
+      color: '',
     }));
   }, [portfolioSummary]);
 
-  // Prepare equity curve data (mock for now)
-  const equityCurveData = useMemo(() => {
-    const data = [];
-    const now = new Date();
-    for (let i = 30; i >= 0; i--) {
-      const date = new Date(now);
-      date.setDate(date.getDate() - i);
-      data.push({
-        date: date.toISOString().split('T')[0],
-        value: (portfolioSummary?.total_value || 10000) * (0.95 + Math.random() * 0.1),
-        timestamp: date.toISOString()
-      });
-    }
-    return data;
-  }, [portfolioSummary]);
+  // Monthly flow (always 6 months, not filtered by period)
+  const monthlyFlowData = useMemo(() => getMonthlyFlow(6), [getMonthlyFlow]);
 
-  const getProgressColor = (progress: number) => {
-    if (progress >= 100) return 'text-green-600';
-    if (progress >= 75) return 'text-primary';
-    if (progress >= 50) return 'text-yellow-600';
-    return 'text-red-600';
-  };
-
-  const getDailyNeededColor = (dailyNeeded: number, daysRemaining: number) => {
-    if (daysRemaining === 0) return 'text-muted-foreground';
-    if (dailyNeeded <= 100) return 'text-green-600';
-    if (dailyNeeded <= 300) return 'text-yellow-600';
-    return 'text-red-600';
-  };
+  const currency = 'SAR';
 
   return (
-    <div className="space-y-8">
-      {/* Header with Actions */}
-      <div className="flex items-center justify-between">
+    <div className="space-y-6" dir="rtl">
+
+      {/* ── Header ─────────────────────────────────────────────────────── */}
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h2 className="text-3xl font-bold bg-gradient-luxury bg-clip-text text-transparent">
-            Wealth Management Hub
-          </h2>
-          <p className="text-muted-foreground mt-1 font-medium">
-            Complete financial dashboard with live portfolio tracking
+          <h2 className="text-2xl font-black font-arabic text-foreground">محفظتي</h2>
+          <p className="text-sm text-muted-foreground font-arabic mt-0.5">
+            كل شيء في مكان واحد — الرصيد، الميزانية، الاستثمار
           </p>
         </div>
-        
-        <div className="flex items-center gap-4">
-          {/* Time Filter */}
-          <div className="flex space-x-2">
-            {(['7d', '30d', 'ytd'] as const).map((filter) => (
-              <Button
-                key={filter}
-                variant={timeFilter === filter ? "default" : "outline"}
-                size="sm"
-                onClick={() => setTimeFilter(filter)}
-                className={timeFilter === filter ? "luxury-button" : "border-primary/30 hover:border-primary hover:bg-primary/10"}
+
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Period filter */}
+          <div className="flex rounded-xl border border-border/50 overflow-hidden bg-card/50">
+            {PERIODS.map(p => (
+              <button
+                key={p.value}
+                onClick={() => setPeriod(p.value)}
+                className={cn(
+                  'px-3 py-1.5 text-xs font-arabic transition-all duration-150',
+                  period === p.value
+                    ? 'bg-jood-teal-900 text-white font-bold'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-muted/40',
+                )}
               >
-                {filter === '7d' ? '7D' : filter === '30d' ? '30D' : 'YTD'}
-              </Button>
+                {p.label}
+              </button>
             ))}
           </div>
 
-          {/* Action Buttons */}
-          <div className="flex gap-2">
-            <Button
-              onClick={() => setShowLedger(true)}
-              variant="outline"
-              size="sm"
-              className="bg-white/10 border-white/20 hover:bg-white/20"
-            >
-              <FileText className="h-4 w-4 mr-2" />
-              Ledger
-            </Button>
-            <Button
-              onClick={refreshPrices}
-              disabled={loading}
-              variant="outline"
-              size="sm"
-              className="bg-white/10 border-white/20 hover:bg-white/20"
-            >
-              <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-              Refresh
-            </Button>
-          </div>
+          <Button
+            onClick={() => setShowLedger(true)}
+            variant="outline"
+            size="sm"
+            className="gap-1.5 font-arabic text-xs border-border/50"
+          >
+            <FileText className="w-3.5 h-3.5" />
+            السجل الكامل
+          </Button>
+
+          <Button
+            onClick={refreshPrices}
+            disabled={loading}
+            variant="outline"
+            size="sm"
+            className="gap-1.5 font-arabic text-xs border-border/50"
+          >
+            <RefreshCw className={cn('w-3.5 h-3.5', loading && 'animate-spin')} />
+            تحديث
+          </Button>
+
+          <Button
+            onClick={() => setShowAddEntry(true)}
+            size="sm"
+            className="gap-1.5 font-arabic text-xs bg-jood-teal-900 hover:bg-jood-teal-700 text-white"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            إضافة معاملة
+          </Button>
         </div>
       </div>
 
-      {/* Quick Add Buttons */}
-      <div className="flex gap-4">
-        <Button
-          onClick={() => setShowAddEntry(true)}
-          className="luxury-button"
-        >
-          <Plus className="h-4 w-4 mr-2" />
-          Add Entry
-        </Button>
-        <Button
-          onClick={() => setShowAddHolding(true)}
-          variant="secondary"
-          className="bg-gradient-secondary text-white shadow-gold hover:shadow-luxury"
-        >
-          <Plus className="h-4 w-4 mr-2" />
-          Add Holding
-        </Button>
+      {/* ── Wallet + Budget (the one wallet) ──────────────────────────── */}
+      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
+        <WalletSummary
+          entries={filteredEntries}
+          monthlyBudget={monthlyBudget}
+          currency={currency}
+          onUpdateBudget={updateMonthlyBudget}
+          periodLabel={PERIOD_LABEL[period]}
+        />
+      </motion.div>
+
+      {/* ── Chat hint strip ────────────────────────────────────────────── */}
+      <div className="flex items-center gap-2 rounded-xl bg-jood-teal-900/5 border border-jood-teal-700/20 px-4 py-2.5">
+        <span className="text-lg">💬</span>
+        <p className="text-xs font-arabic text-muted-foreground">
+          يمكنك إدخال أي معاملة أو تحديث الميزانية بصوتك عبر{' '}
+          <span className="font-bold text-jood-teal-700">المجلس</span> أو بالكتابة في{' '}
+          <span className="font-bold text-jood-teal-700">محادثة جود</span> — مثال: «صرفت ٣٠٠ ريال على التسوق» أو «حدّدي ميزانيتي بـ ٨٠٠٠ ريال»
+        </p>
       </div>
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {kpis.map((kpi, index) => (
-          <KPICard key={index} {...kpi} />
-        ))}
+      {/* ── Spending charts ────────────────────────────────────────────── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, delay: 0.1 }}>
+          <SpendingBreakdownChart entries={filteredEntries} currency={currency} />
+        </motion.div>
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, delay: 0.15 }}>
+          <MonthlyFlowChart data={monthlyFlowData} currency={currency} />
+        </motion.div>
       </div>
 
-      {/* Finance Extras: Salary Countdown + Goals + AI Projections */}
-      <FinanceExtras />
+      {/* ── Finance extras (salary countdown, goals, projections) ─────── */}
+      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, delay: 0.2 }}>
+        <FinanceExtras />
+      </motion.div>
 
-      {/* Zakat Calculator */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-1">
-          <ZakatCard />
-        </div>
-        <div className="lg:col-span-2">
-          {/* Savings Target Card (moved inline) */}
-        </div>
-      </div>
-
-      {/* Savings Target Card */}
-      <Card className="luxury-card">
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle className="flex items-center space-x-3">
-              <div className="bg-gradient-luxury p-2 rounded-full">
-                <Target className="h-6 w-6 text-white" />
-              </div>
-              <div>
-                <span className="text-xl font-semibold">Monthly Savings Target</span>
-                <p className="text-sm text-muted-foreground font-normal">Wealth accumulation goal</p>
-              </div>
-            </CardTitle>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowSetTarget(true)}
-              className="bg-white/10 border-white/20 hover:bg-white/20"
-            >
-              <Settings className="h-4 w-4 mr-2" />
-              Set Target
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex justify-between items-end">
-            <div>
-              <p className="text-sm text-muted-foreground">Current Progress</p>
-              <p className="text-2xl font-bold bg-gradient-luxury bg-clip-text text-transparent">
-                SAR {savingsProgress.current.toLocaleString()} 
-                <span className="text-lg text-muted-foreground">
-                  / SAR {savingsProgress.target.toLocaleString()}
-                </span>
-              </p>
-            </div>
-            <Badge className={`px-4 py-2 text-lg font-semibold ${getProgressColor(savingsProgress.progress)}`}>
-              {savingsProgress.progress.toFixed(0)}%
-            </Badge>
-          </div>
-          
-          <Progress 
-            value={Math.min(100, savingsProgress.progress)} 
-            className="h-4 bg-muted shadow-inner" 
-          />
-          
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-muted/50 rounded-lg p-3 border border-border/50">
-              <p className="text-xs text-muted-foreground font-medium">Days Remaining</p>
-              <p className="text-lg font-bold text-foreground">{savingsProgress.daysRemaining}</p>
-            </div>
-            <div className="bg-muted/50 rounded-lg p-3 border border-border/50">
-              <p className="text-xs text-muted-foreground font-medium">Daily Needed</p>
-              <p className={`text-lg font-bold ${getDailyNeededColor(savingsProgress.dailyNeeded, savingsProgress.daysRemaining)}`}>
-                SAR {savingsProgress.dailyNeeded.toFixed(0)}
-              </p>
-            </div>
-            <div className="bg-muted/50 rounded-lg p-3 border border-border/50">
-              <p className="text-xs text-muted-foreground font-medium">Remaining</p>
-              <p className="text-lg font-bold text-foreground">
-                SAR {savingsProgress.remaining.toLocaleString()}
-              </p>
-            </div>
-          </div>
-          
-          <div className="bg-muted/50 rounded-lg p-4 border border-border/50">
-            <p className="text-sm font-medium text-foreground">
-              {savingsProgress.progress >= 100 ? 
-                '🎉 Congratulations! You\'ve exceeded your monthly savings target.' :
-                savingsProgress.daysRemaining === 0 ?
-                '⏰ Month ended. Review your progress and set next month\'s target.' :
-                `💪 Keep going! Save SAR ${savingsProgress.dailyNeeded.toFixed(0)} daily to reach your goal.`
-              }
-            </p>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Portfolio Holdings Table */}
+      {/* ── Portfolio ─────────────────────────────────────────────────── */}
       {portfolioHoldings.length > 0 && (
-        <Card className="luxury-card">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <BarChart3 className="h-5 w-5 text-primary" />
-              Portfolio Holdings
-            </CardTitle>
-            <p className="text-sm text-muted-foreground">
-              Live prices and performance tracking
-            </p>
-          </CardHeader>
-          <CardContent>
-            <PortfolioTable holdings={portfolioHoldings} />
-          </CardContent>
-        </Card>
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.25 }}
+          className="space-y-5"
+        >
+          <div className="flex items-center justify-between">
+            <h3 className="text-base font-bold font-arabic text-foreground">المحفظة الاستثمارية</h3>
+            <Button
+              onClick={() => setShowAddHolding(true)}
+              size="sm"
+              variant="outline"
+              className="gap-1.5 font-arabic text-xs"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              إضافة أصل
+            </Button>
+          </div>
+          <PortfolioTable holdings={portfolioHoldings} />
+          <AllocationChart data={allocationData} title="توزيع الأصول" />
+        </motion.div>
       )}
 
-      {/* Charts Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <AllocationChart data={allocationData} />
-        <EquityCurveChart data={equityCurveData} />
+      {/* Add holding button if portfolio is empty */}
+      {portfolioHoldings.length === 0 && (
+        <div className="text-center py-6 rounded-xl border border-dashed border-border/50">
+          <p className="font-arabic text-sm text-muted-foreground mb-3">لا توجد أصول في المحفظة بعد</p>
+          <Button
+            onClick={() => setShowAddHolding(true)}
+            size="sm"
+            variant="outline"
+            className="gap-1.5 font-arabic text-xs"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            أضيفي أول أصل
+          </Button>
+        </div>
+      )}
+
+      {/* ── AI Insights + News ─────────────────────────────────────────── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        <InsightsPanel insights={insights} loading={loading} onRefresh={fetchInsights} />
+        <NewsPanel news={news} loading={loading} />
       </div>
 
-      {/* Insights and News */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <InsightsPanel 
-          insights={insights}
-          loading={loading}
-          onRefresh={fetchInsights}
-        />
-        <NewsPanel 
-          news={news}
-          loading={loading}
-        />
-      </div>
+      {/* ── Zakat ──────────────────────────────────────────────────────── */}
+      <ZakatCard />
 
-      {/* Modals */}
-      <AddEntryModal 
-        open={showAddEntry}
-        onOpenChange={setShowAddEntry}
-      />
-      <AddHoldingModal 
-        open={showAddHolding}
-        onOpenChange={setShowAddHolding}
-      />
-      <SetSavingsTargetModal
-        open={showSetTarget}
-        onOpenChange={setShowSetTarget}
-      />
-      <FinancialLedgerDrawer
-        open={showLedger}
-        onOpenChange={setShowLedger}
-      />
+      {/* ── Modals ────────────────────────────────────────────────────── */}
+      <AddEntryModal   open={showAddEntry}   onOpenChange={setShowAddEntry} />
+      <AddHoldingModal open={showAddHolding} onOpenChange={setShowAddHolding} />
+      <FinancialLedgerDrawer open={showLedger} onOpenChange={setShowLedger} />
     </div>
   );
 };

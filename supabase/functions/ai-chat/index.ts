@@ -200,6 +200,21 @@ const functionTools = [
         required: ["address", "property_type", "purchase_price"]
       }
     }
+  },
+  {
+    type: "function",
+    function: {
+      name: "set_monthly_budget",
+      description: "Set or update the user's monthly spending budget. Use when the user says things like 'حدّدي ميزانيتي', 'set my budget', 'ميزانيتي X ريال', 'I want to spend X per month'.",
+      parameters: {
+        type: "object",
+        properties: {
+          budget: { type: "number", description: "Monthly budget amount" },
+          currency: { type: "string", description: "Currency code (default SAR)" }
+        },
+        required: ["budget"]
+      }
+    }
   }
 ];
 
@@ -311,6 +326,14 @@ async function executeFunction(functionCall: any, userId: string, supabase: any)
       if (realEstateError) throw realEstateError;
       return `Added ${parsedArgs.property_type} in ${parsedArgs.address} worth ${parsedArgs.purchase_price} ${parsedArgs.currency || 'SAR'}.`;
     
+    case 'set_monthly_budget': {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ monthly_budget: parsedArgs.budget })
+        .eq('user_id', userId);
+      if (error) throw error;
+      return `تم تحديد ميزانيتك الشهرية بـ ${new Intl.NumberFormat('ar-SA').format(parsedArgs.budget)} ${parsedArgs.currency || 'ريال'}.`;
+    }
     default:
       throw new Error(`Unknown function: ${name}`);
   }
@@ -434,13 +457,22 @@ serve(async (req) => {
     const respondInEnglish = detected_language === "en";
     const respondMixed     = detected_language === "mixed";
 
-    // ── Detect "Jood, note this" trigger ─────────────────────────────────────
-    const isActionMode = message.toLowerCase().startsWith('jood, note this');
-    const shouldPreview = isActionMode && mode !== 'commit';
-    const shouldCommit = isActionMode && mode === 'commit';
-    const isConfirmation = ['yes', 'confirm', 'ok', 'sure', 'proceed'].includes(message.toLowerCase().trim());
-    const isEdit = message.toLowerCase().includes('edit');
-    const isCancel = ['no', 'cancel', 'nevermind'].includes(message.toLowerCase().trim());
+    // ── Action detection (tools always available — GPT decides when to call) ───
+    // Preview → confirm two-step is still required before any DB write.
+    // Users can trigger recording naturally in Arabic/English/voice:
+    //   "صرفت ٢٠٠ ريال" / "spent 500 on lunch" / "حدّدي ميزانيتي بـ ٨٠٠٠"
+    const isConfirmation = [
+      'yes','confirm','ok','sure','proceed',
+      'نعم','تأكيد','تمام','ماشي','صح','أكيد',
+    ].includes(message.toLowerCase().trim());
+    const isEdit   = message.toLowerCase().includes('edit') || message.includes('عدّل') || message.includes('تعديل');
+    const isCancel = [
+      'no','cancel','nevermind',
+      'لا','إلغاء','الغي','ملغي',
+    ].includes(message.toLowerCase().trim());
+    const shouldCommit  = mode === 'commit' || (isConfirmation && pendingFunction);
+    const shouldPreview = !shouldCommit && !isCancel;
+    const isActionMode  = true; // tools always offered; GPT decides when to invoke
 
     // ── Saudi Dialect Voice System Prompt ────────────────────────────────────
     // This is the core identity layer — Blueprint slides 3, 4, 5, 10, 11, 18
@@ -496,31 +528,25 @@ ${userContext ? `بيانات المستخدم: ${userContext}` : ""}${memorySec
 
     let systemPrompt = JOOD_BASE_IDENTITY + VOICE_RULES + LANGUAGE_RULE;
 
-    if (shouldPreview) {
+    if (shouldCommit) {
       systemPrompt += `
 
-المستخدم قال "Jood, note this" — يريد منكِ تسجيل شيء. اتبعي الخطوات التالية:
-1. استخدمي أدوات function calling لتحليل الطلب
-2. ردّي بـ: "سأسجّل هذا: [ملخص طبيعي]"
-3. اعرضي ملخصاً واضحاً لما سيُحفظ
-4. اختمي بـ: "تأكيدي؟ نعم / لا / تعديل"
-
-لا تُنفّذي أي حفظ في قاعدة البيانات الآن — هذا وضع المعاينة فقط.`;
-
-    } else if (shouldCommit || (isConfirmation && pendingFunction)) {
-      systemPrompt += `
-
-المستخدم أكّد. نفّذي function call الآن واردّي بـ "تمام، تم الحفظ." مع تأكيد مختصر لما حُفظ.`;
+المستخدم أكّد. نفّذي function call الآن فوراً ثم ردّي بتأكيد مختصر بالعربية لما تم حفظه.`;
 
     } else if (isCancel) {
       systemPrompt += `
 
-المستخدم ألغى الطلب. ردّي بلطف أنكِ لن تسجّلي شيئاً وتابعي المحادثة.`;
+المستخدم ألغى. ردّي بلطف أنكِ لن تسجّلي شيئاً.`;
 
     } else {
       systemPrompt += `
 
-تكلّمي مع المستخدم كمساعدة شخصية ذكية. لا تُنفّذي أي إجراءات في قاعدة البيانات إلا عند قول "Jood, note this" أو ما يماثله.`;
+قواعد استخدام الأدوات (مهم):
+• استخدمي function calling فقط حين يذكر المستخدم مبلغاً مالياً صريحاً (صرف/دخل/ادخار) أو يطلب تحديد الميزانية
+• أمثلة تستدعي الأداة: «صرفت ٢٠٠ ريال على الغداء», «استلمت راتبي ١٥,٠٠٠», «حدّدي ميزانيتي بـ ٨٠٠٠», «spent 300 SAR on groceries»
+• أمثلة لا تستدعي الأداة: «كم صرفت؟», «ما ميزانيتي؟», سؤال عام
+• عند استدعاء أداة مالية: اعرضي ملخصاً موجزاً لما ستسجّليه واطلبي تأكيد بـ «نعم / لا» — لا تنفّذي مباشرة
+• جوابي في وضع الصوت يجب أن يكون قصيراً وطبيعياً للاستماع`;
     }
 
     const messages = [
@@ -531,17 +557,13 @@ ${userContext ? `بيانات المستخدم: ${userContext}` : ""}${memorySec
 
     const requestBody: any = {
       model: selectedModel,
-      messages: messages,
-      // Voice mode: short responses needed → fewer tokens → lower cost
+      messages,
       max_completion_tokens: voice_mode ? 200 : 1000,
       stream: false,
+      // Tools always available — GPT decides when to invoke
+      tools: functionTools,
+      tool_choice: shouldCommit ? 'required' : 'auto',
     };
-
-    // Enable function calling for action mode or commit with pending function
-    if (shouldPreview || (shouldCommit && pendingFunction)) {
-      requestBody.tools = functionTools;
-      requestBody.tool_choice = 'auto';
-    }
 
     console.log('Sending request to OpenAI...');
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -565,56 +587,59 @@ ${userContext ? `بيانات المستخدم: ${userContext}` : ""}${memorySec
 
     // Handle cancellation
     if (isCancel) {
-      assistantMessage = "Understood — I won't record that. Is there anything else I can help you with?";
+      assistantMessage = "تمام، لن أسجّل شيئاً. في خدمتك.";
     }
     // Handle function calls for commit mode
-    else if (choice.message.tool_calls && (shouldCommit || (isConfirmation && pendingFunction)) && userId) {
+    else if (choice.message.tool_calls && shouldCommit && userId) {
       try {
-        const functionCall = choice.message.tool_calls[0].function || pendingFunction;
+        const functionCall = choice.message.tool_calls[0]?.function || pendingFunction;
         const result = await executeFunction(functionCall, userId, supabaseClient);
         functionResults = result;
-        assistantMessage = `Consider it done. ${result}`;
-      } catch (error) {
+        assistantMessage = `تمّ ✓ ${result}`;
+      } catch (error: any) {
         console.error('Function execution error:', error);
-        assistantMessage = `I encountered an error while trying to save that information: ${error.message}. Please try again.`;
+        assistantMessage = `حدث خطأ أثناء الحفظ: ${error.message}. حاولي مجدداً.`;
       }
     }
-    // Handle function calls for preview mode
-    else if (choice.message.tool_calls && shouldPreview) {
+    // Handle function calls for preview mode — show Arabic confirmation prompt
+    else if (choice.message.tool_calls && !shouldCommit) {
       const functionCall = choice.message.tool_calls[0].function;
       const parsedArgs = JSON.parse(functionCall.arguments);
-      
-      // Create a structured preview
-      let preview = `I will record this as requested: `;
-      
+      const fmt = (n: number) => new Intl.NumberFormat('ar-SA', { maximumFractionDigits: 0 }).format(n);
+
+      let preview = 'سأسجّل: ';
       switch (functionCall.name) {
         case 'add_task':
-          preview += `Add task "${parsedArgs.title}"`;
-          if (parsedArgs.due_date) preview += ` due ${new Date(parsedArgs.due_date).toLocaleDateString()}`;
-          if (parsedArgs.priority) preview += ` with ${parsedArgs.priority} priority`;
+          preview += `مهمة "${parsedArgs.title}"`;
+          if (parsedArgs.priority) preview += ` · أولوية ${parsedArgs.priority === 'high' ? 'عالية' : parsedArgs.priority === 'low' ? 'منخفضة' : 'متوسطة'}`;
           break;
-        case 'add_financial_entry':
-          preview += `${parsedArgs.type} of ${parsedArgs.amount} ${parsedArgs.currency}`;
-          if (parsedArgs.category) preview += ` for ${parsedArgs.category}`;
+        case 'add_financial_entry': {
+          const typeAr = parsedArgs.type === 'income' ? 'دخل' : parsedArgs.type === 'savings' ? 'ادخار' : 'مصروف';
+          preview += `${typeAr} ${fmt(parsedArgs.amount)} ${parsedArgs.currency || 'ريال'}`;
+          if (parsedArgs.category) preview += ` · ${parsedArgs.category}`;
+          break;
+        }
+        case 'set_monthly_budget':
+          preview += `ميزانية شهرية ${fmt(parsedArgs.budget)} ${parsedArgs.currency || 'ريال'}`;
           break;
         case 'add_stock_to_portfolio':
-          preview += `${parsedArgs.quantity} shares of ${parsedArgs.symbol} at $${parsedArgs.buy_price}`;
+          preview += `${parsedArgs.quantity} سهم ${parsedArgs.symbol} بـ ${parsedArgs.buy_price}`;
           break;
         case 'add_crypto_to_portfolio':
-          preview += `${parsedArgs.quantity} ${parsedArgs.symbol} at $${parsedArgs.buy_price}`;
+          preview += `${parsedArgs.quantity} ${parsedArgs.symbol} بـ ${parsedArgs.buy_price}`;
           break;
         case 'add_real_estate':
-          preview += `${parsedArgs.property_type} in ${parsedArgs.address} for ${parsedArgs.purchase_price} ${parsedArgs.currency || 'SAR'}`;
+          preview += `${parsedArgs.property_type} في ${parsedArgs.address} بـ ${fmt(parsedArgs.purchase_price)} ${parsedArgs.currency || 'ريال'}`;
           break;
+        default:
+          preview += functionCall.name;
       }
-      
-      assistantMessage = `${preview}.\n\nPlease confirm: Yes / No / Edit.`;
-      
-      // Store the function call for later execution
-      functionResults = {
-        function_call: functionCall,
-        preview_mode: true
-      };
+
+      assistantMessage = voice_mode
+        ? `${preview}. تأكيدي؟`
+        : `${preview}\n\nتأكيدي؟ قولي **نعم** للحفظ أو **لا** للإلغاء.`;
+
+      functionResults = { function_call: functionCall, preview_mode: true };
     }
 
     // Store the interaction for context memory

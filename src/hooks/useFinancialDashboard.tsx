@@ -43,6 +43,8 @@ export interface SavingsTarget {
   savings_target_date: string;
 }
 
+const AR_MONTHS = ['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
+
 export const useFinancialDashboard = () => {
   const { user, session } = useAuth();
   const [financialEntries, setFinancialEntries] = useState<FinancialEntry[]>([]);
@@ -52,6 +54,7 @@ export const useFinancialDashboard = () => {
   const [loading, setLoading] = useState(false);
   const [portfolioSummary, setPortfolioSummary] = useState<any>(null);
   const [savingsTarget, setSavingsTarget] = useState<SavingsTarget | null>(null);
+  const [monthlyBudget, setMonthlyBudget] = useState<number>(0);
 
   // Fetch financial entries
   const fetchFinancialEntries = useCallback(async (range?: string) => {
@@ -405,6 +408,91 @@ export const useFinancialDashboard = () => {
     };
   }, [financialEntries, savingsTarget]);
 
+  // ── Monthly budget ────────────────────────────────────────────────────────
+  const fetchMonthlyBudget = useCallback(async () => {
+    if (!user) return;
+    try {
+      const { data } = await supabase
+        .from('profiles')
+        .select('monthly_budget')
+        .eq('user_id', user.id)
+        .single();
+      if (data?.monthly_budget != null) setMonthlyBudget(Number(data.monthly_budget));
+    } catch { /* non-fatal */ }
+  }, [user]);
+
+  const updateMonthlyBudget = useCallback(async (budget: number) => {
+    if (!user) return;
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ monthly_budget: budget })
+        .eq('user_id', user.id);
+      if (error) throw error;
+      setMonthlyBudget(budget);
+      toast.success('تم تحديث الميزانية');
+    } catch {
+      toast.error('فشل تحديث الميزانية');
+    }
+  }, [user]);
+
+  // ── Analytics helpers ─────────────────────────────────────────────────────
+  // Category breakdown for a slice of entries
+  const getCategoryBreakdown = useCallback((
+    entries: FinancialEntry[],
+    type: 'expense' | 'income' = 'expense',
+  ) => {
+    const filtered = entries.filter(e => e.type === type);
+    const map: Record<string, number> = {};
+    for (const e of filtered) {
+      const cat = e.category?.trim() || 'عام';
+      map[cat] = (map[cat] || 0) + Number(e.amount);
+    }
+    const sorted = Object.entries(map).sort(([, a], [, b]) => b - a);
+    if (sorted.length <= 7) return sorted.map(([name, value]) => ({ name, value }));
+    const top6 = sorted.slice(0, 6);
+    const otherSum = sorted.slice(6).reduce((s, [, v]) => s + v, 0);
+    return [...top6.map(([name, value]) => ({ name, value })), { name: 'أخرى', value: otherSum }];
+  }, []);
+
+  // Last N months income vs expense
+  const getMonthlyFlow = useCallback((months = 6) => {
+    const now = new Date();
+    return Array.from({ length: months }, (_, i) => {
+      const d = new Date(now.getFullYear(), now.getMonth() - (months - 1 - i), 1);
+      const year = d.getFullYear();
+      const month = d.getMonth();
+      const slice = financialEntries.filter(e => {
+        const ed = new Date(e.date);
+        return ed.getFullYear() === year && ed.getMonth() === month;
+      });
+      return {
+        month: AR_MONTHS[month],
+        income:  slice.filter(e => e.type === 'income').reduce((s, e) => s + Number(e.amount), 0),
+        expense: slice.filter(e => e.type === 'expense').reduce((s, e) => s + Number(e.amount), 0),
+        savings: slice.filter(e => e.type === 'savings').reduce((s, e) => s + Number(e.amount), 0),
+      };
+    });
+  }, [financialEntries]);
+
+  // Real period-over-period KPI change (current month vs last month)
+  const getPeriodChange = useCallback((type: 'income' | 'expense' | 'savings') => {
+    const now = new Date();
+    const thisMonth = financialEntries.filter(e => {
+      const d = new Date(e.date);
+      return e.type === type && d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+    }).reduce((s, e) => s + Number(e.amount), 0);
+
+    const lastMonth = financialEntries.filter(e => {
+      const d = new Date(e.date);
+      const lm = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      return e.type === type && d.getMonth() === lm.getMonth() && d.getFullYear() === lm.getFullYear();
+    }).reduce((s, e) => s + Number(e.amount), 0);
+
+    if (lastMonth === 0) return null;
+    return ((thisMonth - lastMonth) / lastMonth) * 100;
+  }, [financialEntries]);
+
   // Initial data fetch
   useEffect(() => {
     if (user && session) {
@@ -413,8 +501,9 @@ export const useFinancialDashboard = () => {
       fetchPortfolioSummary();
       fetchInsights();
       fetchSavingsTarget();
+      fetchMonthlyBudget();
     }
-  }, [user, session, fetchFinancialEntries, fetchPortfolioHoldings, fetchPortfolioSummary, fetchInsights, fetchSavingsTarget]);
+  }, [user, session, fetchFinancialEntries, fetchPortfolioHoldings, fetchPortfolioSummary, fetchInsights, fetchSavingsTarget, fetchMonthlyBudget]);
 
   // Fetch news when holdings change
   useEffect(() => {
@@ -437,6 +526,7 @@ export const useFinancialDashboard = () => {
     news,
     loading,
     savingsTarget,
+    monthlyBudget,
 
     // Financial entries CRUD
     addFinancialEntry,
@@ -454,6 +544,15 @@ export const useFinancialDashboard = () => {
     updateSavingsTarget,
     fetchSavingsTarget,
     getCurrentMonthSavings,
+
+    // Budget
+    updateMonthlyBudget,
+    fetchMonthlyBudget,
+
+    // Analytics
+    getCategoryBreakdown,
+    getMonthlyFlow,
+    getPeriodChange,
 
     // Utilities
     refreshPrices,
