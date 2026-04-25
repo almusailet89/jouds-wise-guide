@@ -3,10 +3,12 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { X, Mic, MicOff, Volume2, Sparkles, Pause, Play } from 'lucide-react';
 import { useChat } from '@/hooks/useChat';
+import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import { supabase } from '@/integrations/supabase/client';
 
-// ─── Visualizer ring (audio-reactive ripples) ─────────────────────────────────
+// ─── Audio-reactive visualizer rings ─────────────────────────────────────────
 const PulseRings: React.FC<{ active: boolean; intensity: number }> = ({ active, intensity }) => (
   <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
     {[0, 1, 2].map(i => (
@@ -33,7 +35,7 @@ const PulseRings: React.FC<{ active: boolean; intensity: number }> = ({ active, 
   </div>
 );
 
-// ─── Frequency bars (animated even without analyser) ──────────────────────────
+// ─── Frequency bars ───────────────────────────────────────────────────────────
 const FreqBars: React.FC<{ active: boolean }> = ({ active }) => (
   <div className="flex items-center justify-center gap-1 h-12">
     {Array.from({ length: 9 }).map((_, i) => (
@@ -55,15 +57,43 @@ const FreqBars: React.FC<{ active: boolean }> = ({ active }) => (
   </div>
 );
 
-// ─── Mode types ───────────────────────────────────────────────────────────────
-type Mode = 'idle' | 'listening' | 'thinking' | 'speaking';
+// ─── Spinner for whisper processing ──────────────────────────────────────────
+const ThinkingDots: React.FC = () => (
+  <div className="flex gap-1.5 items-center justify-center">
+    {[0, 1, 2].map(i => (
+      <motion.span
+        key={i}
+        className="w-2 h-2 rounded-full bg-jood-gold-400"
+        animate={{ opacity: [0.3, 1, 0.3], scale: [0.8, 1.2, 0.8] }}
+        transition={{ duration: 1.4, repeat: Infinity, delay: i * 0.2 }}
+      />
+    ))}
+  </div>
+);
+
+// ─── Mode definitions ─────────────────────────────────────────────────────────
+type Mode = 'idle' | 'listening' | 'processing' | 'thinking' | 'speaking';
 
 const MODE_LABELS: Record<Mode, { ar: string; sub: string }> = {
-  idle:      { ar: 'اضغطي للبدء',      sub: 'أو اضغطي مطوّلاً للحديث المستمر' },
-  listening: { ar: 'أستمع إليك…',     sub: 'تحدثي بحرّية' },
-  thinking:  { ar: 'أفكّر…',           sub: 'لحظة من فضلك' },
-  speaking:  { ar: 'جود تتحدث',       sub: 'اضغطي لمقاطعتها' },
+  idle:       { ar: 'اضغطي للبدء',        sub: 'اضغطة قصيرة = مستمر · مطوّلة = push-to-talk' },
+  listening:  { ar: 'أستمع إليك…',        sub: 'تحدثي بحرّية' },
+  processing: { ar: 'جار التعرف…',        sub: 'Whisper يعالج صوتك' },
+  thinking:   { ar: 'أفكّر…',             sub: 'لحظة من فضلك' },
+  speaking:   { ar: 'جود تتحدث',          sub: 'اضغطي لمقاطعتها' },
 };
+
+// ─── Supported MIME type picker ───────────────────────────────────────────────
+function getBestMimeType(): string {
+  const candidates = [
+    'audio/webm;codecs=opus',
+    'audio/webm',
+    'audio/ogg;codecs=opus',
+    'audio/mp4',
+  ];
+  return candidates.find(t => {
+    try { return MediaRecorder.isTypeSupported(t); } catch { return false; }
+  }) ?? '';
+}
 
 interface MajlisModeProps {
   onClose: () => void;
@@ -71,6 +101,7 @@ interface MajlisModeProps {
 
 // ═══════════════════════════════════════════════════════════════════════════════
 export const MajlisMode: React.FC<MajlisModeProps> = ({ onClose }) => {
+  const { session } = useAuth();
   const { toast } = useToast();
   const { sendMessage, speakMessage, messages, loading, speaking } = useChat();
 
@@ -80,32 +111,36 @@ export const MajlisMode: React.FC<MajlisModeProps> = ({ onClose }) => {
   const [continuous, setContinuous] = useState(false);
   const [intensity, setIntensity] = useState(0);
 
-  const recognitionRef = useRef<any>(null);
+  // ── Refs ─────────────────────────────────────────────────────────────────
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const chunksRef = useRef<BlobPart[]>([]);
+  const mimeTypeRef = useRef<string>('audio/webm');
   const holdTimerRef = useRef<number | null>(null);
   const isHoldingRef = useRef(false);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const rafRef = useRef<number | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  /** Prevents the mode-sync useEffect from overriding 'processing' state */
+  const isProcessingRef = useRef(false);
 
-  // ── Sync mode with chat state ───────────────────────────────────────────────
+  // ── Sync mode with chat state (when not processing Whisper) ──────────────
   useEffect(() => {
+    if (isProcessingRef.current) return;
     if (loading) setMode('thinking');
     else if (speaking) setMode('speaking');
     else if (mode === 'thinking' || mode === 'speaking') setMode('idle');
   }, [loading, speaking]); // eslint-disable-line
 
-  // ── Track latest assistant reply for display ────────────────────────────────
+  // ── Track latest assistant reply for display + replay ────────────────────
   useEffect(() => {
     const last = messages[messages.length - 1];
     if (last?.role === 'assistant') setLastReply(last.content);
   }, [messages]);
 
-  // ── Audio analyser for visualizer intensity ────────────────────────────────
-  const startAnalyser = useCallback(async () => {
+  // ── AnalyserNode tick ─────────────────────────────────────────────────────
+  const startAnalyserLoop = useCallback((stream: MediaStream) => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      streamRef.current = stream;
       const ctx = new AudioContext();
       audioCtxRef.current = ctx;
       const source = ctx.createMediaStreamSource(stream);
@@ -123,7 +158,7 @@ export const MajlisMode: React.FC<MajlisModeProps> = ({ onClose }) => {
       };
       tick();
     } catch {
-      // mic blocked — just animate with random intensity
+      // mic blocked — visualizer falls back to static animation
     }
   }, []);
 
@@ -132,121 +167,197 @@ export const MajlisMode: React.FC<MajlisModeProps> = ({ onClose }) => {
     audioCtxRef.current?.close().catch(() => {});
     streamRef.current?.getTracks().forEach(t => t.stop());
     audioCtxRef.current = null;
+    analyserRef.current = null;
     streamRef.current = null;
     setIntensity(0);
   }, []);
 
-  // ── SpeechRecognition lifecycle ─────────────────────────────────────────────
-  const startListening = useCallback(() => {
-    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SR) {
-      toast({ title: 'غير مدعوم', description: 'استخدمي Chrome أو Edge', variant: 'destructive' });
+  // ── Main recording flow ───────────────────────────────────────────────────
+  const startRecording = useCallback(async () => {
+    if (mediaRecorderRef.current) return; // already recording
+    if (!session) {
+      toast({ title: 'غير مسجّل دخول', variant: 'destructive' });
       return;
     }
-    if (recognitionRef.current) return;
 
-    const r = new SR();
-    r.lang = 'ar-SA';
-    r.continuous = continuous;
-    r.interimResults = true;
-
-    r.onstart = () => { setMode('listening'); startAnalyser(); };
-    r.onend = () => {
-      stopAnalyser();
-      recognitionRef.current = null;
-      // If we stopped while still in listening mode and not continuous, go idle
-      setMode(m => (m === 'listening' ? 'idle' : m));
-    };
-    r.onerror = () => {
-      stopAnalyser();
-      recognitionRef.current = null;
-      setMode('idle');
-    };
-    r.onresult = (e: any) => {
-      let interim = '';
-      let final = '';
-      for (let i = e.resultIndex; i < e.results.length; i++) {
-        const txt = e.results[i][0].transcript;
-        if (e.results[i].isFinal) final += txt;
-        else interim += txt;
-      }
-      setTranscript((final || interim).trim());
-
-      if (final.trim()) {
-        const text = final.trim();
-        setMode('thinking');
-        // Stop recognizer before sending so we don't capture our own TTS
-        try { r.stop(); } catch {}
-        sendMessage(text).then(() => setTranscript(''));
-      }
-    };
-
+    let stream: MediaStream;
     try {
-      r.start();
-      recognitionRef.current = r;
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
     } catch {
-      recognitionRef.current = null;
+      toast({
+        title: 'لا يمكن الوصول للميكروفون',
+        description: 'يرجى السماح للتطبيق بالوصول للميكروفون في إعدادات المتصفح',
+        variant: 'destructive',
+      });
+      return;
     }
-  }, [continuous, sendMessage, startAnalyser, stopAnalyser, toast]);
 
-  const stopListening = useCallback(() => {
-    try { recognitionRef.current?.stop(); } catch {}
-    recognitionRef.current = null;
-    stopAnalyser();
-  }, [stopAnalyser]);
+    streamRef.current = stream;
+    startAnalyserLoop(stream);
 
-  // ── Press-and-hold handlers ─────────────────────────────────────────────────
+    const mimeType = getBestMimeType();
+    mimeTypeRef.current = mimeType;
+    chunksRef.current = [];
+
+    const mr = new MediaRecorder(stream, mimeType ? { mimeType } : {});
+    mediaRecorderRef.current = mr;
+
+    mr.ondataavailable = (e) => {
+      if (e.data.size > 0) chunksRef.current.push(e.data);
+    };
+
+    mr.onstop = async () => {
+      // ── Tear down audio capture ─────────────────────────────────────────
+      stopAnalyser();
+      mediaRecorderRef.current = null;
+
+      const blob = new Blob(chunksRef.current, { type: mimeTypeRef.current || 'audio/webm' });
+      chunksRef.current = [];
+
+      // Ignore very short recordings (< 0.5 KB → silence or misfire)
+      if (blob.size < 500) {
+        isProcessingRef.current = false;
+        setMode('idle');
+        return;
+      }
+
+      // ── Phase 1: Whisper STT ────────────────────────────────────────────
+      isProcessingRef.current = true;
+      setMode('processing');
+      setTranscript('جار التعرف على صوتك…');
+
+      try {
+        const ext = mimeTypeRef.current.includes('mp4')  ? 'mp4'
+                  : mimeTypeRef.current.includes('ogg')  ? 'ogg'
+                  : 'webm';
+
+        const formData = new FormData();
+        formData.append('audio', blob, `recording.${ext}`);
+
+        const { data: sttData, error: sttErr } = await supabase.functions.invoke(
+          'whisper-transcribe',
+          {
+            body: formData,
+            headers: { Authorization: `Bearer ${session.access_token}` },
+          },
+        );
+
+        if (sttErr || !sttData?.text?.trim()) {
+          throw new Error(sttErr?.message ?? 'Empty transcript');
+        }
+
+        const text: string = sttData.text.trim();
+        const lang: 'ar' | 'en' | 'mixed' = sttData.language ?? 'ar';
+
+        setTranscript(text);
+
+        // ── Phase 2: ai-chat ──────────────────────────────────────────────
+        isProcessingRef.current = false; // let loading state take over mode
+
+        const result = await sendMessage(text, {
+          voice_mode: true,
+          detected_language: lang,
+        });
+
+        setTranscript('');
+
+        // ── Phase 3: ElevenLabs TTS ────────────────────────────────────────
+        if (result?.message) {
+          const emotion = result.suggested_emotion ?? 'neutral';
+          await speakMessage(result.message, emotion, true);
+        }
+
+      } catch (err: any) {
+        console.error('[MajlisMode] voice pipeline error:', err);
+        isProcessingRef.current = false;
+        setMode('idle');
+        setTranscript('');
+        toast({
+          title: 'لم أستطع التعرف على صوتك',
+          description: 'حاولي مجدداً أو تحدثي بشكل أوضح',
+          variant: 'destructive',
+        });
+      }
+    };
+
+    mr.start(250); // collect chunks every 250 ms for responsive feedback
+    setMode('listening');
+  }, [session, sendMessage, speakMessage, startAnalyserLoop, stopAnalyser, toast]);
+
+  const stopRecording = useCallback(() => {
+    const mr = mediaRecorderRef.current;
+    if (!mr || mr.state === 'inactive') return;
+    try { mr.stop(); } catch { /* already stopped */ }
+  }, []);
+
+  // ── Press-and-hold interaction ────────────────────────────────────────────
   const handlePressDown = () => {
     isHoldingRef.current = true;
-    // Tap = toggle continuous; Hold (>250ms) = push-to-talk
+    // Wait 250 ms — if still held → push-to-talk; otherwise treat as tap
     holdTimerRef.current = window.setTimeout(() => {
-      if (isHoldingRef.current) startListening();
+      if (isHoldingRef.current && mode === 'idle') startRecording();
     }, 250);
   };
 
   const handlePressUp = () => {
     if (holdTimerRef.current) clearTimeout(holdTimerRef.current);
     if (!isHoldingRef.current) return;
-    const wasHolding = isHoldingRef.current;
     isHoldingRef.current = false;
 
-    // If we started listening on hold, stop on release (push-to-talk)
-    if (mode === 'listening' && !continuous) {
-      stopListening();
-    } else if (mode === 'idle' && wasHolding) {
+    if (mode === 'listening') {
+      // Push-to-talk release → send what we have
+      stopRecording();
+    } else if (mode === 'idle') {
       // Pure tap → toggle continuous mode
       setContinuous(true);
-      startListening();
-    } else if (mode === 'listening' && continuous) {
-      stopListening();
-      setContinuous(false);
+      startRecording();
+    } else if (mode === 'speaking') {
+      // Interrupt TTS — we don't have direct handle to <Audio>, but speaking
+      // ends naturally; user can wait or we set speaking=false via hook
     }
   };
 
-  // ── Auto-restart in continuous mode after assistant finishes ────────────────
+  // ── Continuous mode: auto-restart after assistant finishes speaking ────────
   useEffect(() => {
-    if (continuous && !speaking && !loading && mode === 'idle' && !recognitionRef.current) {
-      const t = setTimeout(() => startListening(), 500);
+    if (
+      continuous &&
+      !speaking && !loading &&
+      mode === 'idle' &&
+      !mediaRecorderRef.current &&
+      !isProcessingRef.current
+    ) {
+      const t = setTimeout(() => startRecording(), 600);
       return () => clearTimeout(t);
     }
-  }, [continuous, speaking, loading, mode, startListening]);
+  }, [continuous, speaking, loading, mode, startRecording]);
 
-  // ── Replay last reply ───────────────────────────────────────────────────────
-  const replay = () => {
-    if (lastReply) speakMessage(lastReply);
+  // ── Toggle continuous via side button ─────────────────────────────────────
+  const toggleContinuous = () => {
+    if (continuous) {
+      setContinuous(false);
+      stopRecording();
+    } else {
+      setContinuous(true);
+      if (mode === 'idle') startRecording();
+    }
   };
 
-  // ── Cleanup on unmount ──────────────────────────────────────────────────────
+  // ── Replay last response ──────────────────────────────────────────────────
+  const replay = () => {
+    if (lastReply && mode === 'idle') speakMessage(lastReply, 'neutral', false);
+  };
+
+  // ── Cleanup on unmount ────────────────────────────────────────────────────
   useEffect(() => {
     return () => {
-      stopListening();
+      stopRecording();
       stopAnalyser();
     };
-  }, [stopListening, stopAnalyser]);
+  }, [stopRecording, stopAnalyser]);
 
   const labels = MODE_LABELS[mode];
 
-  // ─── Render ────────────────────────────────────────────────────────────────
+  // ─── Render ───────────────────────────────────────────────────────────────
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -277,7 +388,7 @@ export const MajlisMode: React.FC<MajlisModeProps> = ({ onClose }) => {
         ))}
       </div>
 
-      {/* ── Top bar ────────────────────────────────────────────────────────── */}
+      {/* ── Top bar ──────────────────────────────────────────────────────── */}
       <div className="absolute top-0 inset-x-0 z-10 flex items-center justify-between p-5">
         <div className="flex items-center gap-2 text-white">
           <Sparkles className="w-4 h-4 text-jood-gold-300" />
@@ -287,35 +398,44 @@ export const MajlisMode: React.FC<MajlisModeProps> = ({ onClose }) => {
               مستمر
             </span>
           )}
+          {/* Engine badge */}
+          <span className="text-[10px] bg-white/10 text-white/50 rounded-full px-2 py-0.5">
+            Whisper · ElevenLabs
+          </span>
         </div>
         <Button
           variant="ghost"
           size="icon"
-          onClick={() => { stopListening(); onClose(); }}
+          onClick={() => { stopRecording(); onClose(); }}
           className="text-white hover:bg-white/10 rounded-full h-10 w-10"
         >
           <X className="w-5 h-5" />
         </Button>
       </div>
 
-      {/* ── Center: Avatar + Visualizer ────────────────────────────────────── */}
+      {/* ── Center: Avatar + Visualizer ──────────────────────────────────── */}
       <div className="absolute inset-0 flex flex-col items-center justify-center px-6">
 
         {/* Pulse rings */}
         <div className="relative w-72 h-72 flex items-center justify-center">
-          <PulseRings active={mode === 'listening' || mode === 'speaking'} intensity={intensity} />
+          <PulseRings
+            active={mode === 'listening' || mode === 'speaking'}
+            intensity={intensity}
+          />
 
           {/* Avatar orb */}
           <motion.div
             animate={{
-              scale: mode === 'speaking' ? [1, 1.06, 1] :
-                     mode === 'thinking' ? [1, 0.96, 1] :
-                     mode === 'listening' ? 1 + intensity * 0.15 : 1,
+              scale: mode === 'speaking'    ? [1, 1.06, 1]   :
+                     mode === 'thinking' ||
+                     mode === 'processing'  ? [1, 0.96, 1]   :
+                     mode === 'listening'   ? 1 + intensity * 0.15 : 1,
             }}
             transition={{
               duration: mode === 'speaking' ? 1.2 :
-                        mode === 'thinking' ? 1.6 : 0.2,
-              repeat: (mode === 'speaking' || mode === 'thinking') ? Infinity : 0,
+                        (mode === 'thinking' || mode === 'processing') ? 1.6 : 0.2,
+              repeat: (mode === 'speaking' || mode === 'thinking' || mode === 'processing')
+                ? Infinity : 0,
               ease: 'easeInOut',
             }}
             className={cn(
@@ -330,9 +450,12 @@ export const MajlisMode: React.FC<MajlisModeProps> = ({ onClose }) => {
           </motion.div>
         </div>
 
-        {/* Frequency bars */}
+        {/* Frequency bars / thinking dots */}
         <div className="mt-6">
-          <FreqBars active={mode === 'listening' || mode === 'speaking'} />
+          {mode === 'processing' || mode === 'thinking'
+            ? <ThinkingDots />
+            : <FreqBars active={mode === 'listening' || mode === 'speaking'} />
+          }
         </div>
 
         {/* Status label */}
@@ -350,14 +473,14 @@ export const MajlisMode: React.FC<MajlisModeProps> = ({ onClose }) => {
           </motion.div>
         </AnimatePresence>
 
-        {/* Live transcript */}
+        {/* Live transcript (from Whisper) */}
         <AnimatePresence>
           {transcript && (
             <motion.div
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0 }}
-              className="mt-6 max-w-md"
+              className="mt-6 max-w-md w-full"
             >
               <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-2xl px-4 py-3">
                 <p className="text-white/90 text-sm font-arabic text-center leading-relaxed">
@@ -368,14 +491,14 @@ export const MajlisMode: React.FC<MajlisModeProps> = ({ onClose }) => {
           )}
         </AnimatePresence>
 
-        {/* Last reply preview */}
+        {/* Last AI reply preview */}
         <AnimatePresence>
           {!transcript && lastReply && (mode === 'speaking' || mode === 'idle') && (
             <motion.div
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0 }}
-              className="mt-6 max-w-lg"
+              className="mt-6 max-w-lg w-full"
             >
               <div className="bg-jood-gold-500/15 backdrop-blur-sm border border-jood-gold-300/30 rounded-2xl px-4 py-3">
                 <p className="text-white text-xs font-arabic text-center leading-relaxed line-clamp-3">
@@ -387,10 +510,10 @@ export const MajlisMode: React.FC<MajlisModeProps> = ({ onClose }) => {
         </AnimatePresence>
       </div>
 
-      {/* ── Bottom controls ────────────────────────────────────────────────── */}
+      {/* ── Bottom controls ───────────────────────────────────────────────── */}
       <div className="absolute bottom-0 inset-x-0 z-10 p-6 flex items-center justify-center gap-4">
 
-        {/* Replay last */}
+        {/* Replay last response */}
         <Button
           variant="ghost"
           size="icon"
@@ -402,16 +525,17 @@ export const MajlisMode: React.FC<MajlisModeProps> = ({ onClose }) => {
           <Volume2 className="w-5 h-5" />
         </Button>
 
-        {/* Big mic button (press-and-hold OR tap-to-toggle) */}
+        {/* ── Big mic / status button ──────────────────────────────────── */}
         <button
           onMouseDown={handlePressDown}
           onMouseUp={handlePressUp}
-          onMouseLeave={() => isHoldingRef.current && handlePressUp()}
+          onMouseLeave={() => { if (isHoldingRef.current) handlePressUp(); }}
           onTouchStart={(e) => { e.preventDefault(); handlePressDown(); }}
-          onTouchEnd={(e) => { e.preventDefault(); handlePressUp(); }}
+          onTouchEnd={(e)   => { e.preventDefault(); handlePressUp(); }}
+          disabled={mode === 'processing' || mode === 'thinking'}
           className={cn(
             'relative h-20 w-20 rounded-full flex items-center justify-center transition-all shadow-luxury',
-            'select-none touch-none',
+            'select-none touch-none disabled:cursor-not-allowed disabled:opacity-50',
             mode === 'listening'
               ? 'bg-destructive scale-110'
               : 'bg-gradient-to-br from-jood-gold-500 to-amber-700 hover:scale-105',
@@ -434,13 +558,12 @@ export const MajlisMode: React.FC<MajlisModeProps> = ({ onClose }) => {
         <Button
           variant="ghost"
           size="icon"
-          onClick={() => {
-            if (continuous) { setContinuous(false); stopListening(); }
-            else { setContinuous(true); startListening(); }
-          }}
+          onClick={toggleContinuous}
+          disabled={mode === 'processing' || mode === 'thinking'}
           className={cn(
             'rounded-full h-12 w-12 flex-shrink-0 text-white hover:bg-white/10',
             continuous && 'bg-jood-gold-500/20 border border-jood-gold-300/40',
+            'disabled:opacity-40',
           )}
           title={continuous ? 'إيقاف المستمر' : 'تشغيل المستمر'}
         >
@@ -448,7 +571,7 @@ export const MajlisMode: React.FC<MajlisModeProps> = ({ onClose }) => {
         </Button>
       </div>
 
-      {/* Hint text */}
+      {/* Bottom hint */}
       <p className="absolute bottom-2 inset-x-0 text-center text-[10px] text-white/40 font-arabic">
         اضغطة قصيرة = حديث مستمر · اضغطة مطوّلة = push-to-talk
       </p>

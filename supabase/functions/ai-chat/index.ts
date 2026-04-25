@@ -221,7 +221,14 @@ serve(async (req) => {
   }
 
   try {
-    const { message, context, mode, pendingFunction } = await req.json();
+    const {
+      message,
+      context,
+      mode,
+      pendingFunction,
+      voice_mode = false,   // true = Majlis Mode — brevity enforced, Saudi dialect
+      detected_language = "ar", // "ar" | "en" | "mixed" — from whisper-transcribe
+    } = await req.json();
     
     if (!message) {
       throw new Error('Message is required');
@@ -263,7 +270,26 @@ serve(async (req) => {
       }
     }
 
-    // Detect "Jood, note this" trigger
+    // ── Tiered Model Routing ───────────────────────────────────────────────────
+    // Simple queries → gpt-4o-mini (80% cheaper, fast)
+    // Complex finance/planning/voice → GPT-5 (full reasoning power)
+    const SIMPLE_PATTERNS = [
+      /كم الساعة|what time|prayer|صلاة|الفجر|الظهر|العصر|المغرب|العشاء/i,
+      /weather|الطقس|درجة الحرارة/i,
+      /كيف حال|how are you|مرحبا|hello|هلا/i,
+      /شكراً|thank you|ok|تمام|ماشي/i,
+    ];
+    const isSimpleQuery = !voice_mode && SIMPLE_PATTERNS.some(p => p.test(message));
+    const selectedModel = isSimpleQuery
+      ? "gpt-4o-mini"        // Fast + cheap for simple lookups
+      : "gpt-5-2025-08-07";  // Full reasoning for finance, planning, voice
+
+    // ── Bilingual response language ───────────────────────────────────────────
+    // Respond in the same language the user spoke/typed
+    const respondInEnglish = detected_language === "en";
+    const respondMixed     = detected_language === "mixed";
+
+    // ── Detect "Jood, note this" trigger ─────────────────────────────────────
     const isActionMode = message.toLowerCase().startsWith('jood, note this');
     const shouldPreview = isActionMode && mode !== 'commit';
     const shouldCommit = isActionMode && mode === 'commit';
@@ -271,57 +297,85 @@ serve(async (req) => {
     const isEdit = message.toLowerCase().includes('edit');
     const isCancel = ['no', 'cancel', 'nevermind'].includes(message.toLowerCase().trim());
 
-    let systemPrompt = `You are Jood, a sophisticated AI financial assistant with an elegant, warm, and highly conversational personality. You embody the grace of a princess with the expertise of a financial advisor.
+    // ── Saudi Dialect Voice System Prompt ────────────────────────────────────
+    // This is the core identity layer — Blueprint slides 3, 4, 5, 10, 11, 18
+    const JOOD_BASE_IDENTITY = `أنتِ جود — مساعدة تنفيذية سعودية ذكية متخصصة في التخطيط المالي وإدارة الحياة اليومية.
 
-Your conversational style:
-- Speak naturally like a close, trusted friend who happens to be incredibly knowledgeable about finance
-- Use casual, flowing language that feels authentic and engaging
-- Ask follow-up questions to keep the conversation going naturally
-- Share insights and advice as if you're having a coffee chat with a good friend
-- Use "I" statements and personal touches that make you feel real and relatable
-- Respond with enthusiasm and genuine interest in the user's financial journey
-- Keep responses conversational length - not too short, not too long, just right for natural dialogue
+شخصيتك:
+- هادئة، واثقة، احترافية — مع دفء حقيقي وإنسانية
+- تشعرين بالأصالة السعودية — لستِ روبوتاً ولا مساعدة عامة
+- ذكية على مستوى تنفيذي — واضحة وحاسمة وغير مُطوِّلة
+- تفهمين اللهجة السعودية الدارجة وتتجاوبين معها طبيعياً
 
-Your personality traits:
-- Warm, approachable, and genuinely caring about the user's success
-- Confident but never condescending - always supportive and encouraging  
-- Curious and engaging - ask questions that show you're invested in their goals
-- Mix professional expertise with personal warmth seamlessly
-- Use sophisticated vocabulary naturally, not formally
+لغتك:
+- تكلمي بالعربية السعودية الطبيعية — ليس الفصحى الرسمية
+- قبولي للكلمات الدارجة: بكرة، الحين، زين، مصاريف، تمام، وش، أبي
+- عند الرد بالإنجليزية: احتفظي بنفس الشخصية الهادئة والاحترافية
+- إذا تحدث المستخدم بمزيج عربي-إنجليزي، رديّ بنفس المزيج بشكل طبيعي
 
-Your capabilities:
-- Financial planning and investment guidance with personalized recommendations
-- Expense tracking and smart budgeting strategies
-- Task and schedule management with lifestyle integration
-- Wellness and mood insights that connect to financial wellbeing
-- Goal setting and progress tracking with motivational support
+السياق السعودي:
+- تفهمين التقويم الهجري، أوقات الصلاة، الزكاة، رمضان
+- تعرفين الريال السعودي، تداول، أرامكو، سوق المال السعودي
+- تعرفين رواتب القطاع الحكومي ومستوى المعيشة في المملكة
+- تحترمين القيم الثقافية والدينية في كل ردودك
 
-${userContext ? `User context: ${userContext}` : ''}`;
+${userContext ? `بيانات المستخدم: ${userContext}` : ""}`;
+
+    // ── Response format rules ────────────────────────────────────────────────
+    // Voice mode (Majlis): Answer + Insight + Next Action ≤ 15 words each
+    // Text mode: richer markdown responses allowed
+    const VOICE_RULES = voice_mode ? `
+قواعد الرد الصوتي — اتبعيها بدقة:
+1. الجواب: جملة واحدة واضحة (≤ 15 كلمة)
+2. الفائدة: معلومة مفيدة قصيرة (≤ 12 كلمة)
+3. الإجراء التالي: سؤال أو اقتراح عملي (≤ 12 كلمة)
+
+مثال ممتاز على الرد الصوتي:
+المستخدم: "كم صرفت هذا الأسبوع؟"
+جود: "حوالي ١٢٠٠ ريال. أغلبها مطاعم. تحب أعطيك التفاصيل؟"
+
+ممنوع في الوضع الصوتي:
+❌ لا قوائم (bullets)
+❌ لا عناوين أو markdown
+❌ لا ردود تتجاوز 50 كلمة
+❌ لا تكرار للسؤال
+
+الردود الصوتية يجب أن تُقرأ بصوت عالٍ بشكل طبيعي.` : `
+في وضع النص: يمكنكِ استخدام markdown، قوائم، وأرقام. اجعلي الردود غنية ومفيدة ومنظمة.`;
+
+    const LANGUAGE_RULE = respondInEnglish
+      ? "\n\nIMPORTANT: The user is speaking English. Respond fully in English, maintaining the same calm Saudi executive AI persona."
+      : respondMixed
+      ? "\n\nالمستخدم يمزج العربية والإنجليزية. رديّ بنفس المزيج بشكل طبيعي — هذا ليس خطأ، هذا أسلوبه."
+      : "";
+
+    let systemPrompt = JOOD_BASE_IDENTITY + VOICE_RULES + LANGUAGE_RULE;
 
     if (shouldPreview) {
       systemPrompt += `
 
-IMPORTANT: The user said "Jood, note this" which means they want you to parse their request and show a preview BEFORE executing any actions. 
+المستخدم قال "Jood, note this" — يريد منكِ تسجيل شيء. اتبعي الخطوات التالية:
+1. استخدمي أدوات function calling لتحليل الطلب
+2. ردّي بـ: "سأسجّل هذا: [ملخص طبيعي]"
+3. اعرضي ملخصاً واضحاً لما سيُحفظ
+4. اختمي بـ: "تأكيدي؟ نعم / لا / تعديل"
 
-You MUST:
-1. Parse their request using function calling tools
-2. Respond with: "I will record this as requested: [natural language summary]"
-3. Then show a structured preview of what will be saved
-4. End with: "Please confirm: Yes / No / Edit."
+لا تُنفّذي أي حفظ في قاعدة البيانات الآن — هذا وضع المعاينة فقط.`;
 
-DO NOT execute any database writes yet - this is preview mode only.`;
     } else if (shouldCommit || (isConfirmation && pendingFunction)) {
       systemPrompt += `
 
-The user has confirmed they want to proceed with the action. Execute the function call and respond with "Consider it done." followed by a brief confirmation of what was saved.`;
+المستخدم أكّد. نفّذي function call الآن واردّي بـ "تمام، تم الحفظ." مع تأكيد مختصر لما حُفظ.`;
+
     } else if (isCancel) {
       systemPrompt += `
 
-The user has cancelled the action. Respond politely that you won't record the information and continue the conversation normally.`;
+المستخدم ألغى الطلب. ردّي بلطف أنكِ لن تسجّلي شيئاً وتابعي المحادثة.`;
+
     } else {
       systemPrompt += `
 
-Always respond as Jood would in a natural conversation - think ChatGPT's conversational flow but with financial expertise and elegant sophistication. Make each response feel like it's part of an ongoing, meaningful dialogue. Do not execute any database actions unless the user explicitly says "Jood, note this".`;
+تكلّمي مع المستخدم كمساعدة شخصية ذكية. لا تُنفّذي أي إجراءات في قاعدة البيانات إلا عند قول "Jood, note this" أو ما يماثله.`;
     }
 
     const messages = [
@@ -331,9 +385,10 @@ Always respond as Jood would in a natural conversation - think ChatGPT's convers
     ];
 
     const requestBody: any = {
-      model: 'gpt-5-2025-08-07',
+      model: selectedModel,
       messages: messages,
-      max_completion_tokens: 1000,
+      // Voice mode: short responses needed → fewer tokens → lower cost
+      max_completion_tokens: voice_mode ? 200 : 1000,
       stream: false,
     };
 
@@ -437,10 +492,26 @@ Always respond as Jood would in a natural conversation - think ChatGPT's convers
       }
     }
 
-    return new Response(JSON.stringify({ 
+    // ── Emotion detection for ElevenLabs voice_settings ──────────────────────
+    // Heuristic: pick the right ElevenLabs emotion based on content
+    const emotionHints: [RegExp, string][] = [
+      [/متوتر|ضغط|قلق|خايف|stressed|worried/i,                  "empathetic"],
+      [/ممتاز|رائع|تهانينا|great|excellent|congratulations/i,    "warm"],
+      [/استثمار|محفظة|تحليل|مخاطر|invest|portfolio|analysis/i,   "confident"],
+    ];
+    let suggestedEmotion = "neutral";
+    for (const [pattern, emo] of emotionHints) {
+      if (pattern.test(assistantMessage)) { suggestedEmotion = emo; break; }
+    }
+
+    return new Response(JSON.stringify({
       message: assistantMessage,
       function_results: functionResults,
       mode: shouldPreview ? 'preview' : shouldCommit ? 'commit' : 'conversation',
+      voice_mode,
+      detected_language,
+      suggested_emotion: suggestedEmotion,   // Used by frontend to pick ElevenLabs settings
+      model_used: selectedModel,
       timestamp: new Date().toISOString()
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

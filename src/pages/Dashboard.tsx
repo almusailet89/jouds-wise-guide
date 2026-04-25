@@ -127,6 +127,19 @@ const Dashboard = () => {
 
           {/* Right actions */}
           <div className="flex items-center gap-2 mr-auto">
+            {/* Quick voice — opens Majlis Mode from anywhere */}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setMajlisOpen(true)}
+              className="h-8 gap-1.5 text-jood-gold-600 hover:text-jood-gold-700 hover:bg-jood-gold-500/10 border border-jood-gold-300/40 rounded-full px-3"
+              title="ادخلي المجلس"
+            >
+              <Mic className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline text-xs font-arabic font-bold">المجلس</span>
+              <Sparkles className="w-3 h-3 text-jood-gold-500" />
+            </Button>
+
             <Dialog>
               <DialogTrigger asChild>
                 <Button variant="ghost" size="sm" className="h-8 text-muted-foreground hover:text-foreground gap-1.5">

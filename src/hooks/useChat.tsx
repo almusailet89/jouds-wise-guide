@@ -20,6 +20,34 @@ export interface ChatMessage {
   pending?: boolean;
 }
 
+// ─── sendMessage options (replaces positional mode/pendingFunction args) ────────
+export interface SendMessageOpts {
+  /** Internal confirmation flow mode: 'commit' | 'preview' */
+  mode?: string;
+  /** Existing pending function for multi-turn confirmation */
+  pendingFunction?: any;
+  /** true = voice-mode rules (brevity ≤15 words, no markdown) */
+  voice_mode?: boolean;
+  /** Language detected by Whisper: "ar" | "en" | "mixed" */
+  detected_language?: 'ar' | 'en' | 'mixed';
+}
+
+// ─── ai-chat edge function response shape ────────────────────────────────────
+export interface AIChatResponse {
+  message: string;
+  model_used?: string;
+  voice_mode?: boolean;
+  detected_language?: string;
+  /** ElevenLabs emotion hint: "neutral" | "warm" | "confident" | "empathetic" */
+  suggested_emotion?: string;
+  function_results?: {
+    preview_mode?: boolean;
+    function_call?: any;
+  };
+  mode?: string;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
 export const useChat = () => {
   const { session } = useAuth();
   const { toast } = useToast();
@@ -32,6 +60,7 @@ export const useChat = () => {
   const [pendingFunction, setPendingFunction] = useState<any>(null);
   const [awaitingConfirmation, setAwaitingConfirmation] = useState(false);
 
+  // ── Session management ────────────────────────────────────────────────────
   const loadSessions = useCallback(async () => {
     if (!session?.user?.id) return;
     setSessionsLoading(true);
@@ -57,7 +86,7 @@ export const useChat = () => {
 
     const title = firstMessage
       ? firstMessage.slice(0, 60) + (firstMessage.length > 60 ? '…' : '')
-      : 'New Conversation';
+      : 'محادثة جديدة';
 
     const { data, error } = await (supabase as any)
       .from('chat_sessions')
@@ -91,7 +120,11 @@ export const useChat = () => {
     setMessages(data || []);
   }, []);
 
-  const saveMessage = async (sessionId: string, role: 'user' | 'assistant', content: string): Promise<string> => {
+  const saveMessage = async (
+    sessionId: string,
+    role: 'user' | 'assistant',
+    content: string,
+  ): Promise<string> => {
     const { data, error } = await (supabase as any)
       .from('chat_messages')
       .insert({ session_id: sessionId, role, content })
@@ -109,25 +142,32 @@ export const useChat = () => {
     return data.id;
   };
 
+  // ── Core chat ─────────────────────────────────────────────────────────────
   const sendMessage = useCallback(async (
     text: string,
-    mode?: string,
-    existingPendingFunction?: any,
-  ) => {
+    opts?: SendMessageOpts,
+  ): Promise<AIChatResponse | undefined> => {
     if (!session || loading) return;
     const messageText = text.trim();
     if (!messageText) return;
 
     setLoading(true);
 
+    const {
+      mode,
+      pendingFunction: existingPendingFunction,
+      voice_mode = false,
+      detected_language = 'ar',
+    } = opts ?? {};
+
     try {
-      // Ensure we have a session
+      // Ensure session
       let sessionId = currentSessionId;
       if (!sessionId) {
         sessionId = await createSession(messageText);
       }
 
-      // Add user message optimistically
+      // Optimistic user message
       const userTempId = `temp-user-${Date.now()}`;
       setMessages(prev => [...prev, {
         id: userTempId,
@@ -137,15 +177,14 @@ export const useChat = () => {
         created_at: new Date().toISOString(),
       }]);
 
-      // Save user message to DB
       await saveMessage(sessionId!, 'user', messageText);
 
-      // Build context from current messages (last 20)
+      // Last-20 context window
       const contextMessages = messages
         .slice(-20)
         .map(m => ({ role: m.role, content: m.content }));
 
-      // Call ai-chat edge function
+      // ── ai-chat edge function ──────────────────────────────────────────────
       const { data, error } = await supabase.functions.invoke('ai-chat', {
         body: {
           message: messageText,
@@ -153,6 +192,8 @@ export const useChat = () => {
           session_id: sessionId,
           mode,
           pendingFunction: existingPendingFunction,
+          voice_mode,
+          detected_language,
         },
         headers: { Authorization: `Bearer ${session.access_token}` },
       });
@@ -161,10 +202,8 @@ export const useChat = () => {
 
       const aiText: string = data?.message || 'مرحباً، أنا جود. كيف يمكنني مساعدتك؟';
 
-      // Save AI message
       const aiId = await saveMessage(sessionId!, 'assistant', aiText);
 
-      // Replace temp user message with real and add AI message
       setMessages(prev => [
         ...prev.filter(m => m.id !== userTempId),
         {
@@ -183,7 +222,6 @@ export const useChat = () => {
         },
       ]);
 
-      // Handle function preview mode
       if (data?.function_results?.preview_mode) {
         setPendingFunction(data.function_results.function_call);
         setAwaitingConfirmation(true);
@@ -192,10 +230,9 @@ export const useChat = () => {
         setAwaitingConfirmation(false);
       }
 
-      // Refresh session list (updated_at changed)
       loadSessions();
+      return data as AIChatResponse;
 
-      return data;
     } catch (err: any) {
       console.error('Chat error:', err);
       toast({
@@ -208,30 +245,41 @@ export const useChat = () => {
     }
   }, [session, loading, currentSessionId, messages, createSession, loadSessions, toast]);
 
-  const speakMessage = useCallback(async (text: string) => {
-    if (!session) return;
+  // ── ElevenLabs TTS (primary engine, Azure/OpenAI fallback in edge fn) ─────
+  const speakMessage = useCallback(async (
+    text: string,
+    emotion: string = 'neutral',
+    voiceMode: boolean = false,
+  ) => {
+    if (!session || !text) return;
     setSpeaking(true);
     try {
-      const { data, error } = await supabase.functions.invoke('ameera-tts', {
-        body: { text, emotion: 'warm', language: text.match(/[\u0600-\u06FF]/) ? 'ar' : 'en' },
+      const { data, error } = await supabase.functions.invoke('elevenlabs-tts', {
+        body: {
+          text,
+          emotion,
+          voice_mode: voiceMode,
+          language: /[\u0600-\u06FF]/.test(text) ? 'ar' : 'en',
+        },
         headers: { Authorization: `Bearer ${session.access_token}` },
       });
 
       if (error) throw error;
 
-      // data is raw ArrayBuffer audio
+      // data is raw ArrayBuffer (audio/mpeg)
       const blob = new Blob([data], { type: 'audio/mpeg' });
       const url = URL.createObjectURL(blob);
       const audio = new Audio(url);
       audio.onended = () => { setSpeaking(false); URL.revokeObjectURL(url); };
       audio.onerror = () => { setSpeaking(false); URL.revokeObjectURL(url); };
-      audio.play();
+      await audio.play();
     } catch (err) {
-      console.error('TTS error:', err);
+      console.error('[elevenlabs-tts] error:', err);
       setSpeaking(false);
     }
   }, [session]);
 
+  // ── Helpers ───────────────────────────────────────────────────────────────
   const startNewChat = useCallback(() => {
     setCurrentSessionId(null);
     setMessages([]);
@@ -241,7 +289,7 @@ export const useChat = () => {
 
   const confirmAction = useCallback(async (action: 'yes' | 'no' | 'edit') => {
     if (action === 'yes') {
-      await sendMessage('yes', 'commit', pendingFunction);
+      await sendMessage('yes', { mode: 'commit', pendingFunction });
     } else if (action === 'no') {
       setPendingFunction(null);
       setAwaitingConfirmation(false);
