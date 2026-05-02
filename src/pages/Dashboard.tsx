@@ -18,8 +18,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   MessageSquare, TrendingUp, Heart, Home,
-  LogOut, User, Mic, Download, Sparkles, CalendarCheck, Settings, Bell,
+  LogOut, User, Mic, Download, Sparkles, CalendarCheck, Settings, Bell, Moon, Sun,
 } from 'lucide-react';
+import { useTheme } from 'next-themes';
 import { cn } from '@/lib/utils';
 
 // ─── Saudi Signal Strip ───────────────────────────────────────────────────────
@@ -197,6 +198,7 @@ const MobileBottomNav: React.FC<{ activeTab: string; onTabChange: (t: string) =>
 // ─── Dashboard ────────────────────────────────────────────────────────────────
 const Dashboard = () => {
   const { user, signOut } = useAuth();
+  const { theme, setTheme } = useTheme();
   const [activeTab, setActiveTab] = useState('home');
   const { hijri, prayer } = useSaudiSignal();
   const [showOnboarding, setShowOnboarding] = useState(() => {
@@ -240,6 +242,17 @@ const Dashboard = () => {
 
           {/* Right actions */}
           <div className="flex items-center gap-2 mr-auto">
+            {/* Dark mode toggle */}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+              className="h-8 w-8 text-muted-foreground hover:text-foreground"
+              title={theme === 'dark' ? 'الوضع الفاتح' : 'الوضع الداكن'}
+            >
+              {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+            </Button>
+
             {/* Notification bell */}
             <Button
               variant="ghost"
