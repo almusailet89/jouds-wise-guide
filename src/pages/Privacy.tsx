@@ -46,7 +46,7 @@ const Privacy = () => {
 
 ## 1. Introduction
 
-Welcome to Joud AI ("we," "our," or "us"). We are committed to protecting your privacy and ensuring the security of your personal information. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our AI-powered personal assistant application.
+Welcome to JOOD AI ("we," "our," or "us"). We are committed to protecting your privacy and ensuring the security of your personal information. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our AI-powered personal assistant application.
 
 ## 2. Information We Collect
 

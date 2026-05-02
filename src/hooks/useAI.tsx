@@ -46,7 +46,7 @@ export const useAI = () => {
       console.error('Error sending message:', error);
       toast({
         title: "AI Chat Error",
-        description: "Failed to get response from Joud AI. Please try again.",
+        description: "Failed to get response from JOOD AI. Please try again.",
         variant: "destructive",
       });
       throw error;

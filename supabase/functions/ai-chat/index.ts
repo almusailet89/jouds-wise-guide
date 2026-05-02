@@ -7,452 +7,409 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Function calling tools for "Jood, note this" actions
-const functionTools = [
-  {
-    type: "function",
-    function: {
-      name: "add_task",
-      description: "Add a new task to the user's task list",
-      parameters: {
-        type: "object",
-        properties: {
-          title: { type: "string", description: "The task title" },
-          due_date: { type: "string", description: "Due date in ISO format (optional)" },
-          priority: { type: "string", enum: ["low", "medium", "high"], description: "Task priority (optional)" },
-          notes: { type: "string", description: "Additional notes (optional)" }
-        },
-        required: ["title"]
-      }
-    }
-  },
-  {
-    type: "function",
-    function: {
-      name: "add_financial_entry",
-      description: "Add a financial entry (expense, income, or savings)",
-      parameters: {
-        type: "object",
-        properties: {
-          type: { type: "string", enum: ["expense", "income", "savings"], description: "Type of financial entry" },
-          amount: { type: "number", description: "Amount in the specified currency" },
-          currency: { type: "string", description: "Currency code (USD, SAR, EUR, etc.)" },
-          category: { type: "string", description: "Category or label (optional)" },
-          description: { type: "string", description: "Description or note (optional)" },
-          date: { type: "string", description: "Date in ISO format (optional, defaults to now)" }
-        },
-        required: ["type", "amount", "currency"]
-      }
-    }
-  },
-  {
-    type: "function",
-    function: {
-      name: "add_stock_to_portfolio",
-      description: "Add a stock to the user's portfolio",
-      parameters: {
-        type: "object",
-        properties: {
-          symbol: { type: "string", description: "Stock symbol (e.g., AAPL, TSLA)" },
-          quantity: { type: "number", description: "Number of shares" },
-          buy_price: { type: "number", description: "Purchase price per share" },
-          currency: { type: "string", description: "Currency code (optional, defaults to USD)" },
-          date: { type: "string", description: "Purchase date in ISO format (optional)" }
-        },
-        required: ["symbol", "quantity", "buy_price"]
-      }
-    }
-  },
-  {
-    type: "function",
-    function: {
-      name: "add_crypto_to_portfolio",
-      description: "Add cryptocurrency to the user's portfolio",
-      parameters: {
-        type: "object",
-        properties: {
-          symbol: { type: "string", description: "Crypto symbol (e.g., BTC, ETH)" },
-          quantity: { type: "number", description: "Amount of cryptocurrency" },
-          buy_price: { type: "number", description: "Purchase price per unit" },
-          currency: { type: "string", description: "Currency code (optional, defaults to USD)" },
-          date: { type: "string", description: "Purchase date in ISO format (optional)" }
-        },
-        required: ["symbol", "quantity", "buy_price"]
-      }
-    }
-  },
-  {
-    type: "function",
-    function: {
-      name: "add_real_estate",
-      description: "Add real estate to the user's portfolio",
-      parameters: {
-        type: "object",
-        properties: {
-          address: { type: "string", description: "Property address or location" },
-          property_type: { type: "string", description: "Type of property (villa, apartment, etc.)" },
-          purchase_price: { type: "number", description: "Purchase price" },
-          currency: { type: "string", description: "Currency code (optional, defaults to SAR)" },
-          sqft: { type: "number", description: "Square footage (optional)" },
-          purchase_date: { type: "string", description: "Purchase date in ISO format (optional)" }
-        },
-        required: ["address", "property_type", "purchase_price"]
-      }
-    }
-  }
+const DIRECT_EXECUTE = new Set(['add_task', 'add_habit', 'log_mood', 'remember_about_user']);
+
+const MEMORY_CATEGORIES = [
+  'identity','work','family','financial','health','religion',
+  'routine','goals','interests','relationships','preferences','pain_points',
 ];
 
-// Execute function calls
+// ─── Function tool definitions ────────────────────────────────────────────────
+const functionTools = [
+  { type: "function", function: { name: "add_task", description: "Add a task/reminder. Trigger: 'أضيفي مهمة', 'ذكّريني', 'remind me to', 'add to my list'.", parameters: { type: "object", properties: { title: { type: "string" }, due_date: { type: "string", description: "ISO date YYYY-MM-DD (optional)" }, priority: { type: "string", enum: ["low","medium","high"] }, notes: { type: "string" } }, required: ["title"] } } },
+  { type: "function", function: { name: "add_habit", description: "Add a recurring habit. Trigger: 'عوّدني', 'أبي أتعود', 'حطّي عادة', 'track my habit'. For specific weekdays (e.g. 'من الأحد إلى الأربعاء' = Sun-Wed), set frequency='weekly' and provide target_days array (0=Sun, 1=Mon, 2=Tue, 3=Wed, 4=Thu, 5=Fri, 6=Sat).", parameters: { type: "object", properties: { name: { type: "string" }, frequency: { type: "string", enum: ["daily","weekly"] }, target_days: { type: "array", items: { type: "integer", minimum: 0, maximum: 6 }, description: "Weekday indices when frequency=weekly. 0=Sunday … 6=Saturday." }, time_of_day: { type: "string", description: "Optional time HH:MM (24h)" }, icon: { type: "string" } }, required: ["name"] } } },
+  { type: "function", function: { name: "log_mood", description: "Log mood/energy. Trigger: 'أنا متعب', 'مزاجي ممتاز', 'feeling stressed/great', 'سجّلي مزاجي'.", parameters: { type: "object", properties: { score: { type: "number" }, label: { type: "string" }, note: { type: "string" } }, required: ["score","label"] } } },
+  { type: "function", function: { name: "create_calendar_event", description: "Create calendar event/meeting. Trigger: 'احجزي', 'اجتماع', 'موعد', 'حطّي في التقويم', 'book'.", parameters: { type: "object", properties: { title: { type: "string" }, starts_at: { type: "string" }, ends_at: { type: "string" }, location: { type: "string" }, description: { type: "string" }, all_day: { type: "boolean" }, category: { type: "string" } }, required: ["title","starts_at"] } } },
+  { type: "function", function: { name: "compose_email", description: "Draft email. Trigger: 'راسلي', 'أرسلي إيميل', 'draft email'.", parameters: { type: "object", properties: { to: { type: "string" }, subject: { type: "string" }, body: { type: "string" } }, required: ["to","subject","body"] } } },
+  { type: "function", function: { name: "draft_whatsapp", description: "Draft WhatsApp. Trigger: 'واتساب', 'راسل فلان'.", parameters: { type: "object", properties: { recipient: { type: "string" }, message: { type: "string" } }, required: ["recipient","message"] } } },
+  { type: "function", function: { name: "add_financial_entry", description: "Record financial transaction. Trigger: amount stated (صرفت، دخلي، X ريال).", parameters: { type: "object", properties: { type: { type: "string", enum: ["expense","income","savings","investment"] }, amount: { type: "number" }, currency: { type: "string" }, category: { type: "string" }, description: { type: "string" } }, required: ["type","amount","currency"] } } },
+  { type: "function", function: { name: "remember_about_user", description: "Save a durable fact about the user to long-term memory. Call this when the user reveals something stable about themselves (name, job, family, goals, preferences, health, religious practice, daily routine, etc.). DO NOT call for transient state like 'I'm tired today'. The fact should be third-person and concise.", parameters: { type: "object", properties: { category: { type: "string", enum: ["identity","work","family","financial","health","religion","routine","goals","interests","relationships","preferences","pain_points"], description: "Which life-area this fact belongs to." }, content: { type: "string", description: "Short third-person fact, e.g. 'يعمل مديراً تقنياً في أرامكو' or 'يصلي الفجر في المسجد كل يوم'." }, importance: { type: "number", minimum: 0, maximum: 1, description: "0.0–1.0; how foundational this is. Default 0.6." } }, required: ["category","content"] } } },
+];
+
 async function executeFunction(functionCall: any, userId: string, supabase: any) {
-  const { name, arguments: args } = functionCall;
-  const parsedArgs = JSON.parse(args);
-  
-  console.log(`Executing function: ${name} with args:`, parsedArgs);
-  
+  const { name } = functionCall;
+  const args = typeof functionCall.arguments === 'string' ? JSON.parse(functionCall.arguments) : functionCall.arguments;
+  const fmt = (n: number) => new Intl.NumberFormat('ar-SA', { maximumFractionDigits: 0 }).format(n);
+
   switch (name) {
-    case 'add_task':
-      const { data: taskData, error: taskError } = await supabase
-        .from('tasks')
-        .insert({
-          user_id: userId,
-          title: parsedArgs.title,
-          due_date: parsedArgs.due_date || null,
-          priority: parsedArgs.priority || 'medium',
-          description: parsedArgs.notes || null,
-          status: 'pending'
-        })
-        .select()
-        .single();
-      
-      if (taskError) throw taskError;
-      return `Task "${parsedArgs.title}" added successfully.`;
-    
-    case 'add_financial_entry':
-      const { data: finData, error: finError } = await supabase
-        .from('financial_data')
-        .insert({
-          user_id: userId,
-          type: parsedArgs.type,
-          amount: parsedArgs.amount,
-          currency: parsedArgs.currency,
-          category: parsedArgs.category || null,
-          note: parsedArgs.description || null,
-          label: parsedArgs.category || parsedArgs.type,
-          date: parsedArgs.date || new Date().toISOString()
-        })
-        .select()
-        .single();
-      
-      if (finError) throw finError;
-      return `${parsedArgs.type} of ${parsedArgs.amount} ${parsedArgs.currency} recorded successfully.`;
-    
-    case 'add_stock_to_portfolio':
-      const { data: stockData, error: stockError } = await supabase
-        .from('portfolio_holdings')
-        .insert({
-          user_id: userId,
-          asset_type: 'stock',
-          symbol: parsedArgs.symbol.toUpperCase(),
-          quantity: parsedArgs.quantity,
-          buy_price: parsedArgs.buy_price,
-          avg_price: parsedArgs.buy_price,
-          currency: parsedArgs.currency || 'USD',
-          market: 'US',
-          purchase_date: parsedArgs.date || new Date().toISOString()
-        })
-        .select()
-        .single();
-      
-      if (stockError) throw stockError;
-      return `Added ${parsedArgs.quantity} shares of ${parsedArgs.symbol} at $${parsedArgs.buy_price} per share.`;
-    
-    case 'add_crypto_to_portfolio':
-      const { data: cryptoData, error: cryptoError } = await supabase
-        .from('portfolio_holdings')
-        .insert({
-          user_id: userId,
-          asset_type: 'crypto',
-          symbol: parsedArgs.symbol.toUpperCase(),
-          quantity: parsedArgs.quantity,
-          buy_price: parsedArgs.buy_price,
-          avg_price: parsedArgs.buy_price,
-          currency: parsedArgs.currency || 'USD',
-          market: 'CRYPTO',
-          purchase_date: parsedArgs.date || new Date().toISOString()
-        })
-        .select()
-        .single();
-      
-      if (cryptoError) throw cryptoError;
-      return `Added ${parsedArgs.quantity} ${parsedArgs.symbol} at $${parsedArgs.buy_price} per unit.`;
-    
-    case 'add_real_estate':
-      const { data: realEstateData, error: realEstateError } = await supabase
-        .from('portfolio_holdings')
-        .insert({
-          user_id: userId,
-          asset_type: 'real_estate',
-          symbol: 'REAL_ESTATE',
-          quantity: 1,
-          buy_price: parsedArgs.purchase_price,
-          avg_price: parsedArgs.purchase_price,
-          currency: parsedArgs.currency || 'SAR',
-          market: 'REAL_ESTATE',
-          address: parsedArgs.address,
-          property_type: parsedArgs.property_type,
-          sqft: parsedArgs.sqft || null,
-          purchase_price: parsedArgs.purchase_price,
-          purchase_date: parsedArgs.purchase_date || new Date().toISOString()
-        })
-        .select()
-        .single();
-      
-      if (realEstateError) throw realEstateError;
-      return `Added ${parsedArgs.property_type} in ${parsedArgs.address} worth ${parsedArgs.purchase_price} ${parsedArgs.currency || 'SAR'}.`;
-    
-    default:
-      throw new Error(`Unknown function: ${name}`);
+    case 'add_task': {
+      const { error } = await supabase.from('tasks').insert({ user_id: userId, title: args.title, due_date: args.due_date || null, priority: args.priority || 'medium', description: args.notes || null, status: 'pending', category: 'general' });
+      if (error) throw new Error(`add_task: ${error.message}`);
+      return { kind: 'task', summary: `✓ مهمة "${args.title}" أُضيفت`, data: args };
+    }
+    case 'add_habit': {
+      const freq = args.frequency || 'daily';
+      const targetDays = Array.isArray(args.target_days) && args.target_days.length ? args.target_days : null;
+      const { error } = await supabase.from('habits').insert({ user_id: userId, name: args.name, frequency: freq, target_days: targetDays, icon: args.icon || '⭐', color: '#0E4E4E', is_active: true });
+      if (error) throw new Error(`add_habit: ${error.message}`);
+      const dayNames = ['الأحد','الإثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت'];
+      let detailAr = freq === 'weekly' ? 'أسبوعية' : 'يومية';
+      if (targetDays && targetDays.length) {
+        detailAr = targetDays.map((d: number) => dayNames[d] ?? '').filter(Boolean).join('، ');
+      }
+      const timeNote = args.time_of_day ? ` · الساعة ${args.time_of_day}` : '';
+      return { kind: 'task', summary: `✓ عادة "${args.name}" أُضيفت — ${detailAr}${timeNote}`, data: args };
+    }
+    case 'log_mood': {
+      const score = Math.max(1, Math.min(10, Math.round(Number(args.score))));
+      const { error } = await supabase.from('mood_logs').insert({ user_id: userId, mood_score: score, mood_label: args.label, note: args.note || null });
+      if (error) throw new Error(`log_mood: ${error.message}`);
+      const emoji = score >= 8 ? '😊' : score >= 5 ? '😐' : '😔';
+      return { kind: 'task', summary: `✓ مزاجك "${args.label}" ${emoji} سُجِّل`, data: args };
+    }
+    case 'create_calendar_event': {
+      const startsAt = args.starts_at || new Date().toISOString();
+      const endsAt = args.ends_at || new Date(new Date(startsAt).getTime() + 60 * 60 * 1000).toISOString();
+      const { error } = await supabase.from('events').insert({ user_id: userId, title: args.title, description: args.description || null, starts_at: startsAt, ends_at: endsAt, start_at: startsAt, end_at: endsAt, all_day: args.all_day ?? false, category: args.category || 'personal', location: args.location || null, source: 'jood_ai' });
+      if (error) throw new Error(`create_calendar_event: ${error.message}`);
+      return { kind: 'event', summary: `✓ موعد "${args.title}" أُضيف للتقويم`, data: args };
+    }
+    case 'compose_email':
+      return { kind: 'email_draft', summary: `مسودة إيميل لـ ${args.to} جاهزة`, data: { to: args.to, subject: args.subject, body: args.body } };
+    case 'draft_whatsapp':
+      return { kind: 'whatsapp_draft', summary: `رسالة لـ ${args.recipient} جاهزة`, data: { recipient: args.recipient, message: args.message } };
+    case 'add_financial_entry': {
+      const { error } = await supabase.from('financial_data').insert({ user_id: userId, type: args.type, amount: args.amount, currency: args.currency, category: args.category || null, note: args.description || null, label: args.category || args.type });
+      if (error) throw new Error(`add_financial_entry: ${error.message}`);
+      const typeAr = args.type === 'income' ? 'دخل' : args.type === 'savings' ? 'ادخار' : args.type === 'investment' ? 'استثمار' : 'مصروف';
+      return { kind: 'finance', summary: `✓ ${typeAr} ${fmt(args.amount)} ${args.currency} سُجِّل`, data: args };
+    }
+    case 'remember_about_user': {
+      const cat = MEMORY_CATEGORIES.includes(args.category) ? args.category : 'identity';
+      const importance = Math.max(0, Math.min(1, Number(args.importance) || 0.6));
+      const { error } = await supabase.from('user_memories').insert({
+        user_id: userId,
+        kind: 'fact',
+        category: cat,
+        content: String(args.content).slice(0, 400),
+        importance,
+        confidence: 0.85,
+        is_template: false,
+        active: true,
+      });
+      if (error) throw new Error(`remember_about_user: ${error.message}`);
+      // Silent — no user-facing summary; Jood continues her natural reply.
+      return { kind: 'memory', summary: '', data: args, silent: true };
+    }
+    default: throw new Error(`Unknown function: ${name}`);
   }
 }
 
-serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+function buildPreview(name: string, args: any, voiceMode: boolean): string {
+  let preview = '';
+  switch (name) {
+    case 'create_calendar_event': {
+      const dt = args.starts_at ? new Date(args.starts_at).toLocaleString('ar-SA', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
+      preview = `موعد: "${args.title}" · ${dt}${args.location ? ` · 📍${args.location}` : ''}`; break;
+    }
+    case 'compose_email': preview = `إيميل لـ ${args.to}: "${args.subject}"`; break;
+    case 'draft_whatsapp': preview = `واتساب لـ ${args.recipient}`; break;
+    case 'add_financial_entry': {
+      const typeAr = args.type === 'income' ? 'دخل' : args.type === 'savings' ? 'ادخار' : 'مصروف';
+      preview = `${typeAr}: ${args.amount} ${args.currency || 'ريال'}`; break;
+    }
+    default: preview = name;
   }
+  return voiceMode ? `${preview}. تأكيدي؟` : `سأنفّذ: **${preview}**\n\nتأكيدي؟ قولي **نعم** أو **لا**.`;
+}
 
+serve(async (req) => {
+  if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
+
+  let stage = 'init';
   try {
-    const { message, context, mode, pendingFunction } = await req.json();
-    
-    if (!message) {
-      throw new Error('Message is required');
-    }
+    stage = 'parse_body';
+    const { message, context, mode, pendingFunction, voice_mode = false, detected_language = "ar" } = await req.json();
+    if (!message) throw new Error('Message is required');
 
+    stage = 'env_check';
     const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
-    if (!openAIApiKey) {
-      throw new Error('OpenAI API key not configured');
-    }
+    if (!openAIApiKey) throw new Error('OpenAI API key not configured');
 
-    // Get user context for personalized responses
-    const authHeader = req.headers.get("Authorization");
-    let userContext = "";
-    let userId = null;
-    
     const supabaseClient = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
       { auth: { persistSession: false } }
     );
-    
+
+    // Auth
+    stage = 'auth';
+    let userId: string | null = null;
+    const authHeader = req.headers.get("Authorization");
     if (authHeader) {
       const token = authHeader.replace("Bearer ", "");
-      const { data: userData } = await supabaseClient.auth.getUser(token);
-      
-      if (userData.user) {
-        userId = userData.user.id;
-        
-        // Get user profile for context
-        const { data: profile } = await supabaseClient
-          .from('profiles')
-          .select('*')
-          .eq('user_id', userData.user.id)
-          .single();
+      try {
+        const { data: userData } = await supabaseClient.auth.getUser(token);
+        if (userData?.user) userId = userData.user.id;
+      } catch { /* anon */ }
+    }
 
+    // Profile + memory taxonomy (parallel for speed) — non-fatal
+    stage = 'profile';
+    let userContext = "مستخدم سعودي";
+    let workingDays: number[] = [0,1,2,3,4]; // Sun-Thu (Saudi default)
+    let weekendDays: number[] = [5,6];       // Fri-Sat
+    let knownFacts = "";
+    let missingCategories: string[] = [];
+    if (userId) {
+      try {
+        const [profileRes, taxonomyRes] = await Promise.all([
+          supabaseClient.from('profiles')
+            .select('display_name, base_currency, working_days, weekend_days')
+            .eq('user_id', userId).maybeSingle(),
+          supabaseClient.rpc('get_memory_taxonomy', { p_user_id: userId })
+            .then((r: any) => r).catch(() => ({ data: [] })),
+        ]);
+        const profile = profileRes?.data;
         if (profile) {
-          userContext = `User profile: ${profile.display_name || 'User'}, interests: ${profile.interests?.join(', ') || 'Not specified'}, base currency: ${profile.base_currency}, risk profile: ${profile.risk_profile}`;
+          userContext = [
+            profile.display_name ? `الاسم: ${profile.display_name}` : '',
+            `العملة: ${profile.base_currency || 'SAR'}`,
+          ].filter(Boolean).join(' · ');
+          if (Array.isArray(profile.working_days) && profile.working_days.length) workingDays = profile.working_days;
+          if (Array.isArray(profile.weekend_days) && profile.weekend_days.length) weekendDays = profile.weekend_days;
         }
-      }
+        const taxonomy: any[] = Array.isArray(taxonomyRes?.data) ? taxonomyRes.data : [];
+        const CAT_AR: Record<string, string> = {
+          identity: "الهوية", work: "العمل", family: "العائلة",
+          financial: "المالية", health: "الصحة", religion: "الالتزام الديني",
+          routine: "الروتين اليومي", goals: "الأهداف", interests: "الاهتمامات",
+          relationships: "العلاقات", preferences: "التفضيلات", pain_points: "التحديات",
+        };
+        const filled: string[] = [];
+        for (const row of taxonomy) {
+          if (row.filled_count > 0 && row.latest_real_content) {
+            filled.push(`• ${CAT_AR[row.category] ?? row.category}: ${row.latest_real_content}`);
+          } else {
+            missingCategories.push(CAT_AR[row.category] ?? row.category);
+          }
+        }
+        if (filled.length) knownFacts = "\n\nما تعرفينه عن المستخدم:\n" + filled.join('\n');
+      } catch { /* non-fatal */ }
     }
+    const dayNamesAr = ['الأحد','الإثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت'];
+    const workDaysAr = workingDays.map(d => dayNamesAr[d]).filter(Boolean).join('، ');
+    const weekendAr  = weekendDays.map(d => dayNamesAr[d]).filter(Boolean).join('، ');
+    const missingHint = missingCategories.length
+      ? `\nمعلومات لم تُجمع بعد عن المستخدم — اسأليها بشكل طبيعي ضمن السياق فقط (لا تستجوبيها ولا تطرحي أكثر من سؤال واحد لكل رد): ${missingCategories.slice(0, 4).join('، ')}`
+      : "";
 
-    // Detect "Jood, note this" trigger
-    const isActionMode = message.toLowerCase().startsWith('jood, note this');
-    const shouldPreview = isActionMode && mode !== 'commit';
-    const shouldCommit = isActionMode && mode === 'commit';
-    const isConfirmation = ['yes', 'confirm', 'ok', 'sure', 'proceed'].includes(message.toLowerCase().trim());
-    const isEdit = message.toLowerCase().includes('edit');
-    const isCancel = ['no', 'cancel', 'nevermind'].includes(message.toLowerCase().trim());
+    // Flow detection
+    stage = 'flow_detect';
+    const CONFIRM_WORDS = ['yes','confirm','ok','sure','نعم','تأكيد','تمام','ماشي','صح','أكيد'];
+    const CANCEL_WORDS = ['no','cancel','لا','إلغاء','الغي'];
+    const msgLower = String(message).toLowerCase().trim();
+    const isConfirmation = CONFIRM_WORDS.includes(msgLower);
+    const isCancel = CANCEL_WORDS.includes(msgLower);
+    const shouldCommit = mode === 'commit' || (isConfirmation && pendingFunction);
 
-    let systemPrompt = `You are Jood, a sophisticated AI financial assistant with an elegant, warm, and highly conversational personality. You embody the grace of a princess with the expertise of a financial advisor.
+    const respondInEnglish = detected_language === "en";
+    const respondMixed = detected_language === "mixed";
 
-Your conversational style:
-- Speak naturally like a close, trusted friend who happens to be incredibly knowledgeable about finance
-- Use casual, flowing language that feels authentic and engaging
-- Ask follow-up questions to keep the conversation going naturally
-- Share insights and advice as if you're having a coffee chat with a good friend
-- Use "I" statements and personal touches that make you feel real and relatable
-- Respond with enthusiasm and genuine interest in the user's financial journey
-- Keep responses conversational length - not too short, not too long, just right for natural dialogue
+    // Model routing
+    const SIMPLE_RE = /^(كيف حال|how are you|مرحب|hello|هلا|أهلا|شكراً|thank|^ok$|^تمام$|صباح|مساء|السلام)/i;
+    const isSimple = !voice_mode && SIMPLE_RE.test(String(message).trim()) && !pendingFunction;
+    const model = isSimple ? "gpt-4o-mini" : "gpt-4o";
+    const trimmedContext = Array.isArray(context) ? context.slice(-8).filter((m: any) => m && m.role && m.content).map((m: any) => ({ role: m.role, content: String(m.content) })) : [];
 
-Your personality traits:
-- Warm, approachable, and genuinely caring about the user's success
-- Confident but never condescending - always supportive and encouraging  
-- Curious and engaging - ask questions that show you're invested in their goals
-- Mix professional expertise with personal warmth seamlessly
-- Use sophisticated vocabulary naturally, not formally
+    // System prompt
+    stage = 'build_prompt';
+    const TODAY = new Date().toLocaleDateString('ar-SA', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+    const langRule = respondInEnglish ? "User spoke English — reply in English." : respondMixed ? "المستخدم يخلط عربي-إنجليزي — رديّ بنفس المزيج." : "";
+    const modeRules = voice_mode
+      ? `وضع صوتي: جملة واحدة (≤15 كلمة). ممنوع markdown.`
+      : `وضع نص: يمكنكِ markdown وقوائم. ردودك موجزة.`;
 
-Your capabilities:
-- Financial planning and investment guidance with personalized recommendations
-- Expense tracking and smart budgeting strategies
-- Task and schedule management with lifestyle integration
-- Wellness and mood insights that connect to financial wellbeing
-- Goal setting and progress tracking with motivational support
+    const SYSTEM = `أنتِ جود — سكرتيرة تنفيذية سعودية ذكية من الرياض.
 
-${userContext ? `User context: ${userContext}` : ''}`;
+الشخصية:
+- لهجة سعودية أصيلة (نجدية/خليجية): الحين، بكرة، زين، تمام، وش، أبي، خلاص، عاد، بس، مو، كذا، يلا
+- مباشرة وذكية — لا تبدئين بـ "بالطبع" — ابدئي بالمضمون
+- ترديّن على Arabizi والمزيج عربي-إنجليزي بنفس أسلوب المستخدم
+- كل رد ينتهي بسؤال متابعة أو اقتراح واحد
 
-    if (shouldPreview) {
-      systemPrompt += `
+قدراتك:
+✓ مهام وتذكيرات — مباشرة بدون تأكيد
+✓ عادات يومية وأسبوعية — مباشرة
+✓ تسجيل المزاج — مباشرة
+✓ مواعيد التقويم — مع تأكيد
+✓ مصاريف ودخل — مع تأكيد
+✓ إيميل وواتساب — مع تأكيد
 
-IMPORTANT: The user said "Jood, note this" which means they want you to parse their request and show a preview BEFORE executing any actions. 
+السياق: اليوم ${TODAY} · ${userContext}
+أسبوع العمل: ${workDaysAr} · الإجازة: ${weekendAr}
+عند جدولة المهام والمواعيد، احترمي أيام العمل والإجازة. لا تقترحي اجتماعات في الإجازة إلا لو طلبها المستخدم صراحةً.${knownFacts}${missingHint}
+${langRule}
+${modeRules}
 
-You MUST:
-1. Parse their request using function calling tools
-2. Respond with: "I will record this as requested: [natural language summary]"
-3. Then show a structured preview of what will be saved
-4. End with: "Please confirm: Yes / No / Edit."
+قواعد الأدوات:
+• المهام والعادات والمزاج: نفّذي فوراً
+• التقويم والمالية: اعرضي ملخصاً واطلبي نعم/لا
+• إذا طلب المستخدم عدة عناصر دفعة وحدة (مثلاً "ذكّريني بكل الصلوات الخمس" أو "أضيفي ثلاث مهام")، استدعي الأداة لكل عنصر — مهمة واحدة لكل صلاة (الفجر، الظهر، العصر، المغرب، العشاء)
+• للعادات بأيام محددة (مثلاً "من الأحد إلى الأربعاء")، استخدمي frequency=weekly مع target_days=[0,1,2,3] حيث 0=الأحد و6=السبت
+• إذا ذكر المستخدم وقتاً للعادة (مثلاً "الساعة 6 صباحاً")، أضيفي time_of_day بصيغة HH:MM
+• لا تخمّني التفاصيل المفقودة — إذا الوقت أو اليوم غير واضح، اسألي قبل التنفيذ`;
 
-DO NOT execute any database writes yet - this is preview mode only.`;
-    } else if (shouldCommit || (isConfirmation && pendingFunction)) {
-      systemPrompt += `
-
-The user has confirmed they want to proceed with the action. Execute the function call and respond with "Consider it done." followed by a brief confirmation of what was saved.`;
-    } else if (isCancel) {
-      systemPrompt += `
-
-The user has cancelled the action. Respond politely that you won't record the information and continue the conversation normally.`;
-    } else {
-      systemPrompt += `
-
-Always respond as Jood would in a natural conversation - think ChatGPT's conversational flow but with financial expertise and elegant sophistication. Make each response feel like it's part of an ongoing, meaningful dialogue. Do not execute any database actions unless the user explicitly says "Jood, note this".`;
-    }
+    let systemPrompt = SYSTEM;
+    if (shouldCommit) systemPrompt += `\n\nالمستخدم أكّد — نفّذي فوراً.`;
+    if (isCancel) systemPrompt += `\n\nالمستخدم ألغى — ردّي بلطف.`;
 
     const messages = [
       { role: 'system', content: systemPrompt },
-      ...(context || []),
-      { role: 'user', content: message }
+      ...trimmedContext,
+      { role: 'user', content: String(message) },
     ];
 
+    // OpenAI call
+    stage = 'openai_call';
     const requestBody: any = {
-      model: 'gpt-5-2025-08-07',
-      messages: messages,
-      max_completion_tokens: 1000,
-      stream: false,
+      model,
+      messages,
+      max_tokens: voice_mode ? 150 : isSimple ? 350 : 800,
+      temperature: 0.7,
+      tools: functionTools,
+      tool_choice: shouldCommit ? 'required' : 'auto',
+      parallel_tool_calls: true,
     };
 
-    // Enable function calling for action mode or commit with pending function
-    if (shouldPreview || (shouldCommit && pendingFunction)) {
-      requestBody.tools = functionTools;
-      requestBody.tool_choice = 'auto';
-    }
-
-    console.log('Sending request to OpenAI...');
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    const openAIRes = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${openAIApiKey}`,
-        'Content-Type': 'application/json',
-      },
+      headers: { 'Authorization': `Bearer ${openAIApiKey}`, 'Content-Type': 'application/json' },
       body: JSON.stringify(requestBody),
     });
 
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error?.message || 'Failed to get AI response');
+    if (!openAIRes.ok) {
+      const errText = await openAIRes.text().catch(() => '');
+      throw new Error(`OpenAI ${openAIRes.status}: ${errText.slice(0, 200)}`);
     }
 
-    const data = await response.json();
-    const choice = data.choices[0];
-    let assistantMessage = choice.message.content || '';
-    let functionResults = null;
+    stage = 'openai_parse';
+    const oaiData = await openAIRes.json();
+    const choice = oaiData?.choices?.[0];
+    if (!choice) throw new Error('No choices in OpenAI response');
 
-    // Handle cancellation
+    let assistantMessage = choice.message?.content || '';
+    let functionResults: any = null;
+    let actionCard: any = null;
+
+    stage = 'tool_handling';
     if (isCancel) {
-      assistantMessage = "Understood — I won't record that. Is there anything else I can help you with?";
-    }
-    // Handle function calls for commit mode
-    else if (choice.message.tool_calls && (shouldCommit || (isConfirmation && pendingFunction)) && userId) {
+      assistantMessage = "تمام، ما سجّلت شيء. وش تبي الحين؟";
+    } else if (choice.message?.tool_calls?.length) {
+      const toolCalls = choice.message.tool_calls;
+
+      // Split into direct (execute now) vs preview-required tools.
+      const directCalls = toolCalls.filter((tc: any) => DIRECT_EXECUTE.has(tc.function.name));
+      const previewCalls = toolCalls.filter((tc: any) => !DIRECT_EXECUTE.has(tc.function.name));
+
+      // Execute all direct tool calls in sequence (tasks/habits/mood — no confirmation).
+      const summaries: string[] = [];
+      const results: any[] = [];
+      if (userId && directCalls.length) {
+        for (const tc of directCalls) {
+          try {
+            const result = await executeFunction(tc.function, userId, supabaseClient);
+            results.push(result);
+            // Silent tools (e.g. remember_about_user) don't add a visible line;
+            // they just persist data in the background.
+            if (!result.silent && result.summary) summaries.push(result.summary);
+          } catch (err: any) {
+            console.error('[executeFunction]', err?.message);
+            summaries.push(`✗ ${tc.function.name}: ${err?.message || 'فشل'}`);
+          }
+        }
+      }
+
+      // If user already confirmed and there's a pendingFunction, execute that too.
+      if (shouldCommit && pendingFunction && userId) {
+        try {
+          const result = await executeFunction(pendingFunction, userId, supabaseClient);
+          results.push(result);
+          summaries.push(result.summary);
+        } catch (err: any) {
+          summaries.push(`✗ ${err?.message || 'فشل التنفيذ'}`);
+        }
+      }
+
+      // Handle preview-required tool calls — only honour the first (UI shows one confirmation card).
+      if (previewCalls.length && !shouldCommit) {
+        const fnCall = previewCalls[0].function;
+        try {
+          const parsedArgs = JSON.parse(fnCall.arguments || '{}');
+          const previewText = buildPreview(fnCall.name, parsedArgs, voice_mode);
+          summaries.push(previewText);
+          functionResults = { function_call: fnCall, preview_mode: true };
+        } catch {
+          summaries.push("ما قدرت أفهم التفاصيل. تكتبيها بشكل ثاني؟");
+        }
+      }
+
+      if (results.length) {
+        // actionCard should be the last NON-silent result.
+        const visibleResults = results.filter((r: any) => !r.silent);
+        if (visibleResults.length) actionCard = visibleResults[visibleResults.length - 1];
+        if (!functionResults && visibleResults.length) {
+          functionResults = visibleResults.length === 1 ? visibleResults[0] : { multi: true, items: visibleResults };
+        }
+      }
+
+      // If we have summaries (visible tool actions), those form the message.
+      // If ONLY silent tools fired (e.g. remember_about_user), keep the model's natural reply.
+      const naturalReply = choice.message?.content || '';
+      if (summaries.length) {
+        assistantMessage = naturalReply ? `${naturalReply}\n\n${summaries.join('\n')}` : summaries.join('\n');
+      } else if (naturalReply) {
+        assistantMessage = naturalReply;
+      }
+    } else if (shouldCommit && pendingFunction && userId) {
       try {
-        const functionCall = choice.message.tool_calls[0].function || pendingFunction;
-        const result = await executeFunction(functionCall, userId, supabaseClient);
+        const result = await executeFunction(pendingFunction, userId, supabaseClient);
         functionResults = result;
-        assistantMessage = `Consider it done. ${result}`;
-      } catch (error) {
-        console.error('Function execution error:', error);
-        assistantMessage = `I encountered an error while trying to save that information: ${error.message}. Please try again.`;
-      }
-    }
-    // Handle function calls for preview mode
-    else if (choice.message.tool_calls && shouldPreview) {
-      const functionCall = choice.message.tool_calls[0].function;
-      const parsedArgs = JSON.parse(functionCall.arguments);
-      
-      // Create a structured preview
-      let preview = `I will record this as requested: `;
-      
-      switch (functionCall.name) {
-        case 'add_task':
-          preview += `Add task "${parsedArgs.title}"`;
-          if (parsedArgs.due_date) preview += ` due ${new Date(parsedArgs.due_date).toLocaleDateString()}`;
-          if (parsedArgs.priority) preview += ` with ${parsedArgs.priority} priority`;
-          break;
-        case 'add_financial_entry':
-          preview += `${parsedArgs.type} of ${parsedArgs.amount} ${parsedArgs.currency}`;
-          if (parsedArgs.category) preview += ` for ${parsedArgs.category}`;
-          break;
-        case 'add_stock_to_portfolio':
-          preview += `${parsedArgs.quantity} shares of ${parsedArgs.symbol} at $${parsedArgs.buy_price}`;
-          break;
-        case 'add_crypto_to_portfolio':
-          preview += `${parsedArgs.quantity} ${parsedArgs.symbol} at $${parsedArgs.buy_price}`;
-          break;
-        case 'add_real_estate':
-          preview += `${parsedArgs.property_type} in ${parsedArgs.address} for ${parsedArgs.purchase_price} ${parsedArgs.currency || 'SAR'}`;
-          break;
-      }
-      
-      assistantMessage = `${preview}.\n\nPlease confirm: Yes / No / Edit.`;
-      
-      // Store the function call for later execution
-      functionResults = {
-        function_call: functionCall,
-        preview_mode: true
-      };
-    }
-
-    // Store the interaction for context memory
-    if (userId) {
-      try {
-        await supabaseClient
-          .from('ai_interactions')
-          .insert({
-            user_id: userId,
-            message,
-            response: assistantMessage,
-            context_data: {
-              context: context || [],
-              function_results: functionResults,
-              mode: shouldPreview ? 'preview' : shouldCommit ? 'commit' : 'conversation'
-            }
-          });
-      } catch (error) {
-        console.error('Error storing interaction:', error);
+        actionCard = result;
+        assistantMessage = result.summary;
+      } catch (err: any) {
+        assistantMessage = `صار خطأ: ${err?.message || 'غير معروف'}.`;
       }
     }
 
-    return new Response(JSON.stringify({ 
+    if (!assistantMessage) {
+      assistantMessage = "هلا، وش أقدر أسوي لك الحين؟";
+    }
+
+    // Emotion hint
+    stage = 'emotion';
+    let suggestedEmotion = "neutral";
+    if (/متوتر|ضغط|قلق|stressed|تعبان/i.test(assistantMessage)) suggestedEmotion = "empathetic";
+    else if (/ممتاز|رائع|great|excellent|يلا/i.test(assistantMessage)) suggestedEmotion = "warm";
+    else if (/استثمار|محفظة|invest|portfolio/i.test(assistantMessage)) suggestedEmotion = "confident";
+
+    return new Response(JSON.stringify({
       message: assistantMessage,
       function_results: functionResults,
-      mode: shouldPreview ? 'preview' : shouldCommit ? 'commit' : 'conversation',
-      timestamp: new Date().toISOString()
-    }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+      action_card: actionCard,
+      mode: shouldCommit ? 'commit' : 'conversation',
+      voice_mode,
+      detected_language,
+      suggested_emotion: suggestedEmotion,
+      model_used: model,
+      timestamp: new Date().toISOString(),
+    }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
-  } catch (error) {
-    console.error('Error in ai-chat function:', error);
-    return new Response(JSON.stringify({ 
-      error: error.message || 'An error occurred'
-    }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+  } catch (error: any) {
+    const errMsg = error?.message || String(error) || 'Unknown error';
+    console.error(`[ai-chat] FATAL at stage=${stage}:`, errMsg);
+    // Return 200 with friendly fallback so the UI never shows the connection-failed toast.
+    // Real error in `debug` for inspection.
+    return new Response(
+      JSON.stringify({
+        message: "آسفة، صار شي بسيط عندي. عيدي السؤال مرة ثانية لو سمحتي.",
+        function_results: null,
+        action_card: null,
+        mode: 'conversation',
+        suggested_emotion: 'empathetic',
+        debug: { stage, error: errMsg },
+      }),
+      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+    );
   }
 });

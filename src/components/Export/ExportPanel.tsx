@@ -86,7 +86,7 @@ export const ExportPanel = () => {
             <Crown className="w-12 h-12 text-white mx-auto mb-4" />
             <h3 className="text-xl font-bold text-white mb-2">Premium Feature</h3>
             <p className="text-white/80 mb-4">
-              Export functionality is available with a Joud AI subscription
+              Export functionality is available with a JOOD AI subscription
             </p>
             <Button variant="outline" className="bg-white/10 border-white/20 text-white hover:bg-white/20">
               Upgrade Now

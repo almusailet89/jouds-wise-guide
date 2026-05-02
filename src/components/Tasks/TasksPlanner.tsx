@@ -126,7 +126,7 @@ const TasksPlanner: React.FC = () => {
             <div className="text-center py-8 text-muted-foreground">
               <Calendar className="h-12 w-12 mx-auto mb-3 opacity-50" />
               <p className="text-lg font-medium mb-2">No tasks yet</p>
-              <p className="text-sm">Add your first task above or say "Joud, note this add task to call the bank tomorrow"</p>
+              <p className="text-sm font-arabic">أضيفي مهمة أعلاه أو قولي لجود: «أضيفي مهمة أتصل بالبنك غداً»</p>
             </div>
           ) : (
             tasks.map((task) => (

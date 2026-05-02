@@ -1,152 +1,130 @@
-@import url('https://fonts.googleapis.com/css2?family=Noto+Sans:wght@300;400;500;600;700&family=Noto+Naskh+Arabic:wght@400;500;600;700&display=swap');
+/* JOOD AI — Design System v2.0 (per $100K Upgrade Spec) */
+@import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&family=Playfair+Display:wght@600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Sans+Arabic:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* Joud AI Luxury Design System - All colors MUST be HSL */
-
 @layer base {
   :root {
-    /* Joud AI Luxury Color System */
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-    
-    /* Primary - Emerald Green */
-    --primary: 160 84% 39%;
-    --primary-foreground: 0 0% 100%;
-    --primary-glow: 160 84% 49%;
-    
-    /* Secondary - Deep Gold */
-    --secondary: 45 93% 47%;
-    --secondary-foreground: 0 0% 100%;
-    --secondary-glow: 45 93% 57%;
-    
-    /* Muted - Soft Beige */
-    --muted: 39 30% 94%;
-    --muted-foreground: 39 30% 40%;
-    
-    /* Accent - Light Gold */
-    --accent: 45 54% 91%;
-    --accent-foreground: 45 93% 47%;
-    
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 39 30% 89%;
-    --input: 39 30% 89%;
-    --ring: 160 84% 39%;
-    
-    /* Charts - Luxury Palette */
-    --chart-1: 160 84% 39%;
-    --chart-2: 45 93% 47%;
-    --chart-3: 160 34% 29%;
-    --chart-4: 45 54% 67%;
-    --chart-5: 160 54% 67%;
-    
+    /* JOOD Teal/Gold Two-tone System */
+    --jood-teal-900:    14 60% 18%;
+    --jood-teal-700:    180 56% 22%;
+    --jood-teal-500:    180 50% 36%;
+    --jood-gold-500:    36 43% 51%;
+    --jood-gold-300:    36 55% 66%;
+    --jood-cream:       40 30% 94%;
+    --jood-ink:         0 0% 10%;
+    --jood-muted:       0 0% 36%;
+    --jood-ok:          152 51% 37%;
+    --jood-warn:        25 63% 47%;
+
+    /* shadcn/ui tokens */
+    --background:           40 30% 97%;
+    --foreground:           0 0% 10%;
+    --card:                 40 30% 94%;
+    --card-foreground:      0 0% 10%;
+    --popover:              40 30% 97%;
+    --popover-foreground:   0 0% 10%;
+    --primary:              14 60% 18%;
+    --primary-foreground:   40 30% 94%;
+    --primary-glow:         180 56% 22%;
+    --secondary:            36 43% 51%;
+    --secondary-foreground: 40 30% 94%;
+    --secondary-glow:       36 55% 66%;
+    --muted:                40 20% 90%;
+    --muted-foreground:     0 0% 36%;
+    --accent:               36 55% 90%;
+    --accent-foreground:    36 43% 51%;
+    --destructive:          0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border:               40 20% 86%;
+    --input:                40 20% 86%;
+    --ring:                 180 50% 36%;
+
+    /* Charts — teal ramp + gold */
+    --chart-1: 14 60% 18%;
+    --chart-2: 180 56% 22%;
+    --chart-3: 180 50% 36%;
+    --chart-4: 180 40% 55%;
+    --chart-5: 36 43% 51%;
+
     /* Gradients */
-    --gradient-primary: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary-glow)));
-    --gradient-secondary: linear-gradient(135deg, hsl(var(--secondary)), hsl(var(--secondary-glow)));
-    --gradient-luxury: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--secondary)));
-    
-    /* Shadows */
-    --shadow-luxury: 0 10px 30px -10px hsl(var(--primary) / 0.3);
-    --shadow-gold: 0 5px 20px -5px hsl(var(--secondary) / 0.4);
-    --shadow-elegant: 0 4px 20px -2px hsl(0 0% 0% / 0.1);
-    
-    /* Animations */
+    --gradient-hero:    linear-gradient(135deg, hsl(14 60% 18%), hsl(180 56% 22%));
+    --gradient-gold:    linear-gradient(135deg, hsl(36 43% 51%), hsl(36 55% 66%));
+    --gradient-luxury:  linear-gradient(135deg, hsl(14 60% 18%), hsl(36 43% 51%));
+    --gradient-primary: linear-gradient(135deg, hsl(14 60% 18%), hsl(180 56% 22%));
+    --gradient-secondary: linear-gradient(135deg, hsl(36 43% 51%), hsl(36 55% 66%));
+
+    /* Shadows — warm gold-tinted per spec */
+    --shadow-luxury:  0 8px 24px rgba(184, 146, 74, 0.12);
+    --shadow-gold:    0 5px 20px -5px rgba(184, 146, 74, 0.4);
+    --shadow-elegant: 0 4px 20px -2px rgba(0, 0, 0, 0.08);
+    --shadow-card:    0 2px 8px rgba(14, 78, 78, 0.08);
+
+    /* Transitions */
     --transition-luxury: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
     --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    
-    --radius: 1rem;
 
-    --sidebar-background: 0 0% 98%;
+    --radius: 0.75rem;
 
-    --sidebar-foreground: 240 5.3% 26.1%;
-
-    --sidebar-primary: 240 5.9% 10%;
-
-    --sidebar-primary-foreground: 0 0% 98%;
-
-    --sidebar-accent: 240 4.8% 95.9%;
-
-    --sidebar-accent-foreground: 240 5.9% 10%;
-
-    --sidebar-border: 220 13% 91%;
-
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --sidebar-background: 14 60% 16%;
+    --sidebar-foreground: 40 30% 90%;
+    --sidebar-primary: 36 43% 51%;
+    --sidebar-primary-foreground: 40 30% 94%;
+    --sidebar-accent: 180 56% 20%;
+    --sidebar-accent-foreground: 40 30% 90%;
+    --sidebar-border: 180 40% 22%;
+    --sidebar-ring: 180 50% 36%;
   }
 
   .dark {
-    /* Joud AI Dark Mode - Luxury */
-    --background: 222.2 47% 6%;
-    --foreground: 210 40% 98%;
-    --card: 222.2 47% 8%;
-    --card-foreground: 210 40% 98%;
-    --popover: 222.2 47% 8%;
-    --popover-foreground: 210 40% 98%;
-    
-    /* Primary - Bright Emerald */
-    --primary: 160 84% 49%;
-    --primary-foreground: 222.2 47% 6%;
-    --primary-glow: 160 84% 59%;
-    
-    /* Secondary - Bright Gold */
-    --secondary: 45 93% 57%;
-    --secondary-foreground: 222.2 47% 6%;
-    --secondary-glow: 45 93% 67%;
-    
-    /* Muted - Dark Beige */
-    --muted: 222.2 32.6% 12%;
-    --muted-foreground: 215 20.2% 65.1%;
-    
-    /* Accent - Dark Gold */
-    --accent: 222.2 32.6% 12%;
-    --accent-foreground: 45 93% 57%;
-    
-    --destructive: 0 62.8% 50.6%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 222.2 32.6% 15%;
-    --input: 222.2 32.6% 15%;
-    --ring: 160 84% 49%;
-    
-    /* Charts - Dark Luxury Palette */
-    --chart-1: 160 84% 49%;
-    --chart-2: 45 93% 57%;
-    --chart-3: 160 34% 39%;
-    --chart-4: 45 54% 77%;
-    --chart-5: 160 54% 77%;
-    
-    /* Gradients */
-    --gradient-primary: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary-glow)));
-    --gradient-secondary: linear-gradient(135deg, hsl(var(--secondary)), hsl(var(--secondary-glow)));
-    --gradient-luxury: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--secondary)));
-    
-    /* Shadows */
-    --shadow-luxury: 0 10px 30px -10px hsl(var(--primary) / 0.4);
-    --shadow-gold: 0 5px 20px -5px hsl(var(--secondary) / 0.5);
-    --shadow-elegant: 0 4px 20px -2px hsl(0 0% 0% / 0.3);
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --background:           14 60% 8%;
+    --foreground:           40 30% 94%;
+    --card:                 14 60% 11%;
+    --card-foreground:      40 30% 94%;
+    --popover:              14 60% 8%;
+    --popover-foreground:   40 30% 94%;
+    --primary:              180 50% 36%;
+    --primary-foreground:   14 60% 8%;
+    --primary-glow:         180 56% 44%;
+    --secondary:            36 43% 51%;
+    --secondary-foreground: 14 60% 8%;
+    --secondary-glow:       36 55% 66%;
+    --muted:                14 40% 15%;
+    --muted-foreground:     40 20% 65%;
+    --accent:               14 40% 15%;
+    --accent-foreground:    36 43% 51%;
+    --destructive:          0 62% 50%;
+    --destructive-foreground: 40 30% 94%;
+    --border:               14 40% 20%;
+    --input:                14 40% 20%;
+    --ring:                 180 50% 36%;
+    --chart-1: 180 50% 46%;
+    --chart-2: 180 56% 34%;
+    --chart-3: 14 60% 28%;
+    --chart-4: 180 40% 65%;
+    --chart-5: 36 43% 61%;
+    --shadow-luxury:  0 8px 24px rgba(184, 146, 74, 0.18);
+    --shadow-gold:    0 5px 20px -5px rgba(184, 146, 74, 0.5);
+    --shadow-elegant: 0 4px 20px -2px rgba(0, 0, 0, 0.4);
+    --sidebar-background: 14 60% 6%;
+    --sidebar-foreground: 40 30% 90%;
+    --sidebar-primary: 36 43% 51%;
+    --sidebar-primary-foreground: 14 60% 6%;
+    --sidebar-accent: 14 50% 12%;
+    --sidebar-accent-foreground: 40 30% 90%;
+    --sidebar-border: 14 40% 15%;
+    --sidebar-ring: 180 50% 36%;
   }
 }
 
 @layer base {
-  * {
-    @apply border-border;
-  }
+  * { @apply border-border; }
+  html { scroll-behavior: smooth; }
 
   body {
-    font-family: 'Noto Sans', Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+    font-family: 'Inter', system-ui, Helvetica, Arial, sans-serif;
     line-height: 1.6;
     font-weight: 400;
     color: hsl(var(--foreground));
@@ -155,31 +133,183 @@
     text-rendering: optimizeLegibility;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    -webkit-text-size-adjust: 100%;
   }
 
-  .font-arabic {
-    font-family: 'Noto Naskh Arabic', 'Noto Sans', serif;
+  [lang="ar"], .font-arabic {
+    font-family: 'IBM Plex Sans Arabic', 'Tajawal', sans-serif;
+    direction: rtl;
+    line-height: 1.55;
+  }
+
+  .display-ar {
+    font-family: 'Tajawal', sans-serif;
+    font-weight: 700;
+    font-size: 3.5rem;
+    line-height: 1.15;
     direction: rtl;
   }
 
-  .luxury-card {
-    @apply bg-gradient-to-br from-background to-muted/50 shadow-elegant border border-border/50;
+  .display-en {
+    font-family: 'Playfair Display', serif;
+    font-weight: 600;
+    font-size: 3.25rem;
+    line-height: 1.15;
   }
 
-  .luxury-button {
-    @apply bg-gradient-primary text-primary-foreground shadow-luxury hover:shadow-gold transition-all duration-300;
+  .mono-number {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8125rem;
+    line-height: 1.4;
+    font-feature-settings: "tnum";
+  }
+}
+
+@layer components {
+  .jood-card {
+    @apply rounded-2xl border border-border/60 bg-card;
+    box-shadow: var(--shadow-card);
+    transition: transform 200ms ease, box-shadow 200ms ease;
+  }
+  @media (hover: hover) {
+    .jood-card:hover {
+      transform: translateY(-3px);
+      box-shadow: var(--shadow-luxury);
+    }
   }
 
-  .avatar-glow {
-    @apply shadow-luxury animate-pulse;
+  .jood-btn-primary {
+    @apply inline-flex items-center justify-center gap-2 px-6 py-3 rounded-full font-semibold text-sm cursor-pointer;
+    background: hsl(var(--jood-gold-500));
+    color: hsl(var(--jood-cream));
+    box-shadow: var(--shadow-gold);
+    transition: background 150ms ease, box-shadow 150ms ease, transform 150ms ease;
   }
+  .jood-btn-primary:hover {
+    background: hsl(var(--jood-gold-300));
+    box-shadow: 0 8px 28px rgba(184,146,74,0.5);
+  }
+  .jood-btn-primary:active { transform: scale(0.96); }
+
+  .jood-btn-outline {
+    @apply inline-flex items-center justify-center gap-2 px-6 py-3 rounded-full font-semibold text-sm cursor-pointer;
+    border: 1.5px solid hsl(var(--jood-gold-500) / 0.5);
+    color: hsl(var(--jood-gold-500));
+    background: transparent;
+    transition: border-color 150ms ease, background 150ms ease;
+  }
+  .jood-btn-outline:hover {
+    border-color: hsl(var(--jood-gold-500));
+    background: hsl(var(--jood-gold-500) / 0.06);
+  }
+
+  /* Legacy aliases so existing components stay unbroken */
+  .luxury-card   { @apply jood-card; }
+  .luxury-button { @apply jood-btn-primary; }
+  .jood-container { @apply min-h-screen bg-background; }
+
+  .avatar-breathing { animation: avatar-breathe 4.5s ease-in-out infinite; }
+  .avatar-glow { box-shadow: 0 0 32px hsl(var(--jood-gold-500) / 0.45); }
 
   .waveform-bar {
-    @apply bg-gradient-primary transition-all duration-100 rounded-full;
+    @apply rounded-full;
+    background: hsl(var(--jood-gold-500));
+    transition: height 75ms ease;
   }
 
-  .joud-container {
-    @apply min-h-screen bg-gradient-to-br from-background via-muted/10 to-accent/20;
+  .shimmer-text {
+    background: linear-gradient(
+      90deg,
+      hsl(var(--jood-gold-500)) 0%,
+      hsl(var(--jood-gold-300)) 40%,
+      hsl(var(--jood-gold-500)) 100%
+    );
+    background-size: 200% auto;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    animation: shimmer 3.2s linear 8s infinite;
   }
+
+  .signal-chip {
+    @apply inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium;
+    background: hsl(var(--jood-teal-900) / 0.07);
+    color: hsl(var(--jood-teal-700));
+    border: 1px solid hsl(var(--jood-teal-500) / 0.2);
+  }
+  .dark .signal-chip {
+    background: hsl(var(--jood-teal-500) / 0.12);
+    color: hsl(var(--jood-gold-300));
+    border-color: hsl(var(--jood-gold-500) / 0.2);
+  }
+
+  .islamic-ring { animation: islamic-rotate 60s linear infinite; opacity: 0.06; }
+
+  .entrance { animation: entrance 600ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+  .entrance-delay-1 { animation-delay: 80ms; }
+  .entrance-delay-2 { animation-delay: 160ms; }
+  .entrance-delay-3 { animation-delay: 240ms; }
+  .entrance-delay-4 { animation-delay: 320ms; }
+  .entrance-delay-5 { animation-delay: 400ms; }
+  .entrance-delay-6 { animation-delay: 480ms; }
+}
+
+@layer utilities {
+  .bg-gradient-hero     { background: var(--gradient-hero); }
+  .bg-gradient-gold     { background: var(--gradient-gold); }
+  .bg-gradient-luxury   { background: var(--gradient-luxury); }
+  .bg-gradient-primary  { background: var(--gradient-primary); }
+  .bg-gradient-secondary { background: var(--gradient-secondary); }
+  .shadow-luxury        { box-shadow: var(--shadow-luxury); }
+  .shadow-gold          { box-shadow: var(--shadow-gold); }
+  .shadow-elegant       { box-shadow: var(--shadow-elegant); }
+  .transition-luxury    { transition: var(--transition-luxury); }
+  .transition-smooth    { transition: var(--transition-smooth); }
+
+  /* iOS safe area support for bottom nav bar */
+  .safe-area-pb {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  /* Minimum touch target size for accessibility */
+  .touch-target {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  /* Hide scrollbar but keep scrolling */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* Keyframes */
+@keyframes shimmer {
+  0%   { background-position: 200% center; }
+  100% { background-position: -200% center; }
+}
+@keyframes avatar-breathe {
+  0%, 100% { transform: scale(1.000); }
+  50%       { transform: scale(1.012); }
+}
+@keyframes islamic-rotate {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+@keyframes entrance {
+  from { opacity: 0; transform: translateY(24px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes accordion-down {
+  from { height: 0; }
+  to   { height: var(--radix-accordion-content-height); }
+}
+@keyframes accordion-up {
+  from { height: var(--radix-accordion-content-height); }
+  to   { height: 0; }
+}
+@keyframes gold-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 hsl(var(--jood-gold-500) / 0.4); }
+  50%       { box-shadow: 0 0 0 12px hsl(var(--jood-gold-500) / 0); }
 }

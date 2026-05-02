@@ -46,11 +46,11 @@ const Terms = () => {
 
 ## 1. Acceptance of Terms
 
-By accessing and using Joud AI ("the Service"), you accept and agree to be bound by the terms and provision of this agreement.
+By accessing and using JOOD AI ("the Service"), you accept and agree to be bound by the terms and provision of this agreement.
 
 ## 2. Description of Service
 
-Joud AI is an artificial intelligence-powered personal assistant application that provides:
+JOOD AI is an artificial intelligence-powered personal assistant application that provides:
 - AI chat interactions and conversations
 - Financial tracking and portfolio management
 - Task planning and management

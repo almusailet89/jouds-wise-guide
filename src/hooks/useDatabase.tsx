@@ -190,10 +190,18 @@ export const useTasks = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (user) {
-      fetchTasks();
-    }
-  }, [user]);
+    if (!user) return;
+    fetchTasks();
+
+    const channel = supabase
+      .channel(`tasks-rt-${user.id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks', filter: `user_id=eq.${user.id}` }, () => {
+        fetchTasks();
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [user?.id]);
 
   const fetchTasks = async () => {
     if (!user) return;

@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
 import { useFinancialDashboard } from '@/hooks/useFinancialDashboard';
 import { Loader2 } from 'lucide-react';
 
@@ -13,182 +13,154 @@ interface AddEntryModalProps {
   onOpenChange: (open: boolean) => void;
 }
 
+const CATEGORIES = {
+  income:  ['الراتب', 'عمل حر', 'استثمار', 'أعمال', 'مكافأة', 'أخرى'],
+  expense: ['مطاعم وطعام', 'مواصلات', 'سكن وإيجار', 'صحة', 'ترفيه', 'تسوق', 'فواتير', 'تعليم', 'أخرى'],
+  savings: ['صندوق الطوارئ', 'استثمار', 'هدف محدد', 'أخرى'],
+};
+
 export const AddEntryModal: React.FC<AddEntryModalProps> = ({ open, onOpenChange }) => {
   const { addFinancialEntry } = useFinancialDashboard();
   const [loading, setLoading] = useState(false);
-  const [formData, setFormData] = useState({
+  const [form, setForm] = useState({
     type: '' as 'income' | 'expense' | 'savings',
     amount: '',
     currency: 'SAR',
     category: '',
     description: '',
-    date: new Date().toISOString().split('T')[0]
+    date: new Date().toISOString().split('T')[0],
   });
+
+  const set = (k: keyof typeof form, v: string) =>
+    setForm(prev => ({ ...prev, [k]: v }));
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.type || !formData.amount) return;
-
+    if (!form.type || !form.amount) return;
     setLoading(true);
     try {
       await addFinancialEntry({
-        type: formData.type,
-        amount: parseFloat(formData.amount),
-        currency: formData.currency,
-        category: formData.category || 'general',
-        description: formData.description,
-        date: new Date(formData.date).toISOString()
+        type:        form.type,
+        amount:      parseFloat(form.amount),
+        currency:    form.currency,
+        category:    form.category || 'عام',
+        description: form.description,
+        date:        new Date(form.date).toISOString(),
       });
-      
-      // Reset form
-      setFormData({
-        type: '' as 'income' | 'expense' | 'savings',
-        amount: '',
-        currency: 'SAR',
-        category: '',
-        description: '',
-        date: new Date().toISOString().split('T')[0]
-      });
-      
+      setForm({ type: '' as any, amount: '', currency: 'SAR', category: '', description: '', date: new Date().toISOString().split('T')[0] });
       onOpenChange(false);
-    } catch (error) {
-      console.error('Error adding entry:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const categories = {
-    income: ['Salary', 'Freelance', 'Investment', 'Business', 'Bonus', 'Other'],
-    expense: ['Food', 'Transportation', 'Housing', 'Healthcare', 'Entertainment', 'Shopping', 'Bills', 'Education', 'Other'],
-    savings: ['Emergency Fund', 'Investment', 'Retirement', 'Goal-based', 'Other']
-  };
+  const TYPE_LABELS = { income: '💰 دخل', expense: '💸 مصروف', savings: '🏦 ادخار' };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md" dir="rtl">
         <DialogHeader>
-          <DialogTitle className="text-xl font-semibold">Add Financial Entry</DialogTitle>
+          <DialogTitle className="font-arabic text-xl">إضافة معاملة مالية</DialogTitle>
         </DialogHeader>
-        
+
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="type">Type *</Label>
-              <Select
-                value={formData.type}
-                onValueChange={(value: 'income' | 'expense' | 'savings') => 
-                  setFormData(prev => ({ ...prev, type: value, category: '' }))
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select type" />
+          {/* Type + Amount */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label className="font-arabic text-xs">النوع *</Label>
+              <Select value={form.type} onValueChange={v => set('type', v as any)}>
+                <SelectTrigger className="font-arabic">
+                  <SelectValue placeholder="اختاري النوع" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="income">💰 Income</SelectItem>
-                  <SelectItem value="expense">💸 Expense</SelectItem>
-                  <SelectItem value="savings">🏦 Savings</SelectItem>
+                  {(['income', 'expense', 'savings'] as const).map(t => (
+                    <SelectItem key={t} value={t} className="font-arabic">{TYPE_LABELS[t]}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="amount">Amount *</Label>
+            <div className="space-y-1.5">
+              <Label className="font-arabic text-xs">المبلغ *</Label>
               <Input
-                id="amount"
                 type="number"
                 step="0.01"
                 min="0.01"
-                placeholder="0.00"
-                value={formData.amount}
-                onChange={(e) => setFormData(prev => ({ ...prev, amount: e.target.value }))}
+                placeholder="٠٫٠٠"
+                value={form.amount}
+                onChange={e => set('amount', e.target.value)}
+                className="text-right"
                 required
               />
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="currency">Currency</Label>
-              <Select
-                value={formData.currency}
-                onValueChange={(value) => setFormData(prev => ({ ...prev, currency: value }))}
-              >
-                <SelectTrigger>
+          {/* Currency + Date */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label className="font-arabic text-xs">العملة</Label>
+              <Select value={form.currency} onValueChange={v => set('currency', v)}>
+                <SelectTrigger className="font-arabic">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="SAR">🇸🇦 SAR</SelectItem>
-                  <SelectItem value="USD">🇺🇸 USD</SelectItem>
-                  <SelectItem value="EUR">🇪🇺 EUR</SelectItem>
+                  <SelectItem value="SAR">🇸🇦 ريال سعودي</SelectItem>
+                  <SelectItem value="USD">🇺🇸 دولار</SelectItem>
+                  <SelectItem value="EUR">🇪🇺 يورو</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="date">Date</Label>
+            <div className="space-y-1.5">
+              <Label className="font-arabic text-xs">التاريخ</Label>
               <Input
-                id="date"
                 type="date"
-                value={formData.date}
-                onChange={(e) => setFormData(prev => ({ ...prev, date: e.target.value }))}
+                value={form.date}
+                onChange={e => set('date', e.target.value)}
                 required
               />
             </div>
           </div>
 
-          {formData.type && (
-            <div className="space-y-2">
-              <Label htmlFor="category">Category</Label>
-              <Select
-                value={formData.category}
-                onValueChange={(value) => setFormData(prev => ({ ...prev, category: value }))}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select category" />
+          {/* Category */}
+          {form.type && (
+            <div className="space-y-1.5">
+              <Label className="font-arabic text-xs">الفئة</Label>
+              <Select value={form.category} onValueChange={v => set('category', v)}>
+                <SelectTrigger className="font-arabic">
+                  <SelectValue placeholder="اختاري الفئة" />
                 </SelectTrigger>
                 <SelectContent>
-                  {categories[formData.type]?.map((cat) => (
-                    <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                  {CATEGORIES[form.type]?.map(cat => (
+                    <SelectItem key={cat} value={cat} className="font-arabic">{cat}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
           )}
 
-          <div className="space-y-2">
-            <Label htmlFor="description">Description</Label>
+          {/* Note */}
+          <div className="space-y-1.5">
+            <Label className="font-arabic text-xs">ملاحظة (اختياري)</Label>
             <Textarea
-              id="description"
-              placeholder="Add a note..."
-              value={formData.description}
-              onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+              placeholder="مثال: غداء مع العائلة..."
+              value={form.description}
+              onChange={e => set('description', e.target.value)}
               rows={2}
+              className="font-arabic text-sm resize-none"
             />
           </div>
 
-          <div className="flex justify-end gap-3 pt-4">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-              disabled={loading}
-            >
-              Cancel
+          <div className="flex justify-end gap-2 pt-2">
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={loading} className="font-arabic">
+              إلغاء
             </Button>
             <Button
               type="submit"
-              disabled={loading || !formData.type || !formData.amount}
-              className="luxury-button"
+              disabled={loading || !form.type || !form.amount}
+              className="font-arabic bg-jood-teal-900 hover:bg-jood-teal-700 text-white"
             >
-              {loading ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Adding...
-                </>
-              ) : (
-                'Add Entry'
-              )}
+              {loading ? <><Loader2 className="w-4 h-4 ml-2 animate-spin" /> جارٍ الحفظ...</> : 'حفظ المعاملة'}
             </Button>
           </div>
         </form>

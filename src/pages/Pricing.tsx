@@ -57,7 +57,7 @@ export default function Pricing() {
                 <Crown className="w-5 h-5 text-white" />
               </div>
               <div>
-                <h1 className="text-xl font-bold text-white">Joud AI</h1>
+                <h1 className="text-xl font-bold text-white">JOOD AI</h1>
                 <p className="text-white/70 text-sm">Your Elegant Financial Secretary</p>
               </div>
             </div>
@@ -79,7 +79,7 @@ export default function Pricing() {
         <div className="text-center mb-16">
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 text-white mb-6">
             <Sparkles className="w-4 h-4" />
-            <span className="text-sm font-medium">✨ Unlock the Full Power of Joud AI ✨</span>
+            <span className="text-sm font-medium">✨ Unlock the Full Power of JOOD AI ✨</span>
           </div>
           
           <h1 className="text-5xl font-bold text-white mb-6">
@@ -214,7 +214,7 @@ export default function Pricing() {
         <Card className="bg-card/80 backdrop-blur border-white/10 max-w-4xl mx-auto">
           <CardHeader className="text-center">
             <CardTitle className="text-2xl font-bold text-foreground mb-4">
-              What You Get with Joud AI
+              What You Get with JOOD AI
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -258,7 +258,7 @@ export default function Pricing() {
                   <Check className="w-5 h-5 text-primary mt-1 flex-shrink-0" />
                   <div>
                     <h4 className="font-semibold text-foreground">AI-Powered Insights</h4>
-                    <p className="text-muted-foreground text-sm">Joud speaks like ChatGPT with personalized financial wisdom</p>
+                    <p className="text-muted-foreground text-sm">Jood speaks like ChatGPT with personalized financial wisdom</p>
                   </div>
                 </div>
                 
