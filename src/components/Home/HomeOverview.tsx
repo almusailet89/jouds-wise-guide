@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import {
   Sun, CloudSun, Cloud, Wallet, Sparkles, TrendingUp,
   CheckCircle2, Clock, Mic, Flame, ChevronRight, Moon,
-  Target, Brain,
+  Target, Brain, Circle, Calendar,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useProfile, useTasks, useFinancialData } from '@/hooks/useDatabase';
@@ -49,6 +49,9 @@ export const HomeOverview: React.FC<HomeOverviewProps> = ({ onNavigate }) => {
   const [weather, setWeather] = useState<{ temp: number; desc: string; icon: React.ComponentType<any> } | null>(null);
   const [prayer, setPrayer] = useState<{ name: string; time: string; minutesTo: number } | null>(null);
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
+  const [todayEvents, setTodayEvents] = useState<any[]>([]);
+  const [todayHabits, setTodayHabits] = useState<any[]>([]);
+  const [completedHabitIds, setCompletedHabitIds] = useState<Set<string>>(new Set());
 
   const displayName = profile?.display_name?.split(' ')[0]
     ?? user?.email?.split('@')[0]
@@ -108,6 +111,84 @@ export const HomeOverview: React.FC<HomeOverviewProps> = ({ onNavigate }) => {
   // ── Today stats ─────────────────────────────────────────────────────────
   const today = new Date();
   const todayStr = today.toISOString().split('T')[0];
+  const todayDayOfWeek = today.getDay(); // 0=Sun
+
+  // ── Fetch today's events + habits ───────────────────────────────────────
+  const fetchTodayData = async () => {
+    if (!user?.id) return;
+
+    // Fetch events for today
+    const { data: evts } = await (supabase as any)
+      .from('events')
+      .select('id, title, starts_at, start_at, ends_at, end_at')
+      .eq('user_id', user.id)
+      .or(`starts_at.gte.${todayStr}T00:00:00,start_at.gte.${todayStr}T00:00:00`)
+      .order('starts_at', { ascending: true })
+      .limit(5);
+
+    const todayEvts = (evts || []).filter((e: any) => {
+      const d = (e.starts_at || e.start_at || '').split('T')[0];
+      return d === todayStr;
+    });
+    setTodayEvents(todayEvts.slice(0, 3));
+
+    // Fetch active habits that occur today
+    const { data: habits } = await (supabase as any)
+      .from('habits')
+      .select('id, title, time_of_day, target_days')
+      .eq('user_id', user.id)
+      .neq('is_active', false);
+
+    const todayH = (habits || []).filter((h: any) => {
+      if (!h.target_days || h.target_days.length === 0) return true; // daily
+      return h.target_days.includes(todayDayOfWeek);
+    });
+    setTodayHabits(todayH.slice(0, 4));
+
+    // Check which habits are completed today
+    if (todayH.length > 0) {
+      const { data: logs } = await (supabase as any)
+        .from('habit_logs')
+        .select('habit_id')
+        .eq('user_id', user.id)
+        .or(`date.eq.${todayStr},completed_date.eq.${todayStr}`);
+      setCompletedHabitIds(new Set((logs || []).map((l: any) => l.habit_id)));
+    }
+  };
+
+  useEffect(() => {
+    fetchTodayData();
+  }, [user?.id]);
+
+  // ── Realtime: events + habit_logs ────────────────────────────────────────
+  useEffect(() => {
+    if (!user?.id) return;
+    const channel = (supabase as any)
+      .channel(`today-glance-${user.id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'events', filter: `user_id=eq.${user.id}` }, fetchTodayData)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'habit_logs', filter: `user_id=eq.${user.id}` }, fetchTodayData)
+      .subscribe();
+    return () => { (supabase as any).removeChannel(channel); };
+  }, [user?.id]);
+
+  // ── Toggle habit completion ──────────────────────────────────────────────
+  const toggleHabit = async (habitId: string) => {
+    if (!user?.id) return;
+    const isCompleted = completedHabitIds.has(habitId);
+    if (isCompleted) {
+      await (supabase as any).from('habit_logs')
+        .delete()
+        .eq('user_id', user.id)
+        .eq('habit_id', habitId)
+        .or(`date.eq.${todayStr},completed_date.eq.${todayStr}`);
+      setCompletedHabitIds(prev => { const n = new Set(prev); n.delete(habitId); return n; });
+    } else {
+      await (supabase as any).from('habit_logs')
+        .insert({ user_id: user.id, habit_id: habitId, date: todayStr, completed_date: todayStr, completed: true });
+      setCompletedHabitIds(prev => new Set([...prev, habitId]));
+    }
+  };
+
   const todayTasks = useMemo(
     () => tasks
       .filter(t => t.status === 'pending')
@@ -344,6 +425,78 @@ export const HomeOverview: React.FC<HomeOverviewProps> = ({ onNavigate }) => {
           </Card>
         </motion.div>
       </div>
+
+      {/* ── Today at a Glance: Events + Habits ─────────────────────────────── */}
+      {(todayEvents.length > 0 || todayHabits.length > 0) && (
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.22, duration: 0.4 }}
+        >
+          <Card className="jood-card">
+            <CardContent className="p-4 space-y-3">
+              <h3 className="text-sm font-bold font-arabic flex items-center gap-2">
+                <Flame className="w-4 h-4 text-jood-gold-500" />
+                اليوم دفعة واحدة
+              </h3>
+
+              {/* Events */}
+              {todayEvents.length > 0 && (
+                <div className="space-y-1.5">
+                  <p className="text-[10px] text-muted-foreground font-arabic uppercase tracking-wide">المواعيد</p>
+                  {todayEvents.map(ev => {
+                    const startRaw = ev.starts_at || ev.start_at || '';
+                    const timeStr = startRaw
+                      ? new Date(startRaw).toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' })
+                      : '';
+                    return (
+                      <div key={ev.id} className="flex items-center gap-2.5 p-2 rounded-xl bg-muted/30">
+                        <Calendar className="w-3.5 h-3.5 text-jood-teal-500 flex-shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-arabic truncate">{ev.title}</p>
+                        </div>
+                        {timeStr && (
+                          <span className="text-[10px] text-muted-foreground font-mono flex-shrink-0">{timeStr}</span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Habits */}
+              {todayHabits.length > 0 && (
+                <div className="space-y-1.5">
+                  <p className="text-[10px] text-muted-foreground font-arabic uppercase tracking-wide">العادات</p>
+                  {todayHabits.map(h => {
+                    const done = completedHabitIds.has(h.id);
+                    return (
+                      <button
+                        key={h.id}
+                        onClick={() => toggleHabit(h.id)}
+                        className="w-full flex items-center gap-2.5 p-2 rounded-xl bg-muted/30 hover:bg-muted/50 transition-colors text-right"
+                      >
+                        {done
+                          ? <CheckCircle2 className="w-4 h-4 text-green-500 flex-shrink-0" />
+                          : <Circle className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                        }
+                        <div className="flex-1 min-w-0">
+                          <p className={cn('text-xs font-arabic truncate', done && 'line-through text-muted-foreground')}>
+                            {h.title}
+                          </p>
+                        </div>
+                        {h.time_of_day && (
+                          <span className="text-[10px] text-muted-foreground font-arabic flex-shrink-0">{h.time_of_day}</span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </motion.div>
+      )}
 
       {/* ── AI Recommendations (Slide 12) ───────────────────────────────────── */}
       {recommendations.length > 0 && (

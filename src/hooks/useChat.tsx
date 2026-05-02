@@ -18,6 +18,11 @@ export interface ChatMessage {
   content: string;
   created_at: string;
   pending?: boolean;
+  action_card?: {
+    kind: 'task' | 'event' | 'email_draft' | 'whatsapp_draft' | 'finance' | 'budget' | 'portfolio';
+    summary: string;
+    data: Record<string, any>;
+  } | null;
 }
 
 // ─── sendMessage options (replaces positional mode/pendingFunction args) ────────
@@ -185,9 +190,9 @@ export const useChat = () => {
 
       await saveMessage(sessionId!, 'user', messageText);
 
-      // Last-20 context window
+      // Last-10 context window — keeps prompt lean for speed
       const contextMessages = messages
-        .slice(-20)
+        .slice(-10)
         .map(m => ({ role: m.role, content: m.content }));
 
       // ── ai-chat edge function ──────────────────────────────────────────────
@@ -225,6 +230,7 @@ export const useChat = () => {
           role: 'assistant',
           content: aiText,
           created_at: new Date().toISOString(),
+          action_card: data?.action_card ?? null,
         },
       ]);
 
@@ -350,6 +356,33 @@ export const useChat = () => {
     setAwaitingConfirmation(false);
   }, []);
 
+  const deleteSession = useCallback(async (sessionId: string) => {
+    if (!session?.user?.id) return;
+    try {
+      // Delete all messages first
+      await (supabase as any)
+        .from('chat_messages')
+        .delete()
+        .eq('session_id', sessionId);
+      // Delete the session
+      await (supabase as any)
+        .from('chat_sessions')
+        .delete()
+        .eq('id', sessionId)
+        .eq('user_id', session.user.id);
+      // If we deleted the active session, clear it
+      if (currentSessionId === sessionId) {
+        setCurrentSessionId(null);
+        setMessages([]);
+        setPendingFunction(null);
+        setAwaitingConfirmation(false);
+      }
+      await loadSessions();
+    } catch (err) {
+      console.error('Error deleting session:', err);
+    }
+  }, [session?.user?.id, currentSessionId, loadSessions]);
+
   const confirmAction = useCallback(async (action: 'yes' | 'no' | 'edit') => {
     if (action === 'yes') {
       await sendMessage('yes', { mode: 'commit', pendingFunction });
@@ -374,6 +407,7 @@ export const useChat = () => {
     loadSessions,
     loadMessages,
     startNewChat,
+    deleteSession,
     sendMessage,
     speakMessage,
     stopSpeaking,
