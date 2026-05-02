@@ -7,369 +7,124 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// ═══════════════════════════════════════════════════════════════════════════
-// Memory Extraction — runs after each turn to harvest durable facts
-// from the conversation. Uses gpt-4o-mini (cheap, ~$0.0001/turn) and
-// inserts findings into user_memories. Fire-and-forget — never blocks
-// the user's response.
-// ═══════════════════════════════════════════════════════════════════════════
-async function extractAndStoreMemories(args: {
-  userId: string;
-  userMessage: string;
-  assistantMessage: string;
-  sessionId?: string;
-  openAIApiKey: string;
-  supabase: any;
-}) {
-  const { userId, userMessage, assistantMessage, sessionId, openAIApiKey, supabase } = args;
+const DIRECT_EXECUTE = new Set(['add_task', 'add_habit', 'log_mood', 'remember_about_user']);
 
-  // Skip if message is too short (probably a greeting / acknowledgement)
-  if (userMessage.length < 12) return;
+const MEMORY_CATEGORIES = [
+  'identity','work','family','financial','health','religion',
+  'routine','goals','interests','relationships','preferences','pain_points',
+];
 
-  const EXTRACTION_PROMPT = `You are a memory extractor for a Saudi executive AI assistant called Jood.
+// ─── Function tool definitions ────────────────────────────────────────────────
+const functionTools = [
+  { type: "function", function: { name: "add_task", description: "Add a task/reminder. Trigger: 'أضيفي مهمة', 'ذكّريني', 'remind me to', 'add to my list'.", parameters: { type: "object", properties: { title: { type: "string" }, due_date: { type: "string", description: "ISO date YYYY-MM-DD (optional)" }, priority: { type: "string", enum: ["low","medium","high"] }, notes: { type: "string" } }, required: ["title"] } } },
+  { type: "function", function: { name: "add_habit", description: "Add a recurring habit. Trigger: 'عوّدني', 'أبي أتعود', 'حطّي عادة', 'track my habit'. For specific weekdays (e.g. 'من الأحد إلى الأربعاء' = Sun-Wed), set frequency='weekly' and provide target_days array (0=Sun, 1=Mon, 2=Tue, 3=Wed, 4=Thu, 5=Fri, 6=Sat).", parameters: { type: "object", properties: { name: { type: "string" }, frequency: { type: "string", enum: ["daily","weekly"] }, target_days: { type: "array", items: { type: "integer", minimum: 0, maximum: 6 }, description: "Weekday indices when frequency=weekly. 0=Sunday … 6=Saturday." }, time_of_day: { type: "string", description: "Optional time HH:MM (24h)" }, icon: { type: "string" } }, required: ["name"] } } },
+  { type: "function", function: { name: "log_mood", description: "Log mood/energy. Trigger: 'أنا متعب', 'مزاجي ممتاز', 'feeling stressed/great', 'سجّلي مزاجي'.", parameters: { type: "object", properties: { score: { type: "number" }, label: { type: "string" }, note: { type: "string" } }, required: ["score","label"] } } },
+  { type: "function", function: { name: "create_calendar_event", description: "Create calendar event/meeting. Trigger: 'احجزي', 'اجتماع', 'موعد', 'حطّي في التقويم', 'book'.", parameters: { type: "object", properties: { title: { type: "string" }, starts_at: { type: "string" }, ends_at: { type: "string" }, location: { type: "string" }, description: { type: "string" }, all_day: { type: "boolean" }, category: { type: "string" } }, required: ["title","starts_at"] } } },
+  { type: "function", function: { name: "compose_email", description: "Draft email. Trigger: 'راسلي', 'أرسلي إيميل', 'draft email'.", parameters: { type: "object", properties: { to: { type: "string" }, subject: { type: "string" }, body: { type: "string" } }, required: ["to","subject","body"] } } },
+  { type: "function", function: { name: "draft_whatsapp", description: "Draft WhatsApp. Trigger: 'واتساب', 'راسل فلان'.", parameters: { type: "object", properties: { recipient: { type: "string" }, message: { type: "string" } }, required: ["recipient","message"] } } },
+  { type: "function", function: { name: "add_financial_entry", description: "Record financial transaction. Trigger: amount stated (صرفت، دخلي، X ريال).", parameters: { type: "object", properties: { type: { type: "string", enum: ["expense","income","savings","investment"] }, amount: { type: "number" }, currency: { type: "string" }, category: { type: "string" }, description: { type: "string" } }, required: ["type","amount","currency"] } } },
+  { type: "function", function: { name: "remember_about_user", description: "Save a durable fact about the user to long-term memory. Call this when the user reveals something stable about themselves (name, job, family, goals, preferences, health, religious practice, daily routine, etc.). DO NOT call for transient state like 'I'm tired today'. The fact should be third-person and concise.", parameters: { type: "object", properties: { category: { type: "string", enum: ["identity","work","family","financial","health","religion","routine","goals","interests","relationships","preferences","pain_points"], description: "Which life-area this fact belongs to." }, content: { type: "string", description: "Short third-person fact, e.g. 'يعمل مديراً تقنياً في أرامكو' or 'يصلي الفجر في المسجد كل يوم'." }, importance: { type: "number", minimum: 0, maximum: 1, description: "0.0–1.0; how foundational this is. Default 0.6." } }, required: ["category","content"] } } },
+];
 
-Your job: read the user's message and the assistant's reply, then output ANY durable facts about the user worth remembering across future sessions.
+async function executeFunction(functionCall: any, userId: string, supabase: any) {
+  const { name } = functionCall;
+  const args = typeof functionCall.arguments === 'string' ? JSON.parse(functionCall.arguments) : functionCall.arguments;
+  const fmt = (n: number) => new Intl.NumberFormat('ar-SA', { maximumFractionDigits: 0 }).format(n);
 
-Output strict JSON: { "memories": [{"kind": ..., "content": ..., "importance": ...}] }
-
-kind ∈ ["fact", "preference", "goal", "pattern", "relationship", "context"]
-- fact:         static personal info (job, family size, location)
-- preference:   stable likes/dislikes (halal investments, Arabic UI, conservative risk)
-- goal:         financial or life goals (save 100k for Hajj, buy apartment)
-- pattern:      recurring behaviors (trades on Sundays, coffee at 7am)
-- relationship: important people in their life (wife, manager, parents)
-- context:      situational (lives in Riyadh, drives Lexus)
-
-content: short, third-person, in the language the user used. Example: "يفضل الاستثمارات الحلال" or "Wife's name is Layla"
-
-importance: 0.0-1.0 — how critical is this for personalizing future advice?
-
-Rules:
-- Output ONLY durable facts. Skip transient stuff like "feeling tired today".
-- Skip stuff already obvious from a profile (e.g., "user has a name").
-- If nothing memorable, return {"memories": []}.
-- Max 5 memories per call.
-
-USER: ${userMessage}
-ASSISTANT: ${assistantMessage}`;
-
-  try {
-    const res = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${openAIApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        messages: [
-          { role: 'system', content: 'You are a precise JSON-only memory extractor.' },
-          { role: 'user',   content: EXTRACTION_PROMPT },
-        ],
-        response_format: { type: 'json_object' },
-        temperature: 0.2,
-        max_tokens: 500,
-      }),
-    });
-
-    if (!res.ok) {
-      console.warn('[memory-extract] API failed:', res.status);
-      return;
+  switch (name) {
+    case 'add_task': {
+      const { error } = await supabase.from('tasks').insert({ user_id: userId, title: args.title, due_date: args.due_date || null, priority: args.priority || 'medium', description: args.notes || null, status: 'pending', category: 'general' });
+      if (error) throw new Error(`add_task: ${error.message}`);
+      return { kind: 'task', summary: `✓ مهمة "${args.title}" أُضيفت`, data: args };
     }
-
-    const json = await res.json();
-    const raw = json.choices?.[0]?.message?.content ?? '{"memories":[]}';
-    let parsed: any;
-    try { parsed = JSON.parse(raw); } catch { return; }
-
-    const memories = Array.isArray(parsed?.memories) ? parsed.memories : [];
-    if (memories.length === 0) return;
-
-    const VALID_KINDS = ['fact', 'preference', 'goal', 'pattern', 'relationship', 'context'];
-    const rows = memories
-      .filter((m: any) => m && typeof m.content === 'string' && VALID_KINDS.includes(m.kind))
-      .slice(0, 5)
-      .map((m: any) => ({
-        user_id:           userId,
-        kind:              m.kind,
-        content:           String(m.content).slice(0, 500),
-        importance:        Math.max(0, Math.min(1, Number(m.importance) || 0.5)),
-        confidence:        0.8, // extractor is reasonably confident
-        source_session_id: sessionId ?? null,
-      }));
-
-    if (rows.length === 0) return;
-
-    const { error } = await supabase.from('user_memories').insert(rows);
-    if (error) console.warn('[memory-extract] insert failed:', error.message);
-    else console.log(`[memory-extract] saved ${rows.length} memories for user ${userId}`);
-  } catch (err) {
-    console.warn('[memory-extract] unexpected error:', err);
+    case 'add_habit': {
+      const freq = args.frequency || 'daily';
+      const targetDays = Array.isArray(args.target_days) && args.target_days.length ? args.target_days : null;
+      const { error } = await supabase.from('habits').insert({ user_id: userId, name: args.name, frequency: freq, target_days: targetDays, icon: args.icon || '⭐', color: '#0E4E4E', is_active: true });
+      if (error) throw new Error(`add_habit: ${error.message}`);
+      const dayNames = ['الأحد','الإثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت'];
+      let detailAr = freq === 'weekly' ? 'أسبوعية' : 'يومية';
+      if (targetDays && targetDays.length) {
+        detailAr = targetDays.map((d: number) => dayNames[d] ?? '').filter(Boolean).join('، ');
+      }
+      const timeNote = args.time_of_day ? ` · الساعة ${args.time_of_day}` : '';
+      return { kind: 'task', summary: `✓ عادة "${args.name}" أُضيفت — ${detailAr}${timeNote}`, data: args };
+    }
+    case 'log_mood': {
+      const score = Math.max(1, Math.min(10, Math.round(Number(args.score))));
+      const { error } = await supabase.from('mood_logs').insert({ user_id: userId, mood_score: score, mood_label: args.label, note: args.note || null });
+      if (error) throw new Error(`log_mood: ${error.message}`);
+      const emoji = score >= 8 ? '😊' : score >= 5 ? '😐' : '😔';
+      return { kind: 'task', summary: `✓ مزاجك "${args.label}" ${emoji} سُجِّل`, data: args };
+    }
+    case 'create_calendar_event': {
+      const startsAt = args.starts_at || new Date().toISOString();
+      const endsAt = args.ends_at || new Date(new Date(startsAt).getTime() + 60 * 60 * 1000).toISOString();
+      const { error } = await supabase.from('events').insert({ user_id: userId, title: args.title, description: args.description || null, starts_at: startsAt, ends_at: endsAt, start_at: startsAt, end_at: endsAt, all_day: args.all_day ?? false, category: args.category || 'personal', location: args.location || null, source: 'jood_ai' });
+      if (error) throw new Error(`create_calendar_event: ${error.message}`);
+      return { kind: 'event', summary: `✓ موعد "${args.title}" أُضيف للتقويم`, data: args };
+    }
+    case 'compose_email':
+      return { kind: 'email_draft', summary: `مسودة إيميل لـ ${args.to} جاهزة`, data: { to: args.to, subject: args.subject, body: args.body } };
+    case 'draft_whatsapp':
+      return { kind: 'whatsapp_draft', summary: `رسالة لـ ${args.recipient} جاهزة`, data: { recipient: args.recipient, message: args.message } };
+    case 'add_financial_entry': {
+      const { error } = await supabase.from('financial_data').insert({ user_id: userId, type: args.type, amount: args.amount, currency: args.currency, category: args.category || null, note: args.description || null, label: args.category || args.type });
+      if (error) throw new Error(`add_financial_entry: ${error.message}`);
+      const typeAr = args.type === 'income' ? 'دخل' : args.type === 'savings' ? 'ادخار' : args.type === 'investment' ? 'استثمار' : 'مصروف';
+      return { kind: 'finance', summary: `✓ ${typeAr} ${fmt(args.amount)} ${args.currency} سُجِّل`, data: args };
+    }
+    case 'remember_about_user': {
+      const cat = MEMORY_CATEGORIES.includes(args.category) ? args.category : 'identity';
+      const importance = Math.max(0, Math.min(1, Number(args.importance) || 0.6));
+      const { error } = await supabase.from('user_memories').insert({
+        user_id: userId,
+        kind: 'fact',
+        category: cat,
+        content: String(args.content).slice(0, 400),
+        importance,
+        confidence: 0.85,
+        is_template: false,
+        active: true,
+      });
+      if (error) throw new Error(`remember_about_user: ${error.message}`);
+      // Silent — no user-facing summary; Jood continues her natural reply.
+      return { kind: 'memory', summary: '', data: args, silent: true };
+    }
+    default: throw new Error(`Unknown function: ${name}`);
   }
 }
 
-// Function calling tools for "Jood, note this" actions
-const functionTools = [
-  {
-    type: "function",
-    function: {
-      name: "add_task",
-      description: "Add a new task to the user's task list",
-      parameters: {
-        type: "object",
-        properties: {
-          title: { type: "string", description: "The task title" },
-          due_date: { type: "string", description: "Due date in ISO format (optional)" },
-          priority: { type: "string", enum: ["low", "medium", "high"], description: "Task priority (optional)" },
-          notes: { type: "string", description: "Additional notes (optional)" }
-        },
-        required: ["title"]
-      }
-    }
-  },
-  {
-    type: "function",
-    function: {
-      name: "add_financial_entry",
-      description: "Add a financial entry (expense, income, or savings)",
-      parameters: {
-        type: "object",
-        properties: {
-          type: { type: "string", enum: ["expense", "income", "savings"], description: "Type of financial entry" },
-          amount: { type: "number", description: "Amount in the specified currency" },
-          currency: { type: "string", description: "Currency code (USD, SAR, EUR, etc.)" },
-          category: { type: "string", description: "Category or label (optional)" },
-          description: { type: "string", description: "Description or note (optional)" },
-          date: { type: "string", description: "Date in ISO format (optional, defaults to now)" }
-        },
-        required: ["type", "amount", "currency"]
-      }
-    }
-  },
-  {
-    type: "function",
-    function: {
-      name: "add_stock_to_portfolio",
-      description: "Add a stock to the user's portfolio",
-      parameters: {
-        type: "object",
-        properties: {
-          symbol: { type: "string", description: "Stock symbol (e.g., AAPL, TSLA)" },
-          quantity: { type: "number", description: "Number of shares" },
-          buy_price: { type: "number", description: "Purchase price per share" },
-          currency: { type: "string", description: "Currency code (optional, defaults to USD)" },
-          date: { type: "string", description: "Purchase date in ISO format (optional)" }
-        },
-        required: ["symbol", "quantity", "buy_price"]
-      }
-    }
-  },
-  {
-    type: "function",
-    function: {
-      name: "add_crypto_to_portfolio",
-      description: "Add cryptocurrency to the user's portfolio",
-      parameters: {
-        type: "object",
-        properties: {
-          symbol: { type: "string", description: "Crypto symbol (e.g., BTC, ETH)" },
-          quantity: { type: "number", description: "Amount of cryptocurrency" },
-          buy_price: { type: "number", description: "Purchase price per unit" },
-          currency: { type: "string", description: "Currency code (optional, defaults to USD)" },
-          date: { type: "string", description: "Purchase date in ISO format (optional)" }
-        },
-        required: ["symbol", "quantity", "buy_price"]
-      }
-    }
-  },
-  {
-    type: "function",
-    function: {
-      name: "add_real_estate",
-      description: "Add real estate to the user's portfolio",
-      parameters: {
-        type: "object",
-        properties: {
-          address: { type: "string", description: "Property address or location" },
-          property_type: { type: "string", description: "Type of property (villa, apartment, etc.)" },
-          purchase_price: { type: "number", description: "Purchase price" },
-          currency: { type: "string", description: "Currency code (optional, defaults to SAR)" },
-          sqft: { type: "number", description: "Square footage (optional)" },
-          purchase_date: { type: "string", description: "Purchase date in ISO format (optional)" }
-        },
-        required: ["address", "property_type", "purchase_price"]
-      }
-    }
-  },
-  {
-    type: "function",
-    function: {
-      name: "set_monthly_budget",
-      description: "Set or update the user's monthly spending budget. Use when the user says things like 'حدّدي ميزانيتي', 'set my budget', 'ميزانيتي X ريال', 'I want to spend X per month'.",
-      parameters: {
-        type: "object",
-        properties: {
-          budget: { type: "number", description: "Monthly budget amount" },
-          currency: { type: "string", description: "Currency code (default SAR)" }
-        },
-        required: ["budget"]
-      }
-    }
-  }
-];
-
-// Execute function calls
-async function executeFunction(functionCall: any, userId: string, supabase: any) {
-  const { name, arguments: args } = functionCall;
-  const parsedArgs = JSON.parse(args);
-  
-  console.log(`Executing function: ${name} with args:`, parsedArgs);
-  
+function buildPreview(name: string, args: any, voiceMode: boolean): string {
+  let preview = '';
   switch (name) {
-    case 'add_task':
-      const { data: taskData, error: taskError } = await supabase
-        .from('tasks')
-        .insert({
-          user_id: userId,
-          title: parsedArgs.title,
-          due_date: parsedArgs.due_date || null,
-          priority: parsedArgs.priority || 'medium',
-          description: parsedArgs.notes || null,
-          status: 'pending'
-        })
-        .select()
-        .single();
-      
-      if (taskError) throw taskError;
-      return `Task "${parsedArgs.title}" added successfully.`;
-    
-    case 'add_financial_entry':
-      const { data: finData, error: finError } = await supabase
-        .from('financial_data')
-        .insert({
-          user_id: userId,
-          type: parsedArgs.type,
-          amount: parsedArgs.amount,
-          currency: parsedArgs.currency,
-          category: parsedArgs.category || null,
-          note: parsedArgs.description || null,
-          label: parsedArgs.category || parsedArgs.type,
-          date: parsedArgs.date || new Date().toISOString()
-        })
-        .select()
-        .single();
-      
-      if (finError) throw finError;
-      return `${parsedArgs.type} of ${parsedArgs.amount} ${parsedArgs.currency} recorded successfully.`;
-    
-    case 'add_stock_to_portfolio':
-      const { data: stockData, error: stockError } = await supabase
-        .from('portfolio_holdings')
-        .insert({
-          user_id: userId,
-          asset_type: 'stock',
-          symbol: parsedArgs.symbol.toUpperCase(),
-          quantity: parsedArgs.quantity,
-          buy_price: parsedArgs.buy_price,
-          avg_price: parsedArgs.buy_price,
-          currency: parsedArgs.currency || 'USD',
-          market: 'US',
-          purchase_date: parsedArgs.date || new Date().toISOString()
-        })
-        .select()
-        .single();
-      
-      if (stockError) throw stockError;
-      return `Added ${parsedArgs.quantity} shares of ${parsedArgs.symbol} at $${parsedArgs.buy_price} per share.`;
-    
-    case 'add_crypto_to_portfolio':
-      const { data: cryptoData, error: cryptoError } = await supabase
-        .from('portfolio_holdings')
-        .insert({
-          user_id: userId,
-          asset_type: 'crypto',
-          symbol: parsedArgs.symbol.toUpperCase(),
-          quantity: parsedArgs.quantity,
-          buy_price: parsedArgs.buy_price,
-          avg_price: parsedArgs.buy_price,
-          currency: parsedArgs.currency || 'USD',
-          market: 'CRYPTO',
-          purchase_date: parsedArgs.date || new Date().toISOString()
-        })
-        .select()
-        .single();
-      
-      if (cryptoError) throw cryptoError;
-      return `Added ${parsedArgs.quantity} ${parsedArgs.symbol} at $${parsedArgs.buy_price} per unit.`;
-    
-    case 'add_real_estate':
-      const { data: realEstateData, error: realEstateError } = await supabase
-        .from('portfolio_holdings')
-        .insert({
-          user_id: userId,
-          asset_type: 'real_estate',
-          symbol: 'REAL_ESTATE',
-          quantity: 1,
-          buy_price: parsedArgs.purchase_price,
-          avg_price: parsedArgs.purchase_price,
-          currency: parsedArgs.currency || 'SAR',
-          market: 'REAL_ESTATE',
-          address: parsedArgs.address,
-          property_type: parsedArgs.property_type,
-          sqft: parsedArgs.sqft || null,
-          purchase_price: parsedArgs.purchase_price,
-          purchase_date: parsedArgs.purchase_date || new Date().toISOString()
-        })
-        .select()
-        .single();
-      
-      if (realEstateError) throw realEstateError;
-      return `Added ${parsedArgs.property_type} in ${parsedArgs.address} worth ${parsedArgs.purchase_price} ${parsedArgs.currency || 'SAR'}.`;
-    
-    case 'set_monthly_budget': {
-      const { error } = await supabase
-        .from('profiles')
-        .update({ monthly_budget: parsedArgs.budget })
-        .eq('user_id', userId);
-      if (error) throw error;
-      return `تم تحديد ميزانيتك الشهرية بـ ${new Intl.NumberFormat('ar-SA').format(parsedArgs.budget)} ${parsedArgs.currency || 'ريال'}.`;
+    case 'create_calendar_event': {
+      const dt = args.starts_at ? new Date(args.starts_at).toLocaleString('ar-SA', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
+      preview = `موعد: "${args.title}" · ${dt}${args.location ? ` · 📍${args.location}` : ''}`; break;
     }
-    default:
-      throw new Error(`Unknown function: ${name}`);
+    case 'compose_email': preview = `إيميل لـ ${args.to}: "${args.subject}"`; break;
+    case 'draft_whatsapp': preview = `واتساب لـ ${args.recipient}`; break;
+    case 'add_financial_entry': {
+      const typeAr = args.type === 'income' ? 'دخل' : args.type === 'savings' ? 'ادخار' : 'مصروف';
+      preview = `${typeAr}: ${args.amount} ${args.currency || 'ريال'}`; break;
+    }
+    default: preview = name;
   }
+  return voiceMode ? `${preview}. تأكيدي؟` : `سأنفّذ: **${preview}**\n\nتأكيدي؟ قولي **نعم** أو **لا**.`;
 }
 
 serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+  if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
+  let stage = 'init';
   try {
-    const {
-      message,
-      context,
-      mode,
-      pendingFunction,
-      session_id,           // chat session id (used as memory provenance)
-      voice_mode = false,   // true = Majlis Mode — brevity enforced, Saudi dialect
-      detected_language = "ar", // "ar" | "en" | "mixed" — from whisper-transcribe
-    } = await req.json();
-    
-    if (!message) {
-      throw new Error('Message is required');
-    }
+    stage = 'parse_body';
+    const { message, context, mode, pendingFunction, voice_mode = false, detected_language = "ar" } = await req.json();
+    if (!message) throw new Error('Message is required');
 
+    stage = 'env_check';
     const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
-    if (!openAIApiKey) {
-      throw new Error('OpenAI API key not configured');
-    }
-
-    // Get user context for personalized responses
-    const authHeader = req.headers.get("Authorization");
-    let userContext = "";
-    let memorySection = "";
-    let injectedMemoryIds: string[] = [];
-    let userId: string | null = null;
+    if (!openAIApiKey) throw new Error('OpenAI API key not configured');
 
     const supabaseClient = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
@@ -377,358 +132,284 @@ serve(async (req) => {
       { auth: { persistSession: false } }
     );
 
+    // Auth
+    stage = 'auth';
+    let userId: string | null = null;
+    const authHeader = req.headers.get("Authorization");
     if (authHeader) {
       const token = authHeader.replace("Bearer ", "");
-      const { data: userData } = await supabaseClient.auth.getUser(token);
-
-      if (userData.user) {
-        userId = userData.user.id;
-
-        // ── Profile context ───────────────────────────────────────────────
-        const { data: profile } = await supabaseClient
-          .from('profiles')
-          .select('*')
-          .eq('user_id', userData.user.id)
-          .single();
-
-        if (profile) {
-          userContext = `User profile: ${profile.display_name || 'User'}, interests: ${profile.interests?.join(', ') || 'Not specified'}, base currency: ${profile.base_currency}, risk profile: ${profile.risk_profile}`;
-        }
-
-        // ── Memory layer: top-N most relevant memories ─────────────────────
-        // Pulled via RPC (importance × confidence ranking, capped at 12).
-        // Injected into the system prompt so Jood remembers across sessions.
-        try {
-          const { data: memories } = await supabaseClient
-            .rpc('get_user_memories_for_prompt', { p_user_id: userId, p_limit: 12 });
-
-          if (memories && memories.length > 0) {
-            injectedMemoryIds = memories.map((m: any) => m.id);
-
-            // Group by kind for readability
-            const grouped: Record<string, string[]> = {};
-            for (const m of memories) {
-              const k = m.kind as string;
-              if (!grouped[k]) grouped[k] = [];
-              grouped[k].push(m.content);
-            }
-
-            const KIND_AR: Record<string, string> = {
-              fact:         "حقائق",
-              preference:   "تفضيلات",
-              goal:         "أهداف",
-              pattern:      "أنماط",
-              relationship: "علاقات",
-              context:      "سياق",
-            };
-
-            memorySection = "\n\nما تعرفينه عن المستخدم (من محادثات سابقة — استخدميه طبيعياً دون أن تذكري أنكِ تتذكرينه):\n";
-            for (const [kind, items] of Object.entries(grouped)) {
-              memorySection += `• ${KIND_AR[kind] ?? kind}: ${items.join(" · ")}\n`;
-            }
-
-            // Mark these memories as recently used (background, non-blocking)
-            supabaseClient.rpc('touch_user_memories', { p_memory_ids: injectedMemoryIds })
-              .then(() => {/* fire-and-forget */})
-              .catch(() => {/* ignore */});
-          }
-        } catch (memErr) {
-          console.warn('[memory] load failed (non-fatal):', memErr);
-        }
-      }
+      try {
+        const { data: userData } = await supabaseClient.auth.getUser(token);
+        if (userData?.user) userId = userData.user.id;
+      } catch { /* anon */ }
     }
 
-    // ── Tiered Model Routing ───────────────────────────────────────────────────
-    // Simple queries → gpt-4o-mini (80% cheaper, fast)
-    // Complex finance/planning/voice → GPT-5 (full reasoning power)
-    const SIMPLE_PATTERNS = [
-      /كم الساعة|what time|prayer|صلاة|الفجر|الظهر|العصر|المغرب|العشاء/i,
-      /weather|الطقس|درجة الحرارة/i,
-      /كيف حال|how are you|مرحبا|hello|هلا/i,
-      /شكراً|thank you|ok|تمام|ماشي/i,
-    ];
-    const isSimpleQuery = !voice_mode && SIMPLE_PATTERNS.some(p => p.test(message));
-    const selectedModel = isSimpleQuery
-      ? "gpt-4o-mini"        // Fast + cheap for simple lookups
-      : "gpt-5-2025-08-07";  // Full reasoning for finance, planning, voice
-
-    // ── Bilingual response language ───────────────────────────────────────────
-    // Respond in the same language the user spoke/typed
-    const respondInEnglish = detected_language === "en";
-    const respondMixed     = detected_language === "mixed";
-
-    // ── Action detection (tools always available — GPT decides when to call) ───
-    // Preview → confirm two-step is still required before any DB write.
-    // Users can trigger recording naturally in Arabic/English/voice:
-    //   "صرفت ٢٠٠ ريال" / "spent 500 on lunch" / "حدّدي ميزانيتي بـ ٨٠٠٠"
-    const isConfirmation = [
-      'yes','confirm','ok','sure','proceed',
-      'نعم','تأكيد','تمام','ماشي','صح','أكيد',
-    ].includes(message.toLowerCase().trim());
-    const isEdit   = message.toLowerCase().includes('edit') || message.includes('عدّل') || message.includes('تعديل');
-    const isCancel = [
-      'no','cancel','nevermind',
-      'لا','إلغاء','الغي','ملغي',
-    ].includes(message.toLowerCase().trim());
-    const shouldCommit  = mode === 'commit' || (isConfirmation && pendingFunction);
-    const shouldPreview = !shouldCommit && !isCancel;
-    const isActionMode  = true; // tools always offered; GPT decides when to invoke
-
-    // ── Saudi Dialect Voice System Prompt ────────────────────────────────────
-    // This is the core identity layer — Blueprint slides 3, 4, 5, 10, 11, 18
-    const JOOD_BASE_IDENTITY = `أنتِ جود — مساعدة تنفيذية سعودية ذكية متخصصة في التخطيط المالي وإدارة الحياة اليومية.
-
-شخصيتك:
-- هادئة، واثقة، احترافية — مع دفء حقيقي وإنسانية
-- تشعرين بالأصالة السعودية — لستِ روبوتاً ولا مساعدة عامة
-- ذكية على مستوى تنفيذي — واضحة وحاسمة وغير مُطوِّلة
-- تفهمين اللهجة السعودية الدارجة وتتجاوبين معها طبيعياً
-
-لغتك:
-- تكلمي بالعربية السعودية الطبيعية — ليس الفصحى الرسمية
-- قبولي للكلمات الدارجة: بكرة، الحين، زين، مصاريف، تمام، وش، أبي
-- عند الرد بالإنجليزية: احتفظي بنفس الشخصية الهادئة والاحترافية
-- إذا تحدث المستخدم بمزيج عربي-إنجليزي، رديّ بنفس المزيج بشكل طبيعي
-
-السياق السعودي:
-- تفهمين التقويم الهجري، أوقات الصلاة، الزكاة، رمضان
-- تعرفين الريال السعودي، تداول، أرامكو، سوق المال السعودي
-- تعرفين رواتب القطاع الحكومي ومستوى المعيشة في المملكة
-- تحترمين القيم الثقافية والدينية في كل ردودك
-
-${userContext ? `بيانات المستخدم: ${userContext}` : ""}${memorySection}`;
-
-    // ── Response format rules ────────────────────────────────────────────────
-    // Voice mode (Majlis): Answer + Insight + Next Action ≤ 15 words each
-    // Text mode: richer markdown responses allowed
-    const VOICE_RULES = voice_mode ? `
-قواعد الرد الصوتي — اتبعيها بدقة:
-1. الجواب: جملة واحدة واضحة (≤ 15 كلمة)
-2. الفائدة: معلومة مفيدة قصيرة (≤ 12 كلمة)
-3. الإجراء التالي: سؤال أو اقتراح عملي (≤ 12 كلمة)
-
-مثال ممتاز على الرد الصوتي:
-المستخدم: "كم صرفت هذا الأسبوع؟"
-جود: "حوالي ١٢٠٠ ريال. أغلبها مطاعم. تحب أعطيك التفاصيل؟"
-
-ممنوع في الوضع الصوتي:
-❌ لا قوائم (bullets)
-❌ لا عناوين أو markdown
-❌ لا ردود تتجاوز 50 كلمة
-❌ لا تكرار للسؤال
-
-الردود الصوتية يجب أن تُقرأ بصوت عالٍ بشكل طبيعي.` : `
-في وضع النص: يمكنكِ استخدام markdown، قوائم، وأرقام. اجعلي الردود غنية ومفيدة ومنظمة.`;
-
-    const LANGUAGE_RULE = respondInEnglish
-      ? "\n\nIMPORTANT: The user is speaking English. Respond fully in English, maintaining the same calm Saudi executive AI persona."
-      : respondMixed
-      ? "\n\nالمستخدم يمزج العربية والإنجليزية. رديّ بنفس المزيج بشكل طبيعي — هذا ليس خطأ، هذا أسلوبه."
+    // Profile + memory taxonomy (parallel for speed) — non-fatal
+    stage = 'profile';
+    let userContext = "مستخدم سعودي";
+    let workingDays: number[] = [0,1,2,3,4]; // Sun-Thu (Saudi default)
+    let weekendDays: number[] = [5,6];       // Fri-Sat
+    let knownFacts = "";
+    let missingCategories: string[] = [];
+    if (userId) {
+      try {
+        const [profileRes, taxonomyRes] = await Promise.all([
+          supabaseClient.from('profiles')
+            .select('display_name, base_currency, working_days, weekend_days')
+            .eq('user_id', userId).maybeSingle(),
+          supabaseClient.rpc('get_memory_taxonomy', { p_user_id: userId })
+            .then((r: any) => r).catch(() => ({ data: [] })),
+        ]);
+        const profile = profileRes?.data;
+        if (profile) {
+          userContext = [
+            profile.display_name ? `الاسم: ${profile.display_name}` : '',
+            `العملة: ${profile.base_currency || 'SAR'}`,
+          ].filter(Boolean).join(' · ');
+          if (Array.isArray(profile.working_days) && profile.working_days.length) workingDays = profile.working_days;
+          if (Array.isArray(profile.weekend_days) && profile.weekend_days.length) weekendDays = profile.weekend_days;
+        }
+        const taxonomy: any[] = Array.isArray(taxonomyRes?.data) ? taxonomyRes.data : [];
+        const CAT_AR: Record<string, string> = {
+          identity: "الهوية", work: "العمل", family: "العائلة",
+          financial: "المالية", health: "الصحة", religion: "الالتزام الديني",
+          routine: "الروتين اليومي", goals: "الأهداف", interests: "الاهتمامات",
+          relationships: "العلاقات", preferences: "التفضيلات", pain_points: "التحديات",
+        };
+        const filled: string[] = [];
+        for (const row of taxonomy) {
+          if (row.filled_count > 0 && row.latest_real_content) {
+            filled.push(`• ${CAT_AR[row.category] ?? row.category}: ${row.latest_real_content}`);
+          } else {
+            missingCategories.push(CAT_AR[row.category] ?? row.category);
+          }
+        }
+        if (filled.length) knownFacts = "\n\nما تعرفينه عن المستخدم:\n" + filled.join('\n');
+      } catch { /* non-fatal */ }
+    }
+    const dayNamesAr = ['الأحد','الإثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت'];
+    const workDaysAr = workingDays.map(d => dayNamesAr[d]).filter(Boolean).join('، ');
+    const weekendAr  = weekendDays.map(d => dayNamesAr[d]).filter(Boolean).join('، ');
+    const missingHint = missingCategories.length
+      ? `\nمعلومات لم تُجمع بعد عن المستخدم — اسأليها بشكل طبيعي ضمن السياق فقط (لا تستجوبيها ولا تطرحي أكثر من سؤال واحد لكل رد): ${missingCategories.slice(0, 4).join('، ')}`
       : "";
 
-    let systemPrompt = JOOD_BASE_IDENTITY + VOICE_RULES + LANGUAGE_RULE;
+    // Flow detection
+    stage = 'flow_detect';
+    const CONFIRM_WORDS = ['yes','confirm','ok','sure','نعم','تأكيد','تمام','ماشي','صح','أكيد'];
+    const CANCEL_WORDS = ['no','cancel','لا','إلغاء','الغي'];
+    const msgLower = String(message).toLowerCase().trim();
+    const isConfirmation = CONFIRM_WORDS.includes(msgLower);
+    const isCancel = CANCEL_WORDS.includes(msgLower);
+    const shouldCommit = mode === 'commit' || (isConfirmation && pendingFunction);
 
-    if (shouldCommit) {
-      systemPrompt += `
+    const respondInEnglish = detected_language === "en";
+    const respondMixed = detected_language === "mixed";
 
-المستخدم أكّد. نفّذي function call الآن فوراً ثم ردّي بتأكيد مختصر بالعربية لما تم حفظه.`;
+    // Model routing
+    const SIMPLE_RE = /^(كيف حال|how are you|مرحب|hello|هلا|أهلا|شكراً|thank|^ok$|^تمام$|صباح|مساء|السلام)/i;
+    const isSimple = !voice_mode && SIMPLE_RE.test(String(message).trim()) && !pendingFunction;
+    const model = isSimple ? "gpt-4o-mini" : "gpt-4o";
+    const trimmedContext = Array.isArray(context) ? context.slice(-8).filter((m: any) => m && m.role && m.content).map((m: any) => ({ role: m.role, content: String(m.content) })) : [];
 
-    } else if (isCancel) {
-      systemPrompt += `
+    // System prompt
+    stage = 'build_prompt';
+    const TODAY = new Date().toLocaleDateString('ar-SA', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+    const langRule = respondInEnglish ? "User spoke English — reply in English." : respondMixed ? "المستخدم يخلط عربي-إنجليزي — رديّ بنفس المزيج." : "";
+    const modeRules = voice_mode
+      ? `وضع صوتي: جملة واحدة (≤15 كلمة). ممنوع markdown.`
+      : `وضع نص: يمكنكِ markdown وقوائم. ردودك موجزة.`;
 
-المستخدم ألغى. ردّي بلطف أنكِ لن تسجّلي شيئاً.`;
+    const SYSTEM = `أنتِ جود — سكرتيرة تنفيذية سعودية ذكية من الرياض.
 
-    } else {
-      systemPrompt += `
+الشخصية:
+- لهجة سعودية أصيلة (نجدية/خليجية): الحين، بكرة، زين، تمام، وش، أبي، خلاص، عاد، بس، مو، كذا، يلا
+- مباشرة وذكية — لا تبدئين بـ "بالطبع" — ابدئي بالمضمون
+- ترديّن على Arabizi والمزيج عربي-إنجليزي بنفس أسلوب المستخدم
+- كل رد ينتهي بسؤال متابعة أو اقتراح واحد
 
-قواعد استخدام الأدوات (مهم):
-• استخدمي function calling فقط حين يذكر المستخدم مبلغاً مالياً صريحاً (صرف/دخل/ادخار) أو يطلب تحديد الميزانية
-• أمثلة تستدعي الأداة: «صرفت ٢٠٠ ريال على الغداء», «استلمت راتبي ١٥,٠٠٠», «حدّدي ميزانيتي بـ ٨٠٠٠», «spent 300 SAR on groceries»
-• أمثلة لا تستدعي الأداة: «كم صرفت؟», «ما ميزانيتي؟», سؤال عام
-• عند استدعاء أداة مالية: اعرضي ملخصاً موجزاً لما ستسجّليه واطلبي تأكيد بـ «نعم / لا» — لا تنفّذي مباشرة
-• جوابي في وضع الصوت يجب أن يكون قصيراً وطبيعياً للاستماع
+قدراتك:
+✓ مهام وتذكيرات — مباشرة بدون تأكيد
+✓ عادات يومية وأسبوعية — مباشرة
+✓ تسجيل المزاج — مباشرة
+✓ مواعيد التقويم — مع تأكيد
+✓ مصاريف ودخل — مع تأكيد
+✓ إيميل وواتساب — مع تأكيد
 
-قواعد المحادثة الطبيعية — مهمة جداً:
-• كلّ رد يجب أن ينتهي بسؤال متابعة واحد أو اقتراح عملي — لا تقفلي المحادثة
-• مثال: بعد إجابة مالية → "تحبين نراجع ميزانيتك كاملة؟" / بعد مهمة → "في أولويات ثانية تبين أضيفها؟"
-• إذا تحدثنا سابقاً عن موضوع، ارجعي إليه بشكل طبيعي دون أن تذكري أنكِ "تتذكرينه"
-• كوني فضولية وإيجابية — اهتمامك حقيقي وليس مجرد ردود رسمية
-• لا تكرّري الأدوار أو العناوين في كل رد — الحديث الطبيعي لا يبدأ دائماً بـ "بالطبع"`;
-    }
+السياق: اليوم ${TODAY} · ${userContext}
+أسبوع العمل: ${workDaysAr} · الإجازة: ${weekendAr}
+عند جدولة المهام والمواعيد، احترمي أيام العمل والإجازة. لا تقترحي اجتماعات في الإجازة إلا لو طلبها المستخدم صراحةً.${knownFacts}${missingHint}
+${langRule}
+${modeRules}
+
+قواعد الأدوات:
+• المهام والعادات والمزاج: نفّذي فوراً
+• التقويم والمالية: اعرضي ملخصاً واطلبي نعم/لا
+• إذا طلب المستخدم عدة عناصر دفعة وحدة (مثلاً "ذكّريني بكل الصلوات الخمس" أو "أضيفي ثلاث مهام")، استدعي الأداة لكل عنصر — مهمة واحدة لكل صلاة (الفجر، الظهر، العصر، المغرب، العشاء)
+• للعادات بأيام محددة (مثلاً "من الأحد إلى الأربعاء")، استخدمي frequency=weekly مع target_days=[0,1,2,3] حيث 0=الأحد و6=السبت
+• إذا ذكر المستخدم وقتاً للعادة (مثلاً "الساعة 6 صباحاً")، أضيفي time_of_day بصيغة HH:MM
+• لا تخمّني التفاصيل المفقودة — إذا الوقت أو اليوم غير واضح، اسألي قبل التنفيذ`;
+
+    let systemPrompt = SYSTEM;
+    if (shouldCommit) systemPrompt += `\n\nالمستخدم أكّد — نفّذي فوراً.`;
+    if (isCancel) systemPrompt += `\n\nالمستخدم ألغى — ردّي بلطف.`;
 
     const messages = [
       { role: 'system', content: systemPrompt },
-      ...(context || []),
-      { role: 'user', content: message }
+      ...trimmedContext,
+      { role: 'user', content: String(message) },
     ];
 
+    // OpenAI call
+    stage = 'openai_call';
     const requestBody: any = {
-      model: selectedModel,
+      model,
       messages,
-      max_completion_tokens: voice_mode ? 200 : 1000,
-      stream: false,
-      // Tools always available — GPT decides when to invoke
+      max_tokens: voice_mode ? 150 : isSimple ? 350 : 800,
+      temperature: 0.7,
       tools: functionTools,
       tool_choice: shouldCommit ? 'required' : 'auto',
+      parallel_tool_calls: true,
     };
 
-    console.log('Sending request to OpenAI...');
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    const openAIRes = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${openAIApiKey}`,
-        'Content-Type': 'application/json',
-      },
+      headers: { 'Authorization': `Bearer ${openAIApiKey}`, 'Content-Type': 'application/json' },
       body: JSON.stringify(requestBody),
     });
 
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error?.message || 'Failed to get AI response');
+    if (!openAIRes.ok) {
+      const errText = await openAIRes.text().catch(() => '');
+      throw new Error(`OpenAI ${openAIRes.status}: ${errText.slice(0, 200)}`);
     }
 
-    const data = await response.json();
-    const choice = data.choices[0];
-    let assistantMessage = choice.message.content || '';
-    let functionResults = null;
+    stage = 'openai_parse';
+    const oaiData = await openAIRes.json();
+    const choice = oaiData?.choices?.[0];
+    if (!choice) throw new Error('No choices in OpenAI response');
 
-    // Handle cancellation
+    let assistantMessage = choice.message?.content || '';
+    let functionResults: any = null;
+    let actionCard: any = null;
+
+    stage = 'tool_handling';
     if (isCancel) {
-      assistantMessage = "تمام، لن أسجّل شيئاً. في خدمتك.";
-    }
-    // Handle function calls for commit mode
-    else if (choice.message.tool_calls && shouldCommit && userId) {
+      assistantMessage = "تمام، ما سجّلت شيء. وش تبي الحين؟";
+    } else if (choice.message?.tool_calls?.length) {
+      const toolCalls = choice.message.tool_calls;
+
+      // Split into direct (execute now) vs preview-required tools.
+      const directCalls = toolCalls.filter((tc: any) => DIRECT_EXECUTE.has(tc.function.name));
+      const previewCalls = toolCalls.filter((tc: any) => !DIRECT_EXECUTE.has(tc.function.name));
+
+      // Execute all direct tool calls in sequence (tasks/habits/mood — no confirmation).
+      const summaries: string[] = [];
+      const results: any[] = [];
+      if (userId && directCalls.length) {
+        for (const tc of directCalls) {
+          try {
+            const result = await executeFunction(tc.function, userId, supabaseClient);
+            results.push(result);
+            // Silent tools (e.g. remember_about_user) don't add a visible line;
+            // they just persist data in the background.
+            if (!result.silent && result.summary) summaries.push(result.summary);
+          } catch (err: any) {
+            console.error('[executeFunction]', err?.message);
+            summaries.push(`✗ ${tc.function.name}: ${err?.message || 'فشل'}`);
+          }
+        }
+      }
+
+      // If user already confirmed and there's a pendingFunction, execute that too.
+      if (shouldCommit && pendingFunction && userId) {
+        try {
+          const result = await executeFunction(pendingFunction, userId, supabaseClient);
+          results.push(result);
+          summaries.push(result.summary);
+        } catch (err: any) {
+          summaries.push(`✗ ${err?.message || 'فشل التنفيذ'}`);
+        }
+      }
+
+      // Handle preview-required tool calls — only honour the first (UI shows one confirmation card).
+      if (previewCalls.length && !shouldCommit) {
+        const fnCall = previewCalls[0].function;
+        try {
+          const parsedArgs = JSON.parse(fnCall.arguments || '{}');
+          const previewText = buildPreview(fnCall.name, parsedArgs, voice_mode);
+          summaries.push(previewText);
+          functionResults = { function_call: fnCall, preview_mode: true };
+        } catch {
+          summaries.push("ما قدرت أفهم التفاصيل. تكتبيها بشكل ثاني؟");
+        }
+      }
+
+      if (results.length) {
+        // actionCard should be the last NON-silent result.
+        const visibleResults = results.filter((r: any) => !r.silent);
+        if (visibleResults.length) actionCard = visibleResults[visibleResults.length - 1];
+        if (!functionResults && visibleResults.length) {
+          functionResults = visibleResults.length === 1 ? visibleResults[0] : { multi: true, items: visibleResults };
+        }
+      }
+
+      // If we have summaries (visible tool actions), those form the message.
+      // If ONLY silent tools fired (e.g. remember_about_user), keep the model's natural reply.
+      const naturalReply = choice.message?.content || '';
+      if (summaries.length) {
+        assistantMessage = naturalReply ? `${naturalReply}\n\n${summaries.join('\n')}` : summaries.join('\n');
+      } else if (naturalReply) {
+        assistantMessage = naturalReply;
+      }
+    } else if (shouldCommit && pendingFunction && userId) {
       try {
-        const functionCall = choice.message.tool_calls[0]?.function || pendingFunction;
-        const result = await executeFunction(functionCall, userId, supabaseClient);
+        const result = await executeFunction(pendingFunction, userId, supabaseClient);
         functionResults = result;
-        assistantMessage = `تمّ ✓ ${result}`;
-      } catch (error: any) {
-        console.error('Function execution error:', error);
-        assistantMessage = `حدث خطأ أثناء الحفظ: ${error.message}. حاولي مجدداً.`;
-      }
-    }
-    // Handle function calls for preview mode — show Arabic confirmation prompt
-    else if (choice.message.tool_calls && !shouldCommit) {
-      const functionCall = choice.message.tool_calls[0].function;
-      const parsedArgs = JSON.parse(functionCall.arguments);
-      const fmt = (n: number) => new Intl.NumberFormat('ar-SA', { maximumFractionDigits: 0 }).format(n);
-
-      let preview = 'سأسجّل: ';
-      switch (functionCall.name) {
-        case 'add_task':
-          preview += `مهمة "${parsedArgs.title}"`;
-          if (parsedArgs.priority) preview += ` · أولوية ${parsedArgs.priority === 'high' ? 'عالية' : parsedArgs.priority === 'low' ? 'منخفضة' : 'متوسطة'}`;
-          break;
-        case 'add_financial_entry': {
-          const typeAr = parsedArgs.type === 'income' ? 'دخل' : parsedArgs.type === 'savings' ? 'ادخار' : 'مصروف';
-          preview += `${typeAr} ${fmt(parsedArgs.amount)} ${parsedArgs.currency || 'ريال'}`;
-          if (parsedArgs.category) preview += ` · ${parsedArgs.category}`;
-          break;
-        }
-        case 'set_monthly_budget':
-          preview += `ميزانية شهرية ${fmt(parsedArgs.budget)} ${parsedArgs.currency || 'ريال'}`;
-          break;
-        case 'add_stock_to_portfolio':
-          preview += `${parsedArgs.quantity} سهم ${parsedArgs.symbol} بـ ${parsedArgs.buy_price}`;
-          break;
-        case 'add_crypto_to_portfolio':
-          preview += `${parsedArgs.quantity} ${parsedArgs.symbol} بـ ${parsedArgs.buy_price}`;
-          break;
-        case 'add_real_estate':
-          preview += `${parsedArgs.property_type} في ${parsedArgs.address} بـ ${fmt(parsedArgs.purchase_price)} ${parsedArgs.currency || 'ريال'}`;
-          break;
-        default:
-          preview += functionCall.name;
-      }
-
-      assistantMessage = voice_mode
-        ? `${preview}. تأكيدي؟`
-        : `${preview}\n\nتأكيدي؟ قولي **نعم** للحفظ أو **لا** للإلغاء.`;
-
-      functionResults = { function_call: functionCall, preview_mode: true };
-    }
-
-    // Store the interaction for context memory
-    if (userId) {
-      try {
-        await supabaseClient
-          .from('ai_interactions')
-          .insert({
-            user_id: userId,
-            message,
-            response: assistantMessage,
-            context_data: {
-              context: context || [],
-              function_results: functionResults,
-              mode: shouldPreview ? 'preview' : shouldCommit ? 'commit' : 'conversation'
-            }
-          });
-      } catch (error) {
-        console.error('Error storing interaction:', error);
+        actionCard = result;
+        assistantMessage = result.summary;
+      } catch (err: any) {
+        assistantMessage = `صار خطأ: ${err?.message || 'غير معروف'}.`;
       }
     }
 
-    // ── Emotion detection for ElevenLabs voice_settings ──────────────────────
-    // Heuristic: pick the right ElevenLabs emotion based on content
-    const emotionHints: [RegExp, string][] = [
-      [/متوتر|ضغط|قلق|خايف|stressed|worried/i,                  "empathetic"],
-      [/ممتاز|رائع|تهانينا|great|excellent|congratulations/i,    "warm"],
-      [/استثمار|محفظة|تحليل|مخاطر|invest|portfolio|analysis/i,   "confident"],
-    ];
+    if (!assistantMessage) {
+      assistantMessage = "هلا، وش أقدر أسوي لك الحين؟";
+    }
+
+    // Emotion hint
+    stage = 'emotion';
     let suggestedEmotion = "neutral";
-    for (const [pattern, emo] of emotionHints) {
-      if (pattern.test(assistantMessage)) { suggestedEmotion = emo; break; }
-    }
-
-    // ── Background memory extraction ───────────────────────────────────────
-    // Runs AFTER the response is constructed so it never blocks the user.
-    // Uses Deno's EdgeRuntime.waitUntil if available (lets the function exit
-    // while the task continues); otherwise fire-and-forget Promise.
-    if (userId && !shouldPreview && !shouldCommit && !isCancel && assistantMessage) {
-      const extractionTask = extractAndStoreMemories({
-        userId,
-        userMessage:      message,
-        assistantMessage,
-        sessionId:        session_id,
-        openAIApiKey,
-        supabase:         supabaseClient,
-      });
-
-      try {
-        // @ts-ignore — EdgeRuntime is Supabase-specific
-        if (typeof EdgeRuntime !== 'undefined' && EdgeRuntime?.waitUntil) {
-          // @ts-ignore
-          EdgeRuntime.waitUntil(extractionTask);
-        } else {
-          extractionTask.catch(() => {/* fire-and-forget */});
-        }
-      } catch {
-        extractionTask.catch(() => {/* fire-and-forget */});
-      }
-    }
+    if (/متوتر|ضغط|قلق|stressed|تعبان/i.test(assistantMessage)) suggestedEmotion = "empathetic";
+    else if (/ممتاز|رائع|great|excellent|يلا/i.test(assistantMessage)) suggestedEmotion = "warm";
+    else if (/استثمار|محفظة|invest|portfolio/i.test(assistantMessage)) suggestedEmotion = "confident";
 
     return new Response(JSON.stringify({
       message: assistantMessage,
       function_results: functionResults,
-      mode: shouldPreview ? 'preview' : shouldCommit ? 'commit' : 'conversation',
+      action_card: actionCard,
+      mode: shouldCommit ? 'commit' : 'conversation',
       voice_mode,
       detected_language,
-      suggested_emotion: suggestedEmotion,   // Used by frontend to pick ElevenLabs settings
-      model_used: selectedModel,
-      memories_used: injectedMemoryIds.length, // Telemetry: how many memories influenced this turn
-      timestamp: new Date().toISOString()
-    }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+      suggested_emotion: suggestedEmotion,
+      model_used: model,
+      timestamp: new Date().toISOString(),
+    }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
-  } catch (error) {
-    console.error('Error in ai-chat function:', error);
-    return new Response(JSON.stringify({ 
-      error: error.message || 'An error occurred'
-    }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+  } catch (error: any) {
+    const errMsg = error?.message || String(error) || 'Unknown error';
+    console.error(`[ai-chat] FATAL at stage=${stage}:`, errMsg);
+    // Return 200 with friendly fallback so the UI never shows the connection-failed toast.
+    // Real error in `debug` for inspection.
+    return new Response(
+      JSON.stringify({
+        message: "آسفة، صار شي بسيط عندي. عيدي السؤال مرة ثانية لو سمحتي.",
+        function_results: null,
+        action_card: null,
+        mode: 'conversation',
+        suggested_emotion: 'empathetic',
+        debug: { stage, error: errMsg },
+      }),
+      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+    );
   }
 });

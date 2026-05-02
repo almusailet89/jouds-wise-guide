@@ -8,143 +8,116 @@ import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   Volume2, Send, Mic, MicOff, Plus, MessageSquare,
-  Check, X, Edit3, ChevronLeft, Sparkles,
-  Calendar, Mail, MessageCircle, CheckSquare, TrendingUp, Copy, ExternalLink, Trash2,
+  Check, X, Edit3, Sparkles, Menu,
+  Calendar, Mail, MessageCircle, CheckSquare, TrendingUp, Copy, Trash2,
 } from 'lucide-react';
-import { useAuth } from '@/hooks/useAuth';
 import { useChat } from '@/hooks/useChat';
 import { useSubscription } from '@/hooks/useSubscription';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 
-// ─── Categories & suggested prompts ──────────────────────────────────────────
+// ─── Suggested prompts ───────────────────────────────────────────────────────
 type Cat = 'all' | 'finance' | 'health' | 'planning' | 'personal';
 
-const CATEGORIES: { value: Cat; label: string; icon: string }[] = [
-  { value: 'all',      label: 'الكل',     icon: '✨' },
-  { value: 'finance',  label: 'مالية',    icon: '💰' },
-  { value: 'health',   label: 'صحة',      icon: '💚' },
-  { value: 'planning', label: 'تخطيط',    icon: '📅' },
-  { value: 'personal', label: 'شخصية',    icon: '🌙' },
+const SUGGESTED_PROMPTS: { icon: string; ar: string; cat: Cat }[] = [
+  { icon: '💸', ar: 'أنفقت ١٥٠ ريال على الغداء اليوم',            cat: 'finance'  },
+  { icon: '🤲', ar: 'احسبي لي الزكاة بناءً على ثروتي الحالية',    cat: 'finance'  },
+  { icon: '📊', ar: 'كيف حال محفظتي الاستثمارية هذا الشهر؟',     cat: 'finance'  },
+  { icon: '🕌', ar: 'ذكّريني بمواعيد الصلاة الخمس اليوم',         cat: 'personal' },
+  { icon: '🌙', ar: 'كم باقي على رمضان؟',                          cat: 'personal' },
+  { icon: '✅', ar: 'أضيفي مهمة مراجعة الميزانية الشهرية',         cat: 'planning' },
+  { icon: '📆', ar: 'رتّبي لي جدول الأسبوع القادم كاملاً',         cat: 'planning' },
+  { icon: '💚', ar: 'كيف أحسّن نومي وطاقتي اليومية؟',             cat: 'health'   },
 ];
 
-const SUGGESTED_PROMPTS: { icon: string; ar: string; en: string; cat: Cat }[] = [
-  { icon: '💸', ar: 'أنفقت ١٥٠ ريال على الغداء اليوم', en: 'Log an expense', cat: 'finance' },
-  { icon: '📈', ar: 'ما رأيك في أسهم أرامكو الآن؟', en: 'Saudi market view', cat: 'finance' },
-  { icon: '📊', ar: 'كيف حال محفظتي الاستثمارية هذا الشهر؟', en: 'Portfolio check', cat: 'finance' },
-  { icon: '🤲', ar: 'احسبي لي الزكاة بناءً على ثروتي الحالية', en: 'Zakat calculator', cat: 'finance' },
-  { icon: '🕌', ar: 'ذكّرني بمواعيد الصلاة اليوم', en: 'Prayer times', cat: 'personal' },
-  { icon: '🌙', ar: 'كم باقي على رمضان؟', en: 'Hijri countdown', cat: 'personal' },
-  { icon: '✅', ar: 'أضيفي مهمة مراجعة الميزانية الشهرية', en: 'Add a task', cat: 'planning' },
-  { icon: '📆', ar: 'رتّبي لي جدول الأسبوع القادم', en: 'Plan my week', cat: 'planning' },
-  { icon: '💚', ar: 'كيف أحسّن نومي؟', en: 'Sleep tips', cat: 'health' },
-  { icon: '🧘', ar: 'سجّلي مزاجي اليوم: متوتر', en: 'Log mood', cat: 'health' },
+const CATS: { value: Cat; label: string; icon: string }[] = [
+  { value: 'all',      label: 'الكل',   icon: '✨' },
+  { value: 'finance',  label: 'مالية',  icon: '💰' },
+  { value: 'planning', label: 'تخطيط', icon: '📅' },
+  { value: 'personal', label: 'شخصية', icon: '🌙' },
+  { value: 'health',   label: 'صحة',   icon: '💚' },
 ];
 
-// ─── Smart-reply chip generator ──────────────────────────────────────────────
-// Heuristic: match recent assistant message keywords to follow-up suggestions.
+// ─── Smart-reply chip generator ───────────────────────────────────────────────
 const generateSmartReplies = (lastAssistant: string): string[] => {
-  const t = lastAssistant.toLowerCase();
   const arHas = (...needles: string[]) => needles.some(n => lastAssistant.includes(n));
-
-  // Priority order: most specific first
-  if (arHas('زكاة', 'zakat'))           return ['احسبيها الآن', 'أضيفيها للتقويم', 'أرسلي تذكيراً'];
-  if (arHas('سهم', 'محفظة', 'استثمار')) return ['اعرضي لي المحفظة', 'وش التوقع لخمس سنوات؟', 'اشتري لي اقتراح'];
-  if (arHas('مصروف', 'صرف', 'أنفقت'))   return ['كم صرفت هذا الشهر؟', 'صنّفيها', 'احذفي آخر إدخال'];
-  if (arHas('صلاة', 'الفجر', 'الظهر'))  return ['ذكّريني بـ١٠ دقائق', 'أضيفي للتقويم', 'باقي وقت كم؟'];
-  if (arHas('مهمة', 'مهام', 'تذكير'))   return ['اعرضي مهام اليوم', 'أضيفي مهمة', 'علّمي كمكتمل'];
-  if (arHas('مزاج', 'متوتر', 'سعيد'))   return ['ليش؟', 'عطيني نصيحة', 'سجّلي مرة ثانية'];
-  if (arHas('عادة', 'سلسلة', 'streak')) return ['كم سلسلتي؟', 'أضيفي عادة', 'تذكير يومي'];
-
-  // Generic fallbacks
+  if (arHas('زكاة'))                        return ['احسبيها الآن', 'أضيفيها للتقويم', 'أرسلي تذكيراً'];
+  if (arHas('سهم', 'محفظة', 'استثمار'))    return ['اعرضي لي المحفظة', 'التوقع لخمس سنوات', 'اقتراح استثمار'];
+  if (arHas('مصروف', 'صرف', 'أنفقت'))      return ['كم صرفت هذا الشهر؟', 'صنّفيها', 'احذفي آخر إدخال'];
+  if (arHas('صلاة', 'الفجر', 'الظهر'))     return ['ذكّريني بـ١٠ دقائق', 'أضيفي للتقويم', 'وقت الصلاة القادمة'];
+  if (arHas('مهمة', 'مهام', 'تذكير'))      return ['مهام اليوم', 'أضيفي مهمة', 'علّمي كمكتمل'];
+  if (arHas('مزاج', 'متوتر', 'سعيد'))      return ['ليش؟', 'عطيني نصيحة', 'سجّلي مرة ثانية'];
+  if (arHas('عادة', 'سلسلة'))              return ['كم سلسلتي؟', 'أضيفي عادة', 'تذكير يومي'];
   return ['اشرحي أكثر', 'أعطني مثالاً', 'احفظي هذا'];
 };
 
-// ─── Action Card — shown after AI executes a real action ────────────────────
+// ─── Action Card ─────────────────────────────────────────────────────────────
 const ACTION_ICONS: Record<string, React.ElementType> = {
-  task:           CheckSquare,
-  event:          Calendar,
-  email_draft:    Mail,
-  whatsapp_draft: MessageCircle,
-  finance:        TrendingUp,
-  budget:         TrendingUp,
-  portfolio:      TrendingUp,
+  task: CheckSquare, event: Calendar, email_draft: Mail,
+  whatsapp_draft: MessageCircle, finance: TrendingUp,
+  budget: TrendingUp, portfolio: TrendingUp,
 };
 const ACTION_COLORS: Record<string, string> = {
-  task:           'bg-amber-500/10 border-amber-500/20 text-amber-700',
-  event:          'bg-blue-500/10 border-blue-500/20 text-blue-700',
-  email_draft:    'bg-red-500/10 border-red-500/20 text-red-700',
-  whatsapp_draft: 'bg-green-500/10 border-green-500/20 text-green-700',
-  finance:        'bg-jood-teal-500/10 border-jood-teal-500/20 text-jood-teal-700',
-  budget:         'bg-jood-teal-500/10 border-jood-teal-500/20 text-jood-teal-700',
-  portfolio:      'bg-purple-500/10 border-purple-500/20 text-purple-700',
+  task:           'bg-amber-50 border-amber-200 text-amber-800',
+  event:          'bg-blue-50 border-blue-200 text-blue-800',
+  email_draft:    'bg-red-50 border-red-200 text-red-800',
+  whatsapp_draft: 'bg-green-50 border-green-200 text-green-800',
+  finance:        'bg-teal-50 border-teal-200 text-teal-800',
+  budget:         'bg-teal-50 border-teal-200 text-teal-800',
+  portfolio:      'bg-purple-50 border-purple-200 text-purple-800',
 };
 
-interface ActionCardProps {
-  card: { kind: string; summary: string; data: Record<string, any> };
-}
-
-const ActionCard: React.FC<ActionCardProps> = ({ card }) => {
-  const Icon = ACTION_ICONS[card.kind] ?? CheckSquare;
+const ActionCard: React.FC<{ card: { kind: string; summary: string; data: Record<string, any> } }> = ({ card }) => {
+  const Icon  = ACTION_ICONS[card.kind] ?? CheckSquare;
   const color = ACTION_COLORS[card.kind] ?? ACTION_COLORS.task;
   const { toast } = useToast();
-
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text);
-    toast({ title: 'تم النسخ' });
-  };
+  const copy = (t: string) => { navigator.clipboard.writeText(t); toast({ title: 'تم النسخ' }); };
 
   return (
     <motion.div
       initial={{ opacity: 0, y: 8, scale: 0.97 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
-      transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
-      className={cn('mx-4 mb-3 mr-12 p-3 rounded-2xl border', color)}
+      transition={{ duration: 0.3 }}
+      className={cn('mt-3 p-3.5 rounded-2xl border', color)}
+      dir="rtl"
     >
-      <div className="flex items-start gap-2.5">
-        <div className={cn('w-7 h-7 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5', color)}>
-          <Icon className="w-3.5 h-3.5" />
+      <div className="flex items-start gap-3">
+        <div className={cn('w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0', color)}>
+          <Icon className="w-4 h-4" />
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-xs font-semibold font-arabic mb-1.5">{card.summary}</p>
-
-          {/* Email draft */}
+          <p className="text-sm font-semibold font-arabic mb-2">{card.summary}</p>
           {card.kind === 'email_draft' && (
-            <div className="space-y-1.5">
-              <div className="text-[11px] font-arabic space-y-1 bg-white/40 rounded-xl p-2.5">
-                <p><span className="text-muted-foreground">إلى:</span> {card.data.to}</p>
-                <p><span className="text-muted-foreground">الموضوع:</span> {card.data.subject}</p>
-                <p className="mt-1.5 leading-relaxed whitespace-pre-wrap">{card.data.body}</p>
+            <div className="space-y-2">
+              <div className="text-xs font-arabic bg-white/60 rounded-xl p-3 space-y-1">
+                <p><span className="opacity-60">إلى:</span> {card.data.to}</p>
+                <p><span className="opacity-60">الموضوع:</span> {card.data.subject}</p>
+                <p className="mt-2 leading-relaxed whitespace-pre-wrap">{card.data.body}</p>
               </div>
-              <button
-                onClick={() => copyToClipboard(`إلى: ${card.data.to}\nالموضوع: ${card.data.subject}\n\n${card.data.body}`)}
-                className="flex items-center gap-1 text-[11px] font-arabic opacity-70 hover:opacity-100"
-              >
+              <button onClick={() => copy(`إلى: ${card.data.to}\nالموضوع: ${card.data.subject}\n\n${card.data.body}`)}
+                className="flex items-center gap-1.5 text-xs font-arabic opacity-60 hover:opacity-100">
                 <Copy className="w-3 h-3" /> نسخ الإيميل
               </button>
             </div>
           )}
-
-          {/* WhatsApp draft */}
           {card.kind === 'whatsapp_draft' && (
-            <div className="space-y-1.5">
-              <div className="text-[11px] font-arabic bg-white/40 rounded-xl p-2.5">
-                <p><span className="text-muted-foreground">لـ:</span> {card.data.recipient}</p>
-                <p className="mt-1.5 leading-relaxed">{card.data.message}</p>
+            <div className="space-y-2">
+              <div className="text-xs font-arabic bg-white/60 rounded-xl p-3">
+                <p><span className="opacity-60">لـ:</span> {card.data.recipient}</p>
+                <p className="mt-2 leading-relaxed">{card.data.message}</p>
               </div>
-              <button
-                onClick={() => copyToClipboard(card.data.message)}
-                className="flex items-center gap-1 text-[11px] font-arabic opacity-70 hover:opacity-100"
-              >
+              <button onClick={() => copy(card.data.message)}
+                className="flex items-center gap-1.5 text-xs font-arabic opacity-60 hover:opacity-100">
                 <Copy className="w-3 h-3" /> نسخ الرسالة
               </button>
             </div>
           )}
-
-          {/* Calendar event */}
           {card.kind === 'event' && card.data.starts_at && (
-            <p className="text-[11px] font-arabic opacity-80">
-              {new Date(card.data.starts_at).toLocaleString('ar-SA', { weekday:'short', month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' })}
+            <p className="text-xs font-arabic opacity-75">
+              📅 {new Date(card.data.starts_at).toLocaleString('ar-SA', {
+                weekday: 'short', month: 'short', day: 'numeric',
+                hour: '2-digit', minute: '2-digit',
+              })}
               {card.data.location ? ` · 📍${card.data.location}` : ''}
             </p>
           )}
@@ -154,295 +127,316 @@ const ActionCard: React.FC<ActionCardProps> = ({ card }) => {
   );
 };
 
-// ─── Typing dots animation ──────────────────────────────────────────────────
+// ─── Typing indicator ─────────────────────────────────────────────────────────
 const TypingIndicator = () => (
-  <div className="flex justify-start px-4 mb-2">
-    <div className="flex items-center gap-1 bg-card border border-border/50 rounded-2xl rounded-tl-sm px-4 py-3 shadow-card">
-      {[0, 1, 2].map(i => (
-        <motion.span
-          key={i}
-          className="w-2 h-2 rounded-full bg-jood-teal-500/70"
-          animate={{ y: [0, -6, 0] }}
-          transition={{ duration: 0.7, repeat: Infinity, delay: i * 0.15 }}
-        />
-      ))}
+  <div className="flex items-start gap-3 px-4 py-2" dir="ltr">
+    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-jood-teal-700 to-jood-teal-900 flex items-center justify-center text-white text-sm font-bold flex-shrink-0 shadow-sm">
+      ج
+    </div>
+    <div className="bg-muted/60 border border-border/40 rounded-2xl rounded-tl-sm px-4 py-3">
+      <div className="flex items-center gap-1.5">
+        {[0, 1, 2].map(i => (
+          <motion.span key={i}
+            className="w-2 h-2 rounded-full bg-jood-teal-500/70"
+            animate={{ y: [0, -5, 0] }}
+            transition={{ duration: 0.7, repeat: Infinity, delay: i * 0.15 }}
+          />
+        ))}
+      </div>
     </div>
   </div>
 );
 
-// ─── Single message bubble ──────────────────────────────────────────────────
-interface MessageBubbleProps {
+// ─── Message bubble — ChatGPT-style ──────────────────────────────────────────
+// Uses dir="ltr" wrapper so flex direction is always predictable (left = left).
+// All actual Arabic text inside uses dir="rtl".
+const MessageBubble: React.FC<{
   role: 'user' | 'assistant';
   content: string;
-  onSpeak: (text: string) => void;
+  onSpeak: (t: string) => void;
   speaking: boolean;
-}
-
-const MessageBubble: React.FC<MessageBubbleProps> = ({ role, content, onSpeak, speaking }) => {
+}> = ({ role, content, onSpeak, speaking }) => {
   const isUser = role === 'user';
+
+  if (isUser) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+        className="flex justify-end px-4 mb-5"
+        dir="ltr"
+      >
+        <div
+          className="max-w-[82%] sm:max-w-[72%] bg-jood-teal-700 text-white rounded-3xl rounded-br-md px-4 py-3 shadow-sm"
+          dir="rtl"
+        >
+          <p className="text-[15px] leading-relaxed whitespace-pre-wrap font-arabic">{content}</p>
+        </div>
+      </motion.div>
+    );
+  }
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 16 }}
+      initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
-      className={cn('flex px-4 mb-4', isUser ? 'justify-end' : 'justify-start')}
+      transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+      className="px-4 mb-5 group"
+      dir="ltr"
     >
-      {/* Avatar */}
-      {!isUser && (
-        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-jood-teal-700 to-jood-teal-900 flex items-center justify-center text-white text-xs font-bold mr-2 mt-1 flex-shrink-0 shadow-elegant">
+      <div className="flex items-start gap-3">
+        {/* Jood avatar */}
+        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-jood-teal-700 to-jood-teal-900 flex items-center justify-center text-white text-sm font-bold flex-shrink-0 shadow-elegant mt-0.5">
           ج
         </div>
-      )}
 
-      <div className={cn('max-w-[78%] group', isUser ? 'items-end' : 'items-start')}>
-        <div className={cn(
-          'px-4 py-3 shadow-card',
-          isUser
-            ? 'bg-jood-teal-700 text-white rounded-2xl rounded-tr-sm'
-            : 'bg-card border border-border/50 text-foreground rounded-2xl rounded-tl-sm',
-        )}>
-          {isUser ? (
-            <p className="text-sm leading-relaxed whitespace-pre-wrap">{content}</p>
-          ) : (
-            <div className="prose prose-sm dark:prose-invert max-w-none text-foreground prose-p:leading-relaxed prose-p:mb-2 prose-headings:text-foreground prose-headings:font-semibold prose-code:text-jood-gold-500 prose-pre:p-0 prose-pre:bg-transparent">
-              <ReactMarkdown
-                components={{
-                  code({ node, className, children, ...props }: any) {
-                    const match = /language-(\w+)/.exec(className || '');
-                    const isBlock = !props.inline;
-                    return isBlock && match ? (
-                      <SyntaxHighlighter
-                        style={oneDark as any}
-                        language={match[1]}
-                        PreTag="div"
-                        className="rounded-lg text-xs my-2"
-                      >
-                        {String(children).replace(/\n$/, '')}
-                      </SyntaxHighlighter>
-                    ) : (
-                      <code className="bg-muted px-1 py-0.5 rounded text-xs font-mono text-jood-gold-500" {...props}>
-                        {children}
-                      </code>
-                    );
-                  },
-                }}
-              >
-                {content}
-              </ReactMarkdown>
-            </div>
-          )}
-        </div>
+        {/* Content */}
+        <div className="flex-1 min-w-0" dir="rtl">
+          {/* Message text — no bubble background (ChatGPT style) */}
+          <div className="prose prose-base dark:prose-invert max-w-none
+            text-foreground font-arabic
+            prose-p:text-[15px] prose-p:leading-relaxed prose-p:mb-2 prose-p:font-arabic
+            prose-headings:text-foreground prose-headings:font-semibold prose-headings:font-arabic
+            prose-li:text-[15px] prose-li:font-arabic prose-li:leading-relaxed
+            prose-strong:text-foreground
+            prose-code:text-jood-gold-600 prose-pre:p-0 prose-pre:bg-transparent"
+          >
+            <ReactMarkdown
+              components={{
+                code({ node, className, children, ...props }: any) {
+                  const match = /language-(\w+)/.exec(className || '');
+                  const isBlock = !props.inline;
+                  return isBlock && match ? (
+                    <SyntaxHighlighter
+                      style={oneDark as any}
+                      language={match[1]}
+                      PreTag="div"
+                      className="rounded-xl text-xs my-3"
+                    >
+                      {String(children).replace(/\n$/, '')}
+                    </SyntaxHighlighter>
+                  ) : (
+                    <code className="bg-muted px-1.5 py-0.5 rounded-md text-xs font-mono text-jood-gold-600" {...props}>
+                      {children}
+                    </code>
+                  );
+                },
+              }}
+            >
+              {content}
+            </ReactMarkdown>
+          </div>
 
-        {/* Speak button (AI messages only) */}
-        {!isUser && (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="mt-1 h-6 px-2 opacity-0 group-hover:opacity-60 hover:!opacity-100 transition-opacity text-muted-foreground hover:text-foreground"
+          {/* Listen button */}
+          <button
             onClick={() => onSpeak(content)}
             disabled={speaking}
+            className="mt-1.5 flex items-center gap-1.5 text-xs text-muted-foreground/50 hover:text-muted-foreground opacity-0 group-hover:opacity-100 transition-all"
           >
-            <Volume2 className="w-3 h-3 mr-1" />
-            <span className="text-[10px]">استمع</span>
-          </Button>
-        )}
-      </div>
-
-      {/* User avatar */}
-      {isUser && (
-        <div className="w-8 h-8 rounded-full bg-jood-gold-500 flex items-center justify-center text-white text-xs font-bold ml-2 mt-1 flex-shrink-0 shadow-gold">
-          أ
+            <Volume2 className="w-3.5 h-3.5" />
+            <span className="font-arabic">استمع</span>
+          </button>
         </div>
-      )}
+      </div>
     </motion.div>
   );
 };
 
-// ─── Session item in sidebar ────────────────────────────────────────────────
-interface SessionItemProps {
+// ─── Sidebar session item ─────────────────────────────────────────────────────
+const SessionItem: React.FC<{
   session: { id: string; title: string; updated_at: string };
   active: boolean;
   onClick: () => void;
   onDelete: () => void;
-}
-
-const SessionItem: React.FC<SessionItemProps> = ({ session, active, onClick, onDelete }) => (
-  <div className="relative group">
+}> = ({ session, active, onClick, onDelete }) => (
+  <div className="relative group" dir="rtl">
     <button
       onClick={onClick}
       className={cn(
-        'w-full text-right px-3 py-2.5 rounded-xl text-sm transition-all duration-200 pr-8',
+        'w-full text-right px-3 py-2.5 rounded-xl transition-all duration-150',
         active
-          ? 'bg-jood-teal-900 text-white shadow-elegant'
-          : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground',
+          ? 'bg-jood-teal-900/90 text-white'
+          : 'text-muted-foreground hover:bg-muted/70 hover:text-foreground',
       )}
     >
-      <div className="flex items-center gap-2">
-        <MessageSquare className={cn('w-3.5 h-3.5 flex-shrink-0', active ? 'text-jood-gold-300' : 'text-muted-foreground/60')} />
-        <span className="truncate leading-snug font-arabic">{session.title}</span>
+      <div className="flex items-center gap-2 pl-6">
+        <MessageSquare className={cn('w-3.5 h-3.5 flex-shrink-0', active ? 'text-jood-gold-300' : 'text-muted-foreground/50')} />
+        <span className="truncate text-sm font-arabic leading-snug">{session.title}</span>
       </div>
-      <p className="text-[10px] mt-0.5 opacity-50 pr-5 font-arabic">
+      <p className="text-xs mt-0.5 opacity-45 font-arabic pr-5">
         {new Date(session.updated_at).toLocaleDateString('ar-SA', { month: 'short', day: 'numeric' })}
       </p>
     </button>
+    {/* Delete button */}
     <button
-      onClick={(e) => { e.stopPropagation(); onDelete(); }}
+      onClick={e => { e.stopPropagation(); onDelete(); }}
       className={cn(
-        'absolute left-2 top-1/2 -translate-y-1/2 w-6 h-6 rounded-lg flex items-center justify-center transition-all',
-        'opacity-0 group-hover:opacity-100 focus:opacity-100',
-        active ? 'hover:bg-white/20 text-white/60 hover:text-white' : 'hover:bg-destructive/10 text-muted-foreground/50 hover:text-destructive',
+        'absolute left-2 top-1/2 -translate-y-1/2 w-7 h-7 rounded-lg flex items-center justify-center transition-all',
+        'opacity-0 group-hover:opacity-100',
+        active
+          ? 'text-white/50 hover:text-white hover:bg-white/15'
+          : 'text-muted-foreground/40 hover:text-destructive hover:bg-destructive/10',
       )}
-      title="حذف المحادثة"
     >
-      <Trash2 className="w-3 h-3" />
+      <Trash2 className="w-3.5 h-3.5" />
     </button>
   </div>
 );
 
-// ─── Main component ──────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
 interface ChatInterfaceProps {
   onMessage?: (msg: string) => void;
 }
 
 export const ChatInterface: React.FC<ChatInterfaceProps> = ({ onMessage }) => {
-  const { session: authSession } = useAuth();
   const { canAccessFeature } = useSubscription();
   const { toast } = useToast();
 
   const {
-    sessions,
-    messages,
-    currentSessionId,
-    loading,
-    sessionsLoading,
-    speaking,
-    awaitingConfirmation,
-    loadSessions,
-    loadMessages,
-    startNewChat,
-    sendMessage,
-    speakMessage,
-    confirmAction,
-    deleteSession,
+    sessions, messages, currentSessionId,
+    loading, sessionsLoading, speaking, awaitingConfirmation,
+    loadSessions, loadMessages, startNewChat,
+    sendMessage, speakMessage, confirmAction, deleteSession,
   } = useChat();
 
-  const [input, setInput] = useState('');
-  const [sidebarOpen, setSidebarOpen] = useState(() => window.innerWidth >= 640);
-  const [listening, setListening] = useState(false);
-  const [activeCat, setActiveCat] = useState<Cat>('all');
-  const bottomRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const [input, setInput]           = useState('');
+  const [sidebarOpen, setSidebarOpen] = useState(() => window.innerWidth >= 768);
+  const [listening, setListening]   = useState(false);
+  const [activeCat, setActiveCat]   = useState<Cat>('all');
+  const bottomRef  = useRef<HTMLDivElement>(null);
+  const inputRef   = useRef<HTMLTextAreaElement>(null);
   const recognitionRef = useRef<any>(null);
 
-  // Load sessions on mount
   useEffect(() => { loadSessions(); }, [loadSessions]);
-
-  // Auto-scroll to bottom on new messages
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, loading]);
 
-  // ── Voice input (Web Speech API) ──────────────────────────────────────────
+  // ── Close sidebar on mobile when a session is selected ───────────────────
+  const handleLoadMessages = useCallback((id: string) => {
+    loadMessages(id);
+    if (window.innerWidth < 768) setSidebarOpen(false);
+  }, [loadMessages]);
+
+  const handleNewChat = useCallback(() => {
+    startNewChat();
+    if (window.innerWidth < 768) setSidebarOpen(false);
+  }, [startNewChat]);
+
+  // ── Voice input ───────────────────────────────────────────────────────────
   const toggleListening = useCallback(() => {
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-      toast({ title: 'التعرف على الصوت غير مدعوم', description: 'يرجى استخدام Chrome أو Edge.', variant: 'destructive' });
+    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SR) {
+      toast({ title: 'التعرف على الصوت غير مدعوم', description: 'استخدمي Chrome أو Edge', variant: 'destructive' });
       return;
     }
-
-    if (listening) {
-      recognitionRef.current?.stop();
-      setListening(false);
-      return;
-    }
-
-    const recognition = new SpeechRecognition();
-    recognitionRef.current = recognition;
-    recognition.lang = 'ar-SA';
-    recognition.continuous = false;
-    recognition.interimResults = false;
-
-    recognition.onresult = (e: any) => {
-      const transcript = e.results[0][0].transcript;
-      setInput(prev => prev + transcript);
-      setListening(false);
-    };
-    recognition.onerror = () => setListening(false);
-    recognition.onend = () => setListening(false);
-    recognition.start();
+    if (listening) { recognitionRef.current?.stop(); setListening(false); return; }
+    const r = new SR();
+    recognitionRef.current = r;
+    r.lang = 'ar-SA';
+    r.continuous = false;
+    r.interimResults = false;
+    r.onresult = (e: any) => { setInput(p => p + e.results[0][0].transcript); setListening(false); };
+    r.onerror = () => setListening(false);
+    r.onend   = () => setListening(false);
+    r.start();
     setListening(true);
   }, [listening, toast]);
 
-  // ── Send handler ──────────────────────────────────────────────────────────
+  // ── Send ──────────────────────────────────────────────────────────────────
   const handleSend = useCallback(async (customText?: string) => {
     const text = (customText ?? input).trim();
     if (!text || loading) return;
-    if (!customText) setInput('');
+    if (!customText) {
+      setInput('');
+      if (inputRef.current) inputRef.current.style.height = 'auto';
+    }
     onMessage?.(text);
     await sendMessage(text);
   }, [input, loading, sendMessage, onMessage]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSend();
-    }
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); }
   };
 
   const handleSpeak = useCallback(async (text: string) => {
     if (!canAccessFeature('voice')) {
-      toast({ title: 'ميزة مميزة', description: 'الاستماع للردود متاح للمشتركين المميزين.', variant: 'destructive' });
+      toast({ title: 'ميزة مميزة', description: 'الاستماع متاح للمشتركين', variant: 'destructive' });
       return;
     }
     await speakMessage(text);
   }, [canAccessFeature, speakMessage, toast]);
 
-  // ── Welcome screen ────────────────────────────────────────────────────────
   const showWelcome = messages.length === 0 && !loading;
+  const filteredPrompts = SUGGESTED_PROMPTS.filter(p => activeCat === 'all' || p.cat === activeCat);
+
+  const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
 
   return (
-    <div className="flex h-full overflow-hidden bg-background rounded-2xl border border-border/40 shadow-luxury">
+    <div className="flex h-full overflow-hidden bg-background rounded-2xl border border-border/40 shadow-luxury relative">
+
+      {/* ── Sidebar overlay backdrop (mobile) ──────────────────────────────── */}
+      <AnimatePresence>
+        {sidebarOpen && isMobile && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="absolute inset-0 z-20 bg-black/40 backdrop-blur-sm"
+            onClick={() => setSidebarOpen(false)}
+          />
+        )}
+      </AnimatePresence>
 
       {/* ── Sidebar ────────────────────────────────────────────────────────── */}
       <AnimatePresence initial={false}>
         {sidebarOpen && (
           <motion.div
-            initial={{ width: 0, opacity: 0 }}
-            animate={{ width: 260, opacity: 1 }}
-            exit={{ width: 0, opacity: 0 }}
-            transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
-            className="flex-shrink-0 border-r border-border/40 flex flex-col bg-card/50 backdrop-blur-sm overflow-hidden"
+            key="sidebar"
+            initial={{ x: '100%', opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            exit={{ x: '100%', opacity: 0 }}
+            transition={{ duration: 0.22, ease: [0.4, 0, 0.2, 1] }}
+            className={cn(
+              'flex-shrink-0 flex flex-col bg-card border-l border-border/40 overflow-hidden',
+              'md:relative md:z-auto',
+              'absolute right-0 top-0 bottom-0 z-30 w-72 shadow-2xl md:shadow-none md:w-64',
+            )}
           >
-            {/* New chat button */}
-            <div className="p-3 border-b border-border/40">
-              <Button
-                className="w-full jood-btn-primary gap-2 text-sm"
-                onClick={startNewChat}
+            {/* New chat */}
+            <div className="p-3 border-b border-border/30 flex-shrink-0" dir="rtl">
+              <button
+                onClick={handleNewChat}
+                className="w-full flex items-center gap-2.5 px-4 py-3 rounded-xl border border-border/50 bg-background/60 hover:bg-muted/60 transition-all text-sm font-arabic font-medium text-foreground"
               >
-                <Plus className="w-4 h-4" />
+                <Plus className="w-4 h-4 text-jood-teal-600" />
                 محادثة جديدة
-              </Button>
+              </button>
             </div>
 
-            {/* Sessions list */}
+            {/* Sessions */}
             <ScrollArea className="flex-1 px-2 py-2">
               {sessionsLoading ? (
-                <div className="flex justify-center py-6">
+                <div className="flex justify-center py-10">
                   <div className="w-5 h-5 rounded-full border-2 border-jood-teal-500 border-t-transparent animate-spin" />
                 </div>
               ) : sessions.length === 0 ? (
-                <p className="text-center text-muted-foreground text-xs py-8 px-3">
-                  لا توجد محادثات بعد.<br />ابدأ محادثة مع جود!
-                </p>
+                <div className="text-center py-12 px-4" dir="rtl">
+                  <MessageSquare className="w-8 h-8 mx-auto text-muted-foreground/30 mb-2" />
+                  <p className="text-xs text-muted-foreground font-arabic leading-relaxed">
+                    لا توجد محادثات بعد<br />ابدئي بسؤال جود!
+                  </p>
+                </div>
               ) : (
-                <div className="space-y-0.5">
+                <div className="space-y-0.5 py-1" dir="rtl">
+                  <p className="text-[10px] text-muted-foreground/50 font-arabic px-3 py-1 uppercase tracking-wide">المحادثات السابقة</p>
                   {sessions.map(s => (
                     <SessionItem
                       key={s.id}
                       session={s}
                       active={s.id === currentSessionId}
-                      onClick={() => loadMessages(s.id)}
+                      onClick={() => handleLoadMessages(s.id)}
                       onDelete={() => deleteSession(s.id)}
                     />
                   ))}
@@ -450,15 +444,15 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ onMessage }) => {
               )}
             </ScrollArea>
 
-            {/* Jood branding */}
-            <div className="p-3 border-t border-border/40">
+            {/* Footer branding */}
+            <div className="p-3 border-t border-border/30 flex-shrink-0" dir="rtl">
               <div className="flex items-center gap-2 px-2">
-                <div className="w-6 h-6 rounded-full bg-gradient-to-br from-jood-teal-700 to-jood-teal-900 flex items-center justify-center">
-                  <Sparkles className="w-3 h-3 text-jood-gold-300" />
+                <div className="w-7 h-7 rounded-full bg-gradient-to-br from-jood-teal-700 to-jood-teal-900 flex items-center justify-center">
+                  <Sparkles className="w-3.5 h-3.5 text-jood-gold-300" />
                 </div>
                 <div>
-                  <p className="text-[11px] font-semibold text-foreground">جود AI</p>
-                  <p className="text-[9px] text-muted-foreground">مدعوم بـ GPT-5</p>
+                  <p className="text-xs font-bold text-foreground font-arabic">جود AI</p>
+                  <p className="text-[10px] text-muted-foreground/60">مدعوم بـ GPT-5</p>
                 </div>
               </div>
             </div>
@@ -466,230 +460,234 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ onMessage }) => {
         )}
       </AnimatePresence>
 
-      {/* ── Main chat area ─────────────────────────────────────────────────── */}
-      <div className="flex-1 flex flex-col min-w-0">
+      {/* ── Main chat column ───────────────────────────────────────────────── */}
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
 
-        {/* Top bar */}
-        <div className="flex items-center gap-3 px-4 py-3 border-b border-border/40 bg-card/30 backdrop-blur-sm">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8 flex-shrink-0 text-muted-foreground hover:text-foreground"
+        {/* ── Top bar ──────────────────────────────────────────────────────── */}
+        <div className="flex items-center gap-2 px-3 py-2.5 border-b border-border/30 bg-card/60 backdrop-blur-sm flex-shrink-0" dir="rtl">
+          {/* Sidebar toggle */}
+          <button
             onClick={() => setSidebarOpen(v => !v)}
+            className="w-9 h-9 flex-shrink-0 flex items-center justify-center rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-all"
           >
-            <ChevronLeft className={cn('w-4 h-4 transition-transform', sidebarOpen ? '' : 'rotate-180')} />
-          </Button>
-          <div>
-            <p className="text-sm font-semibold text-foreground font-arabic">
+            <Menu className="w-5 h-5" />
+          </button>
+
+          {/* Session title */}
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-foreground font-arabic truncate">
               {currentSessionId
-                ? sessions.find(s => s.id === currentSessionId)?.title || 'محادثة'
+                ? (sessions.find(s => s.id === currentSessionId)?.title ?? 'محادثة')
                 : 'جود — مساعدتك الذكية'}
             </p>
-            <p className="text-[10px] text-muted-foreground">متصلة بالمالية · المهام · التقويم</p>
+            <p className="text-[11px] text-muted-foreground/70 font-arabic">
+              متصلة بالمالية · المهام · التقويم
+            </p>
           </div>
 
-          {/* Speaking indicator */}
+          {/* Speaking waveform */}
           <AnimatePresence>
             {speaking && (
               <motion.div
-                initial={{ opacity: 0, scale: 0.8 }}
+                initial={{ opacity: 0, scale: 0.85 }}
                 animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.8 }}
-                className="ml-auto flex items-center gap-1.5 bg-jood-gold-500/10 border border-jood-gold-500/30 rounded-full px-3 py-1"
+                exit={{ opacity: 0, scale: 0.85 }}
+                className="flex items-center gap-1 bg-jood-gold-500/10 border border-jood-gold-300/40 rounded-full px-3 py-1.5"
               >
                 {[0, 1, 2, 3].map(i => (
-                  <motion.span
-                    key={i}
+                  <motion.span key={i}
                     className="w-0.5 rounded-full bg-jood-gold-500"
-                    animate={{ height: ['6px', '16px', '6px'] }}
+                    animate={{ height: ['5px', '14px', '5px'] }}
                     transition={{ duration: 0.8, repeat: Infinity, delay: i * 0.1 }}
                   />
                 ))}
-                <span className="text-[10px] text-jood-gold-500 font-medium mr-1">جود تتحدث</span>
+                <span className="text-xs text-jood-gold-600 font-arabic mr-1">تتحدث</span>
               </motion.div>
             )}
           </AnimatePresence>
         </div>
 
-        {/* Messages */}
-        <ScrollArea className="flex-1 py-4">
+        {/* ── Message area ─────────────────────────────────────────────────── */}
+        <ScrollArea className="flex-1 overflow-y-auto">
+          <div className="max-w-3xl mx-auto w-full">
 
-          {/* Welcome screen */}
-          <AnimatePresence>
-            {showWelcome && (
-              <motion.div
-                initial={{ opacity: 0, y: 24 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-                className="flex flex-col items-center justify-center min-h-[360px] px-6 text-center"
-              >
-                {/* Avatar */}
+            {/* Welcome screen */}
+            <AnimatePresence>
+              {showWelcome && (
                 <motion.div
-                  animate={{ scale: [1, 1.012, 1] }}
-                  transition={{ duration: 4.5, repeat: Infinity, ease: 'easeInOut' }}
-                  className="w-20 h-20 rounded-full bg-gradient-to-br from-jood-teal-700 to-jood-teal-900 flex items-center justify-center shadow-luxury mb-4"
-                >
-                  <span className="text-3xl font-display text-white">ج</span>
-                </motion.div>
-
-                <h2 className="text-xl font-semibold text-foreground font-arabic mb-1">
-                  مرحباً، أنا جود
-                </h2>
-                <p className="text-sm text-muted-foreground mb-6 max-w-xs leading-relaxed">
-                  مساعدتك الذكية للتخطيط المالي وإدارة حياتك اليومية بأسلوب سعودي أصيل
-                </p>
-
-                {/* Category filter chips */}
-                <div className="flex items-center gap-1.5 mb-3 flex-wrap justify-center">
-                  {CATEGORIES.map(c => (
-                    <button
-                      key={c.value}
-                      onClick={() => setActiveCat(c.value)}
-                      className={cn(
-                        'px-3 py-1.5 rounded-full text-[11px] font-arabic transition-all border',
-                        activeCat === c.value
-                          ? 'bg-jood-teal-900 text-white border-jood-teal-900 shadow-elegant'
-                          : 'bg-card/40 text-muted-foreground border-border/40 hover:border-jood-teal-500/50',
-                      )}
-                    >
-                      <span className="ml-1">{c.icon}</span>
-                      {c.label}
-                    </button>
-                  ))}
-                </div>
-
-                {/* Suggested prompts grid */}
-                <div className="grid grid-cols-2 gap-2 w-full max-w-lg">
-                  {SUGGESTED_PROMPTS
-                    .filter(p => activeCat === 'all' || p.cat === activeCat)
-                    .map((p, i) => (
-                      <motion.button
-                        key={`${activeCat}-${i}`}
-                        initial={{ opacity: 0, y: 16 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.05 + i * 0.05, duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
-                        onClick={() => handleSend(p.ar)}
-                        className="group jood-card p-3 text-left hover:border-jood-teal-500/50 hover:shadow-elegant transition-all duration-200 cursor-pointer"
-                      >
-                        <span className="text-lg block mb-1">{p.icon}</span>
-                        <p className="text-[10px] text-muted-foreground mb-0.5">{p.en}</p>
-                        <p className="text-xs text-foreground font-arabic leading-snug line-clamp-2">{p.ar}</p>
-                      </motion.button>
-                    ))}
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-
-          {/* Message list */}
-          {messages.map(msg => (
-            <React.Fragment key={msg.id}>
-              <MessageBubble
-                role={msg.role}
-                content={msg.content}
-                onSpeak={handleSpeak}
-                speaking={speaking}
-              />
-              {msg.role === 'assistant' && msg.action_card && (
-                <ActionCard card={msg.action_card} />
-              )}
-            </React.Fragment>
-          ))}
-
-          {/* Smart reply chips (after last assistant message) */}
-          <AnimatePresence>
-            {!loading && !awaitingConfirmation && messages.length > 0 &&
-              messages[messages.length - 1].role === 'assistant' && (
-                <motion.div
-                  key="smart-replies"
-                  initial={{ opacity: 0, y: 6 }}
+                  initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0 }}
-                  transition={{ duration: 0.3, delay: 0.15 }}
-                  className="flex items-center gap-1.5 px-4 mb-3 mr-10 flex-wrap"
+                  transition={{ duration: 0.45 }}
+                  className="flex flex-col items-center pt-10 pb-6 px-4 text-center"
+                  dir="rtl"
                 >
-                  {generateSmartReplies(messages[messages.length - 1].content).map((chip, i) => (
-                    <motion.button
-                      key={chip}
-                      initial={{ opacity: 0, scale: 0.9 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      transition={{ delay: 0.2 + i * 0.05 }}
-                      onClick={() => handleSend(chip)}
-                      className="px-3 py-1.5 rounded-full text-[11px] font-arabic bg-jood-teal-500/10 text-jood-teal-700 border border-jood-teal-500/30 hover:bg-jood-teal-500/20 hover:border-jood-teal-500/50 transition-all"
-                    >
-                      {chip}
-                    </motion.button>
-                  ))}
+                  {/* Avatar */}
+                  <motion.div
+                    animate={{ scale: [1, 1.015, 1] }}
+                    transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
+                    className="w-20 h-20 rounded-full bg-gradient-to-br from-jood-teal-700 to-jood-teal-900 flex items-center justify-center shadow-luxury mb-5"
+                  >
+                    <span className="text-3xl font-bold text-white">ج</span>
+                  </motion.div>
+
+                  <h2 className="text-2xl font-bold text-foreground font-arabic mb-1">مرحباً، أنا جود</h2>
+                  <p className="text-base text-muted-foreground font-arabic mb-8 max-w-xs leading-relaxed">
+                    كيف أقدر أساعدك اليوم؟
+                  </p>
+
+                  {/* Category filter */}
+                  <div className="flex items-center gap-2 mb-5 flex-wrap justify-center">
+                    {CATS.map(c => (
+                      <button
+                        key={c.value}
+                        onClick={() => setActiveCat(c.value)}
+                        className={cn(
+                          'px-3.5 py-2 rounded-full text-sm font-arabic transition-all border',
+                          activeCat === c.value
+                            ? 'bg-jood-teal-900 text-white border-jood-teal-900 shadow-sm'
+                            : 'bg-card text-muted-foreground border-border/50 hover:border-jood-teal-400/60',
+                        )}
+                      >
+                        <span className="ml-1">{c.icon}</span>{c.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Suggestion list — ChatGPT vertical style */}
+                  <div className="w-full max-w-sm space-y-2">
+                    {filteredPrompts.map((p, i) => (
+                      <motion.button
+                        key={`${activeCat}-${i}`}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.04 * i, duration: 0.25 }}
+                        onClick={() => handleSend(p.ar)}
+                        className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl bg-card border border-border/50 hover:border-jood-teal-400/50 hover:bg-muted/40 transition-all text-right group"
+                      >
+                        <span className="text-xl flex-shrink-0">{p.icon}</span>
+                        <span className="text-[15px] text-foreground font-arabic leading-snug flex-1">
+                          {p.ar}
+                        </span>
+                        <Send className="w-4 h-4 text-muted-foreground/30 group-hover:text-jood-teal-500 transition-colors flex-shrink-0 rotate-180" />
+                      </motion.button>
+                    ))}
+                  </div>
                 </motion.div>
               )}
-          </AnimatePresence>
+            </AnimatePresence>
 
-          {/* Typing indicator */}
-          <AnimatePresence>
-            {loading && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-              >
-                <TypingIndicator />
-              </motion.div>
-            )}
-          </AnimatePresence>
+            {/* Messages */}
+            <div className="pt-4 pb-2">
+              {messages.map(msg => (
+                <React.Fragment key={msg.id}>
+                  <MessageBubble
+                    role={msg.role}
+                    content={msg.content}
+                    onSpeak={handleSpeak}
+                    speaking={speaking}
+                  />
+                  {msg.role === 'assistant' && msg.action_card && (
+                    <div className="px-4 mb-4" dir="ltr">
+                      <div className="ml-11">
+                        <ActionCard card={msg.action_card} />
+                      </div>
+                    </div>
+                  )}
+                </React.Fragment>
+              ))}
+            </div>
 
-          {/* Confirmation buttons */}
-          <AnimatePresence>
-            {awaitingConfirmation && (
-              <motion.div
-                initial={{ opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0 }}
-                className="flex justify-center px-4 mb-4"
-              >
-                <div className="flex items-center gap-2 bg-jood-gold-500/10 border border-jood-gold-500/30 rounded-2xl px-4 py-3">
-                  <span className="text-sm text-muted-foreground ml-2 font-arabic">تأكيد الإجراء:</span>
-                  <Button size="sm" onClick={() => confirmAction('yes')}
-                    className="bg-jood-teal-700 hover:bg-jood-teal-900 text-white rounded-xl h-8">
-                    <Check className="w-3.5 h-3.5 mr-1" /> نعم
-                  </Button>
-                  <Button size="sm" variant="outline" onClick={() => confirmAction('edit')}
-                    className="rounded-xl h-8">
-                    <Edit3 className="w-3.5 h-3.5 mr-1" /> تعديل
-                  </Button>
-                  <Button size="sm" variant="outline" onClick={() => confirmAction('no')}
-                    className="rounded-xl h-8 text-destructive border-destructive/30 hover:bg-destructive/10">
-                    <X className="w-3.5 h-3.5 mr-1" /> إلغاء
-                  </Button>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
+            {/* Smart reply chips */}
+            <AnimatePresence>
+              {!loading && !awaitingConfirmation && messages.length > 0 &&
+                messages[messages.length - 1].role === 'assistant' && (
+                  <motion.div
+                    key="chips"
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.25, delay: 0.1 }}
+                    className="flex flex-wrap gap-2 px-4 pb-4 pr-16"
+                    dir="rtl"
+                  >
+                    {generateSmartReplies(messages[messages.length - 1].content).map((chip, i) => (
+                      <motion.button
+                        key={chip}
+                        initial={{ opacity: 0, scale: 0.92 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ delay: 0.15 + i * 0.05 }}
+                        onClick={() => handleSend(chip)}
+                        className="px-4 py-2 rounded-full text-sm font-arabic bg-card border border-border/60 hover:border-jood-teal-400/60 hover:bg-muted/50 text-foreground transition-all"
+                      >
+                        {chip}
+                      </motion.button>
+                    ))}
+                  </motion.div>
+                )}
+            </AnimatePresence>
 
-          <div ref={bottomRef} />
+            {/* Typing indicator */}
+            <AnimatePresence>
+              {loading && (
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                  <TypingIndicator />
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Confirmation */}
+            <AnimatePresence>
+              {awaitingConfirmation && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0 }}
+                  className="flex justify-center px-4 pb-4"
+                  dir="rtl"
+                >
+                  <div className="flex items-center gap-2 bg-jood-gold-500/8 border border-jood-gold-300/40 rounded-2xl px-4 py-3 flex-wrap">
+                    <span className="text-sm text-muted-foreground font-arabic">تأكيد الإجراء:</span>
+                    <Button size="sm" onClick={() => confirmAction('yes')}
+                      className="bg-jood-teal-700 hover:bg-jood-teal-900 text-white rounded-xl h-9 px-4 text-sm font-arabic gap-1.5">
+                      <Check className="w-4 h-4" /> نعم
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => confirmAction('edit')}
+                      className="rounded-xl h-9 px-4 text-sm font-arabic gap-1.5">
+                      <Edit3 className="w-4 h-4" /> تعديل
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => confirmAction('no')}
+                      className="rounded-xl h-9 px-4 text-sm font-arabic gap-1.5 text-destructive border-destructive/30 hover:bg-destructive/8">
+                      <X className="w-4 h-4" /> إلغاء
+                    </Button>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            <div ref={bottomRef} className="h-2" />
+          </div>
         </ScrollArea>
 
-        {/* ── Input bar ──────────────────────────────────────────────────────── */}
-        <div className="border-t border-border/40 bg-card/30 backdrop-blur-sm p-3">
-          <div className="flex items-end gap-2 max-w-4xl mx-auto">
+        {/* ── Input bar ─────────────────────────────────────────────────────── */}
+        <div className="border-t border-border/30 bg-card/60 backdrop-blur-sm px-3 py-3 flex-shrink-0">
+          <div className="max-w-3xl mx-auto">
+            <div className="flex items-end gap-2 bg-background border border-border/60 rounded-2xl px-3 py-2 shadow-sm focus-within:border-jood-teal-400/60 focus-within:shadow-md transition-all" dir="rtl">
 
-            {/* Voice button */}
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={toggleListening}
-              className={cn(
-                'h-10 w-10 flex-shrink-0 rounded-xl transition-all duration-200',
-                listening
-                  ? 'bg-destructive/15 text-destructive border border-destructive/30 animate-pulse'
-                  : 'text-muted-foreground hover:text-foreground hover:bg-muted',
-              )}
-            >
-              {listening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
-            </Button>
+              {/* Voice button */}
+              <button
+                onClick={toggleListening}
+                className={cn(
+                  'w-10 h-10 flex-shrink-0 flex items-center justify-center rounded-xl transition-all',
+                  listening
+                    ? 'bg-destructive/15 text-destructive animate-pulse'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-muted/60',
+                )}
+              >
+                {listening ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
+              </button>
 
-            {/* Text input */}
-            <div className="flex-1 relative">
+              {/* Textarea — 16px font prevents iOS zoom */}
               <Textarea
                 ref={inputRef}
                 value={input}
@@ -698,43 +696,47 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ onMessage }) => {
                 placeholder={
                   awaitingConfirmation
                     ? 'اكتب تعديلاتك أو استخدم الأزرار أعلاه…'
-                    : 'اكتب لجود… مثال: «صرفت ٣٠٠ ريال» أو «أضيفي مهمة»'
+                    : 'اكتبي لجود…'
                 }
                 disabled={loading}
                 rows={1}
                 className={cn(
-                  'resize-none min-h-[40px] max-h-[140px] rounded-xl border-border/50 bg-background/60 text-sm font-arabic',
-                  'focus:ring-1 focus:ring-jood-teal-500/50 focus:border-jood-teal-500/50',
-                  'placeholder:text-muted-foreground/50 leading-relaxed pr-3 pl-3 py-2.5',
+                  'flex-1 resize-none border-0 bg-transparent shadow-none',
+                  'min-h-[40px] max-h-[160px] py-2.5',
+                  'text-base font-arabic leading-relaxed',       // 16px — prevents iOS auto-zoom
+                  'placeholder:text-muted-foreground/50',
+                  'focus-visible:ring-0 focus-visible:outline-none',
                 )}
                 style={{ scrollbarWidth: 'none' }}
                 onInput={e => {
                   const el = e.currentTarget;
                   el.style.height = 'auto';
-                  el.style.height = Math.min(el.scrollHeight, 140) + 'px';
+                  el.style.height = Math.min(el.scrollHeight, 160) + 'px';
                 }}
               />
+
+              {/* Send button */}
+              <button
+                onClick={() => handleSend()}
+                disabled={loading || !input.trim()}
+                className={cn(
+                  'w-10 h-10 flex-shrink-0 flex items-center justify-center rounded-xl transition-all',
+                  input.trim() && !loading
+                    ? 'bg-jood-teal-700 text-white hover:bg-jood-teal-900 shadow-sm'
+                    : 'text-muted-foreground/30 cursor-not-allowed',
+                )}
+              >
+                {loading
+                  ? <div className="w-4 h-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
+                  : <Send className="w-4 h-4 rotate-180" />
+                }
+              </button>
             </div>
 
-            {/* Send button */}
-            <Button
-              onClick={() => handleSend()}
-              disabled={loading || !input.trim()}
-              size="icon"
-              className={cn(
-                'h-10 w-10 flex-shrink-0 rounded-xl transition-all duration-200',
-                input.trim() && !loading
-                  ? 'jood-btn-primary shadow-gold'
-                  : 'bg-muted text-muted-foreground cursor-not-allowed',
-              )}
-            >
-              <Send className="w-4 h-4" />
-            </Button>
+            <p className="text-center text-xs text-muted-foreground/40 mt-2 font-arabic">
+              جود AI · GPT-5 · متوافق مع PDPL
+            </p>
           </div>
-
-          <p className="text-center text-[10px] text-muted-foreground/50 mt-2">
-            جود AI · مدعوم بـ GPT-5 · متوافق مع اشتراطات PDPL
-          </p>
         </div>
       </div>
     </div>

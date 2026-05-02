@@ -172,7 +172,6 @@ const HabitsTracker: React.FC = () => {
 
   // New habit form state
   const [name, setName] = useState('');
-  const [description, setDescription] = useState('');
   const [selectedColor, setSelectedColor] = useState(COLORS[0]);
   const [selectedIcon, setSelectedIcon] = useState(ICONS[0]);
 
@@ -249,7 +248,6 @@ const HabitsTracker: React.FC = () => {
       const { error } = await (supabase as any).from('habits').insert({
         user_id: session.user.id,
         name: name.trim(),
-        description: description.trim() || null,
         frequency: 'daily',
         color: selectedColor,
         icon: selectedIcon,
@@ -257,7 +255,6 @@ const HabitsTracker: React.FC = () => {
       });
       if (error) throw error;
       setName('');
-      setDescription('');
       setShowForm(false);
       await load();
       toast({ title: 'تمت الإضافة', description: `عادة "${name.trim()}" تمت إضافتها.` });
@@ -373,13 +370,6 @@ const HabitsTracker: React.FC = () => {
                     className="font-arabic text-sm"
                     onKeyDown={e => e.key === 'Enter' && addHabit()}
                   />
-                  <Input
-                    value={description}
-                    onChange={e => setDescription(e.target.value)}
-                    placeholder="وصف اختياري…"
-                    className="font-arabic text-sm"
-                  />
-
                   {/* Icon picker */}
                   <div>
                     <p className="text-[11px] text-muted-foreground font-arabic mb-1.5">الأيقونة</p>

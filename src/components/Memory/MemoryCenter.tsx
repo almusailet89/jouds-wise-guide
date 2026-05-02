@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { useMemories, type UserMemory, type MemoryKind } from '@/hooks/useMemories';
 import { cn } from '@/lib/utils';
+import MemoryTaxonomyPanel from './MemoryTaxonomyPanel';
 
 // ─── Kind metadata ─────────────────────────────────────────────────────────
 const KINDS: Array<{
@@ -113,6 +114,9 @@ const MemoryCenter: React.FC = () => {
           كل الذاكرة محفوظة بشكل آمن، تخصكِ وحدكِ، ويمكنكِ حذفها أو إيقافها كلياً.
         </p>
       </div>
+
+      {/* ── 12-category taxonomy panel ──────────────────────────────────── */}
+      <MemoryTaxonomyPanel />
 
       {/* ── Add form ────────────────────────────────────────────────────── */}
       <AnimatePresence>
