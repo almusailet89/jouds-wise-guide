@@ -328,3 +328,69 @@ export const useMoodLogs = () => {
 
   return { moodLogs, loading, addMoodLog, refetch: fetchMoodLogs };
 };
+
+// ─── Goals ────────────────────────────────────────────────────────────────────
+export interface Goal {
+  id: string;
+  user_id: string;
+  title: string;
+  target_amount: number;
+  saved_amount: number;
+  target_date: string | null;
+  status: 'active' | 'completed' | 'cancelled';
+  icon: string | null;
+  color: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export const useGoals = () => {
+  const { user } = useAuth();
+  const [goals, setGoals] = useState<Goal[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchGoals = async () => {
+    if (!user) return;
+    setLoading(true);
+    const { data } = await (supabase as any)
+      .from('goals')
+      .select('*')
+      .eq('user_id', user.id)
+      .neq('status', 'cancelled')
+      .order('created_at', { ascending: false });
+    setGoals(data ?? []);
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    if (!user) { setLoading(false); return; }
+    fetchGoals();
+
+    // Realtime — goals added/updated via chat appear instantly
+    const channel = (supabase as any)
+      .channel(`goals-rt-${user.id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'goals', filter: `user_id=eq.${user.id}` }, () => fetchGoals())
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [user?.id]);
+
+  const addGoal = async (goal: Pick<Goal, 'title' | 'target_amount' | 'saved_amount' | 'target_date'>) => {
+    if (!user) return;
+    await (supabase as any).from('goals').insert({ ...goal, user_id: user.id, status: 'active' });
+    fetchGoals();
+  };
+
+  const updateGoal = async (id: string, updates: Partial<Goal>) => {
+    if (!user) return;
+    await (supabase as any).from('goals').update({ ...updates, updated_at: new Date().toISOString() }).eq('id', id);
+    fetchGoals();
+  };
+
+  const deleteGoal = async (id: string) => {
+    if (!user) return;
+    await (supabase as any).from('goals').update({ status: 'cancelled' }).eq('id', id);
+    fetchGoals();
+  };
+
+  return { goals, loading, addGoal, updateGoal, deleteGoal, refetch: fetchGoals };
+};

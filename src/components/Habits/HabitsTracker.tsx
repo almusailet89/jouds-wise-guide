@@ -216,7 +216,17 @@ const HabitsTracker: React.FC = () => {
     }
   }, [session?.user?.id, todayStr]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+    if (!session?.user?.id) return;
+    // Realtime — new habits added via Jood chat appear immediately
+    const channel = (supabase as any)
+      .channel(`habits-rt-${session.user.id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'habits',     filter: `user_id=eq.${session.user.id}` }, () => load())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'habit_logs', filter: `user_id=eq.${session.user.id}` }, () => load())
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [load, session?.user?.id]);
 
   // ── Toggle completion ────────────────────────────────────────────────────
   const toggleHabit = async (habitId: string, markDone: boolean) => {
