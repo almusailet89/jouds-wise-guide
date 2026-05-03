@@ -8,6 +8,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
 import { SubscriptionProvider } from "@/hooks/useSubscription";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { LanguageProvider } from "@/hooks/useLanguage";
 
 /* Lazy-loaded routes — each lands in its own JS chunk */
 const Index     = lazy(() => import("./pages/Index"));
@@ -33,6 +34,7 @@ const App = () => (
   <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false}>
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
+      <LanguageProvider>
       <SubscriptionProvider>
         <TooltipProvider>
           <Toaster />
@@ -62,6 +64,7 @@ const App = () => (
           </BrowserRouter>
         </TooltipProvider>
       </SubscriptionProvider>
+      </LanguageProvider>
     </AuthProvider>
   </QueryClientProvider>
   </ThemeProvider>

@@ -17,6 +17,7 @@ export interface UserProfile {
   income: number | null;
   base_currency: string | null;
   risk_profile: string | null;
+  app_language: 'ar' | 'en' | null;
 }
 
 export function useProfile() {
@@ -33,7 +34,7 @@ export function useProfile() {
       .select('*')
       .eq('user_id', user.id)
       .single();
-    setProfile(data ?? { user_id: user.id, display_name: null, gender: null, phone: null, date_of_birth: null, city: null, nationality: 'SA', avatar_emoji: '🌟', bio: null, interests: [], income: 0, base_currency: 'SAR', risk_profile: 'balanced' });
+    setProfile(data ?? { user_id: user.id, display_name: null, gender: null, phone: null, date_of_birth: null, city: null, nationality: 'SA', avatar_emoji: '🌟', bio: null, interests: [], income: 0, base_currency: 'SAR', risk_profile: 'balanced', app_language: 'ar' });
     setLoading(false);
   }, [user?.id]);
 

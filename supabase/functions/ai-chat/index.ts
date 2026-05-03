@@ -11,6 +11,10 @@ const DIRECT_EXECUTE = new Set([
   'add_task', 'add_habit', 'log_mood', 'remember_about_user',
   'update_task', 'update_event', 'update_habit',
   'delete_task', 'delete_event', 'delete_habit',
+  // financial
+  'update_financial_entry', 'delete_financial_entry',
+  'add_goal', 'update_goal', 'delete_goal',
+  'update_portfolio_holding', 'delete_portfolio_holding',
 ]);
 
 const MEMORY_CATEGORIES = [
@@ -27,6 +31,21 @@ const functionTools = [
   { type: "function", function: { name: "compose_email", description: "Draft email. Trigger: 'راسلي', 'أرسلي إيميل', 'draft email'.", parameters: { type: "object", properties: { to: { type: "string" }, subject: { type: "string" }, body: { type: "string" } }, required: ["to","subject","body"] } } },
   { type: "function", function: { name: "draft_whatsapp", description: "Draft WhatsApp. Trigger: 'واتساب', 'راسل فلان'.", parameters: { type: "object", properties: { recipient: { type: "string" }, message: { type: "string" } }, required: ["recipient","message"] } } },
   { type: "function", function: { name: "add_financial_entry", description: "Record financial transaction. Trigger: amount stated (صرفت، دخلي، X ريال).", parameters: { type: "object", properties: { type: { type: "string", enum: ["expense","income","savings","investment"] }, amount: { type: "number" }, currency: { type: "string" }, category: { type: "string" }, description: { type: "string" } }, required: ["type","amount","currency"] } } },
+  // ── Financial edit/delete tools ─────────────────────────────────────────────
+  { type: "function", function: { name: "update_financial_entry", description: "Edit an existing financial transaction — change amount, category, type, or description. Trigger: 'عدّلي مصروف', 'غيّري المبلغ', 'صحّحي الدخل', 'بدّلي الفئة', 'change expense', 'edit transaction'.", parameters: { type: "object", properties: { search_desc: { type: "string", description: "Key words from the description, note, category, or label to find it." }, new_amount: { type: "number", description: "New amount (omit if not changing)." }, new_type: { type: "string", enum: ["expense","income","savings","investment"], description: "Omit if not changing." }, new_category: { type: "string", description: "Omit if not changing." }, new_description: { type: "string", description: "Omit if not changing." } }, required: ["search_desc"] } } },
+
+  { type: "function", function: { name: "delete_financial_entry", description: "Permanently delete a financial transaction. Trigger: 'احذفي المصروف', 'امسحي الدخل', 'delete transaction', 'remove expense'.", parameters: { type: "object", properties: { search_desc: { type: "string", description: "Key words from the description, note, category, or label to find it." } }, required: ["search_desc"] } } },
+
+  { type: "function", function: { name: "add_goal", description: "Create a new savings goal. Trigger: 'أبي أدّخر', 'حطّي هدف توفير', 'أضيفي هدف مالي', 'add savings goal', 'new financial goal'.", parameters: { type: "object", properties: { title: { type: "string", description: "Goal name, e.g. سيارة, سفر, شقة." }, target_amount: { type: "number", description: "Target amount in SAR." }, target_date: { type: "string", description: "ISO date YYYY-MM-DD for target completion. Use TODAY_ISO year." }, saved_amount: { type: "number", description: "Amount already saved. Default 0." } }, required: ["title","target_amount"] } } },
+
+  { type: "function", function: { name: "update_goal", description: "Edit an existing savings goal — rename, change target amount or date, mark complete. Trigger: 'عدّلي الهدف', 'غيّري المبلغ المستهدف', 'خلّص الهدف', 'update savings goal'.", parameters: { type: "object", properties: { search_title: { type: "string", description: "Key words from the goal title." }, new_title: { type: "string", description: "Omit if not changing." }, target_amount: { type: "number", description: "Omit if not changing." }, target_date: { type: "string", description: "New date YYYY-MM-DD (omit if not changing). Use TODAY_ISO year." }, saved_amount: { type: "number", description: "Update amount already saved (omit if not changing)." }, status: { type: "string", enum: ["open","completed","paused"], description: "Omit if not changing." } }, required: ["search_title"] } } },
+
+  { type: "function", function: { name: "delete_goal", description: "Permanently delete a savings goal. Trigger: 'احذفي الهدف', 'ما أبي هدف', 'remove goal'.", parameters: { type: "object", properties: { search_title: { type: "string", description: "Key words from the goal title." } }, required: ["search_title"] } } },
+
+  { type: "function", function: { name: "update_portfolio_holding", description: "Edit an investment holding — update quantity, average price, or current price. Trigger: 'عدّلي استثماري', 'غيّري الكمية', 'حدّثي سعر السهم', 'update holding', 'edit investment'.", parameters: { type: "object", properties: { search_symbol: { type: "string", description: "Symbol or partial name of the asset to find it, e.g. 'ARAMCO', '2222', 'BTC'." }, quantity: { type: "number", description: "New quantity (omit if not changing)." }, avg_price: { type: "number", description: "New average purchase price (omit if not changing)." }, current_price: { type: "number", description: "New current price (omit if not changing)." } }, required: ["search_symbol"] } } },
+
+  { type: "function", function: { name: "delete_portfolio_holding", description: "Permanently remove an investment holding from portfolio. Trigger: 'احذفي استثماري', 'بعت', 'مو عندي', 'sold my', 'remove holding'.", parameters: { type: "object", properties: { search_symbol: { type: "string", description: "Symbol or partial name of the asset, e.g. 'ARAMCO', 'BTC'." } }, required: ["search_symbol"] } } },
+
   { type: "function", function: { name: "remember_about_user", description: "Save a durable fact about the user to long-term memory. Call this when the user reveals something stable about themselves (name, job, family, goals, preferences, health, religious practice, daily routine, etc.). DO NOT call for transient state like 'I'm tired today'. The fact should be third-person and concise.", parameters: { type: "object", properties: { category: { type: "string", enum: ["identity","work","family","financial","health","religion","routine","goals","interests","relationships","preferences","pain_points"], description: "Which life-area this fact belongs to." }, content: { type: "string", description: "Short third-person fact, e.g. 'يعمل مديراً تقنياً في أرامكو' or 'يصلي الفجر في المسجد كل يوم'." }, importance: { type: "number", minimum: 0, maximum: 1, description: "0.0–1.0; how foundational this is. Default 0.6." } }, required: ["category","content"] } } },
 
   // ── Edit & Delete tools ──────────────────────────────────────────────────────
@@ -235,6 +254,156 @@ async function executeFunction(functionCall: any, userId: string, supabase: any)
       return { kind: 'habit_delete', summary: `✓ حذفت عادة "${habit.name}"`, data: args };
     }
 
+    // ── Update Financial Entry ─────────────────────────────────────────────────
+    case 'update_financial_entry': {
+      const { data: found } = await supabase.from('financial_data')
+        .select('id, type, amount, currency, category, note, label, description')
+        .eq('user_id', userId)
+        .or(`note.ilike.%${args.search_desc}%,category.ilike.%${args.search_desc}%,label.ilike.%${args.search_desc}%,description.ilike.%${args.search_desc}%`)
+        .order('created_at', { ascending: false }).limit(1);
+      if (!found?.length) throw new Error(`ما لقيت معاملة تحتوي على "${args.search_desc}"`);
+      const entry = found[0];
+      const updates: any = { updated_at: new Date().toISOString() };
+      if (args.new_amount !== undefined)   updates.amount      = args.new_amount;
+      if (args.new_type)                   updates.type        = args.new_type;
+      if (args.new_category)               updates.category    = args.new_category;
+      if (args.new_description !== undefined) { updates.note = args.new_description; updates.description = args.new_description; }
+      const { error } = await supabase.from('financial_data').update(updates).eq('id', entry.id);
+      if (error) throw new Error(`update_financial_entry: ${error.message}`);
+      const changes: string[] = [];
+      const typeAr = (t: string) => t === 'income' ? 'دخل' : t === 'savings' ? 'ادخار' : t === 'investment' ? 'استثمار' : 'مصروف';
+      const entryLabel = entry.note || entry.category || entry.label || typeAr(entry.type);
+      if (args.new_amount !== undefined) changes.push(`المبلغ: ${fmt(args.new_amount)} ${entry.currency || 'ريال'}`);
+      if (args.new_type)                 changes.push(`النوع: ${typeAr(args.new_type)}`);
+      if (args.new_category)             changes.push(`الفئة: ${args.new_category}`);
+      if (args.new_description)          changes.push(`الوصف: ${args.new_description}`);
+      const summary = changes.length
+        ? `✓ عدّلت "${entryLabel}" — ${changes.join('، ')}`
+        : `✓ عدّلت "${entryLabel}"`;
+      return { kind: 'finance_update', summary, data: args };
+    }
+
+    // ── Delete Financial Entry ─────────────────────────────────────────────────
+    case 'delete_financial_entry': {
+      const { data: found } = await supabase.from('financial_data')
+        .select('id, type, amount, currency, note, category, label')
+        .eq('user_id', userId)
+        .or(`note.ilike.%${args.search_desc}%,category.ilike.%${args.search_desc}%,label.ilike.%${args.search_desc}%,description.ilike.%${args.search_desc}%`)
+        .order('created_at', { ascending: false }).limit(1);
+      if (!found?.length) throw new Error(`ما لقيت معاملة تحتوي على "${args.search_desc}"`);
+      const entry = found[0];
+      const { error } = await supabase.from('financial_data').delete().eq('id', entry.id);
+      if (error) throw new Error(`delete_financial_entry: ${error.message}`);
+      const typeAr2 = entry.type === 'income' ? 'دخل' : entry.type === 'savings' ? 'ادخار' : entry.type === 'investment' ? 'استثمار' : 'مصروف';
+      const entryName = entry.note || entry.category || entry.label || typeAr2;
+      return { kind: 'finance_delete', summary: `✓ حذفت "${entryName}" (${fmt(entry.amount)} ${entry.currency || 'ريال'})`, data: args };
+    }
+
+    // ── Add Goal ───────────────────────────────────────────────────────────────
+    case 'add_goal': {
+      const { error } = await supabase.from('goals').insert({
+        user_id: userId,
+        title: args.title,
+        target_amount: args.target_amount,
+        saved_amount: args.saved_amount || 0,
+        progress: args.saved_amount ? Math.min(100, Math.round((args.saved_amount / args.target_amount) * 100)) : 0,
+        target_date: args.target_date || null,
+        status: 'open',
+      });
+      if (error) throw new Error(`add_goal: ${error.message}`);
+      const datePart = args.target_date
+        ? ` · الهدف: ${new Date(args.target_date + 'T12:00:00').toLocaleDateString('ar-SA', { year: 'numeric', month: 'long' })}`
+        : '';
+      return { kind: 'goal', summary: `✓ سجّلت هدف توفير "${args.title}" — ${fmt(args.target_amount)} ريال${datePart}`, data: args };
+    }
+
+    // ── Update Goal ────────────────────────────────────────────────────────────
+    case 'update_goal': {
+      const { data: found } = await supabase.from('goals')
+        .select('id, title, target_amount, saved_amount, status')
+        .eq('user_id', userId)
+        .ilike('title', `%${args.search_title}%`)
+        .order('created_at', { ascending: false }).limit(1);
+      if (!found?.length) throw new Error(`ما لقيت هدف توفير يحتوي على "${args.search_title}"`);
+      const goal = found[0];
+      const updates: any = { updated_at: new Date().toISOString() };
+      if (args.new_title !== undefined)   updates.title         = args.new_title;
+      if (args.target_amount !== undefined) { updates.target_amount = args.target_amount; }
+      if (args.saved_amount !== undefined) {
+        updates.saved_amount = args.saved_amount;
+        const ta = args.target_amount ?? goal.target_amount;
+        updates.progress = ta > 0 ? Math.min(100, Math.round((args.saved_amount / ta) * 100)) : 0;
+      }
+      if (args.target_date !== undefined) updates.target_date   = args.target_date;
+      if (args.status !== undefined)      updates.status        = args.status;
+      const { error } = await supabase.from('goals').update(updates).eq('id', goal.id);
+      if (error) throw new Error(`update_goal: ${error.message}`);
+      const changes: string[] = [];
+      if (args.new_title)        changes.push(`الاسم: "${args.new_title}"`);
+      if (args.target_amount !== undefined) changes.push(`المستهدف: ${fmt(args.target_amount)} ريال`);
+      if (args.saved_amount !== undefined)  changes.push(`المدّخر: ${fmt(args.saved_amount)} ريال`);
+      if (args.target_date)      changes.push(`الموعد: ${new Date(args.target_date + 'T12:00:00').toLocaleDateString('ar-SA', { year: 'numeric', month: 'long' })}`);
+      if (args.status === 'completed') changes.push('مكتمل 🎉');
+      if (args.status === 'paused')    changes.push('موقوف مؤقتاً ⏸');
+      const summary = changes.length
+        ? `✓ عدّلت هدف "${goal.title}" — ${changes.join('، ')}`
+        : `✓ عدّلت هدف "${goal.title}"`;
+      return { kind: 'goal_update', summary, data: args };
+    }
+
+    // ── Delete Goal ────────────────────────────────────────────────────────────
+    case 'delete_goal': {
+      const { data: found } = await supabase.from('goals')
+        .select('id, title, target_amount')
+        .eq('user_id', userId)
+        .ilike('title', `%${args.search_title}%`)
+        .order('created_at', { ascending: false }).limit(1);
+      if (!found?.length) throw new Error(`ما لقيت هدف توفير يحتوي على "${args.search_title}"`);
+      const goal = found[0];
+      const { error } = await supabase.from('goals').delete().eq('id', goal.id);
+      if (error) throw new Error(`delete_goal: ${error.message}`);
+      return { kind: 'goal_delete', summary: `✓ حذفت هدف "${goal.title}" (${fmt(goal.target_amount)} ريال)`, data: args };
+    }
+
+    // ── Update Portfolio Holding ───────────────────────────────────────────────
+    case 'update_portfolio_holding': {
+      const { data: found } = await supabase.from('portfolio_holdings')
+        .select('id, symbol, market, quantity, avg_price, currency')
+        .eq('user_id', userId)
+        .ilike('symbol', `%${args.search_symbol}%`)
+        .order('created_at', { ascending: false }).limit(1);
+      if (!found?.length) throw new Error(`ما لقيت استثمار بالرمز "${args.search_symbol}"`);
+      const holding = found[0];
+      const updates: any = { updated_at: new Date().toISOString() };
+      if (args.quantity !== undefined)      updates.quantity      = args.quantity;
+      if (args.avg_price !== undefined)     updates.avg_price     = args.avg_price;
+      if (args.current_price !== undefined) updates.current_price = args.current_price;
+      const { error } = await supabase.from('portfolio_holdings').update(updates).eq('id', holding.id);
+      if (error) throw new Error(`update_portfolio_holding: ${error.message}`);
+      const changes: string[] = [];
+      if (args.quantity !== undefined)      changes.push(`الكمية: ${args.quantity}`);
+      if (args.avg_price !== undefined)     changes.push(`متوسط الشراء: ${fmt(args.avg_price)} ${holding.currency}`);
+      if (args.current_price !== undefined) changes.push(`السعر الحالي: ${fmt(args.current_price)} ${holding.currency}`);
+      const summary = changes.length
+        ? `✓ عدّلت ${holding.symbol} — ${changes.join('، ')}`
+        : `✓ عدّلت ${holding.symbol}`;
+      return { kind: 'holding_update', summary, data: args };
+    }
+
+    // ── Delete Portfolio Holding ───────────────────────────────────────────────
+    case 'delete_portfolio_holding': {
+      const { data: found } = await supabase.from('portfolio_holdings')
+        .select('id, symbol, quantity, currency')
+        .eq('user_id', userId)
+        .ilike('symbol', `%${args.search_symbol}%`)
+        .order('created_at', { ascending: false }).limit(1);
+      if (!found?.length) throw new Error(`ما لقيت استثمار بالرمز "${args.search_symbol}"`);
+      const holding = found[0];
+      const { error } = await supabase.from('portfolio_holdings').delete().eq('id', holding.id);
+      if (error) throw new Error(`delete_portfolio_holding: ${error.message}`);
+      return { kind: 'holding_delete', summary: `✓ حذفت ${holding.symbol} من المحفظة (${holding.quantity} وحدة)`, data: args };
+    }
+
     default: throw new Error(`Unknown function: ${name}`);
   }
 }
@@ -400,7 +569,9 @@ ${genderRule}
 ✓ عادات يومية وأسبوعية — إضافة / تعديل / إيقاف / حذف — مباشرة
 ✓ تسجيل المزاج — مباشرة
 ✓ مواعيد التقويم — إضافة / تعديل / حذف — مع تأكيد للإضافة فقط
-✓ مصاريف ودخل — مع تأكيد
+✓ مصاريف ودخل — إضافة (مع تأكيد) / تعديل / حذف — مباشرة
+✓ أهداف التوفير — إضافة / تعديل / حذف — مباشرة
+✓ المحفظة الاستثمارية — تعديل / حذف الأسهم والأصول — مباشرة
 ✓ إيميل وواتساب — مع تأكيد
 
 السياق: اليوم ${TODAY} (${TODAY_ISO}) · ${userContext}
@@ -423,7 +594,9 @@ ${modeRules}
 قواعد الأدوات:
 • إضافة مهام/عادات/مزاج/تعديل/حذف أي منها: نفّذي فوراً وأخبري المستخدم بما فعلتِ
 • تعديل/حذف المواعيد: نفّذي فوراً (لا تطلبي تأكيداً لأن المستخدم طلب ذلك صراحةً)
-• إضافة مواعيد تقويم جديدة/مالية/إيميل: اعرضي ملخصاً واطلبي نعم/لا
+• إضافة مواعيد تقويم جديدة/إيميل/واتساب: اعرضي ملخصاً واطلبي نعم/لا
+• إضافة معاملات مالية (add_financial_entry): اعرضي ملخصاً واطلبي نعم/لا
+• تعديل أو حذف معاملات/أهداف/محفظة: نفّذي فوراً وأخبري المستخدم بالتغيير بالتفصيل
 • عند التعديل أو الحذف: ابحثي عن العنصر بالاسم وأخبري المستخدم بالتغيير بالضبط
 • إذا طلب المستخدم عدة عناصر دفعة وحدة (مثلاً "ذكّريني بكل الصلوات الخمس" أو "أضيفي ثلاث مهام")، استدعي الأداة لكل عنصر — مهمة واحدة لكل صلاة (الفجر، الظهر، العصر، المغرب، العشاء)
 • للعادات بأيام محددة (مثلاً "من الأحد إلى الأربعاء")، استخدمي frequency=weekly مع target_days=[0,1,2,3] حيث 0=الأحد و6=السبت

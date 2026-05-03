@@ -2,6 +2,7 @@ import React, { useState, lazy, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/hooks/useAuth';
 import { useProfile } from '@/hooks/useProfile';
+import { useLanguage } from '@/hooks/useLanguage';
 import { Button } from '@/components/ui/button';
 import { ChatInterface } from '@/components/Chat/ChatInterface';
 import { VoicePanel } from '@/components/Voice/VoicePanel';
@@ -60,19 +61,20 @@ const useSaudiSignal = () => {
   return { hijri, prayer };
 };
 
-// ─── Nav items (6 tabs) ───────────────────────────────────────────────────────
-const NAV = [
-  { value: 'home',      label: 'الرئيسية',  icon: Home },
-  { value: 'chat',      label: 'جود AI',    icon: MessageSquare },
-  { value: 'financial', label: 'المالية',   icon: TrendingUp },
-  { value: 'planning',  label: 'تخطيطي',    icon: CalendarCheck },
-  { value: 'mood',      label: 'المزاج',    icon: Heart },
-  { value: 'settings',  label: 'الإعدادات', icon: Settings },
+// ─── Nav items (6 tabs) — built at render time so labels are translated ───────
+const buildNav = (t: (k: string) => string) => [
+  { value: 'home',      label: t('nav.home'),      icon: Home },
+  { value: 'chat',      label: t('nav.chat'),      icon: MessageSquare },
+  { value: 'financial', label: t('nav.financial'), icon: TrendingUp },
+  { value: 'planning',  label: t('nav.planning'),  icon: CalendarCheck },
+  { value: 'mood',      label: t('nav.mood'),      icon: Heart },
+  { value: 'settings',  label: t('nav.settings'),  icon: Settings },
 ];
 
 // ─── Chat+Voice tab ───────────────────────────────────────────────────────────
 const ChatVoiceTab: React.FC<{ onMajlis: () => void }> = ({ onMajlis }) => {
   const [mode, setMode] = useState<'chat' | 'voice'>('chat');
+  const { t } = useLanguage();
 
   return (
     <div className="flex flex-col h-[calc(100vh-180px)] sm:h-[calc(100vh-160px)]">
@@ -87,7 +89,7 @@ const ChatVoiceTab: React.FC<{ onMajlis: () => void }> = ({ onMajlis }) => {
             )}
           >
             <MessageSquare className="w-4 h-4" />
-            محادثة
+            {t('chat.mode.chat')}
           </button>
           <button
             onClick={() => setMode('voice')}
@@ -97,7 +99,7 @@ const ChatVoiceTab: React.FC<{ onMajlis: () => void }> = ({ onMajlis }) => {
             )}
           >
             <Mic className="w-4 h-4" />
-            صوتي
+            {t('chat.mode.voice')}
           </button>
         </div>
 
@@ -108,7 +110,7 @@ const ChatVoiceTab: React.FC<{ onMajlis: () => void }> = ({ onMajlis }) => {
             className="bg-gradient-to-r from-jood-gold-500 to-amber-700 hover:from-amber-600 hover:to-amber-800 text-white gap-2 font-arabic shadow-luxury h-9 text-xs"
           >
             <Sparkles className="w-3.5 h-3.5" />
-            المجلس الكامل
+            {t('chat.majlis.full')}
           </Button>
         )}
       </div>
@@ -166,7 +168,10 @@ const Fade: React.FC<{ children: React.ReactNode }> = ({ children }) => (
 );
 
 // ─── Mobile bottom nav bar ─────────────────────────────────────────────────────
-const MobileBottomNav: React.FC<{ activeTab: string; onTabChange: (t: string) => void }> = ({ activeTab, onTabChange }) => (
+const MobileBottomNav: React.FC<{ activeTab: string; onTabChange: (t: string) => void }> = ({ activeTab, onTabChange }) => {
+  const { t } = useLanguage();
+  const NAV = buildNav(t);
+  return (
   <div className="sm:hidden fixed bottom-0 left-0 right-0 z-40 bg-card/95 backdrop-blur-md border-t border-border/40 safe-area-pb">
     <div className="flex items-center justify-around px-1 py-1">
       {NAV.map(({ value, label, icon: Icon }) => {
@@ -195,13 +200,16 @@ const MobileBottomNav: React.FC<{ activeTab: string; onTabChange: (t: string) =>
       })}
     </div>
   </div>
-);
+  );
+};
 
 // ─── Dashboard ────────────────────────────────────────────────────────────────
 const Dashboard = () => {
   const { user, signOut } = useAuth();
   const { profile } = useProfile();
   const { theme, setTheme } = useTheme();
+  const { t, dir } = useLanguage();
+  const NAV = buildNav(t);
   const [activeTab, setActiveTab] = useState('home');
   const [profileOpen, setProfileOpen] = useState(false);
   const { hijri, prayer } = useSaudiSignal();
@@ -212,7 +220,7 @@ const Dashboard = () => {
   const [majlisOpen, setMajlisOpen] = useState(false);
 
   return (
-    <div className="min-h-screen bg-background flex flex-col" dir="rtl">
+    <div className="min-h-screen bg-background flex flex-col" dir={dir}>
 
       {showOnboarding && (
         <Onboarding onComplete={() => setShowOnboarding(false)} />
@@ -224,13 +232,13 @@ const Dashboard = () => {
       {!profile?.gender && profile !== null && (
         <div className="bg-jood-gold-500/10 border-b border-jood-gold-500/20 px-4 py-2 flex items-center justify-between gap-3">
           <p className="text-xs font-arabic text-jood-gold-700 dark:text-jood-gold-300">
-            ✨ أخبري جود بجنسك حتى تخاطبك بالصيغة الصحيحة
+            {t('nudge.gender')}
           </p>
           <button
             onClick={() => setProfileOpen(true)}
             className="text-xs font-arabic font-semibold text-jood-gold-700 dark:text-jood-gold-300 underline underline-offset-2 flex-shrink-0"
           >
-            إكمال الملف
+            {t('nudge.complete')}
           </button>
         </div>
       )}
@@ -246,7 +254,7 @@ const Dashboard = () => {
             </div>
             <div>
               <h1 className="text-sm font-bold text-foreground font-arabic leading-none">جود AI</h1>
-              <p className="hidden sm:block text-[10px] text-muted-foreground leading-none mt-0.5">مساعدتك الشخصية الذكية</p>
+              <p className="hidden sm:block text-[10px] text-muted-foreground leading-none mt-0.5">{t('header.tagline')}</p>
             </div>
           </div>
 
@@ -269,7 +277,7 @@ const Dashboard = () => {
               size="sm"
               onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
               className="h-8 w-8 text-muted-foreground hover:text-foreground"
-              title={theme === 'dark' ? 'الوضع الفاتح' : 'الوضع الداكن'}
+              title={theme === 'dark' ? t('header.lightMode') : t('header.darkMode')}
             >
               {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
             </Button>
@@ -292,7 +300,7 @@ const Dashboard = () => {
               className="h-8 gap-1.5 text-jood-gold-600 hover:text-jood-gold-700 hover:bg-jood-gold-500/10 border border-jood-gold-300/40 rounded-full px-3"
             >
               <Mic className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline text-xs font-arabic font-bold">المجلس</span>
+              <span className="hidden sm:inline text-xs font-arabic font-bold">{t('header.majlis')}</span>
               <Sparkles className="w-3 h-3 text-jood-gold-500" />
             </Button>
 
@@ -300,12 +308,12 @@ const Dashboard = () => {
               <DialogTrigger asChild>
                 <Button variant="ghost" size="sm" className="h-8 text-muted-foreground hover:text-foreground gap-1.5">
                   <Download className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline text-xs font-arabic">تصدير</span>
+                  <span className="hidden sm:inline text-xs font-arabic">{t('header.export')}</span>
                 </Button>
               </DialogTrigger>
               <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
                 <DialogHeader>
-                  <DialogTitle className="font-arabic">تصدير البيانات</DialogTitle>
+                  <DialogTitle className="font-arabic">{t('export.title')}</DialogTitle>
                 </DialogHeader>
                 <Suspense fallback={<TabSkeleton />}>
                   <ExportPanel />
@@ -331,7 +339,7 @@ const Dashboard = () => {
               className="h-8 text-muted-foreground hover:text-destructive gap-1.5"
             >
               <LogOut className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline text-xs font-arabic">خروج</span>
+              <span className="hidden sm:inline text-xs font-arabic">{t('header.logout')}</span>
             </Button>
           </div>
         </div>
@@ -382,7 +390,7 @@ const Dashboard = () => {
           <TabsContent value="planning" className="p-4 mt-0">
             <Suspense fallback={<TabSkeleton />}>
               <Fade>
-                <h2 className="text-xl font-bold font-arabic mb-4 text-foreground">تخطيطي</h2>
+                <h2 className="text-xl font-bold font-arabic mb-4 text-foreground">{t('tab.planning')}</h2>
                 <PlanningHub />
               </Fade>
             </Suspense>
@@ -392,7 +400,7 @@ const Dashboard = () => {
           <TabsContent value="mood" className="p-4 mt-0">
             <Suspense fallback={<TabSkeleton />}>
               <Fade>
-                <h2 className="text-xl font-bold font-arabic mb-4 text-foreground">تتبع المزاج والصحة</h2>
+                <h2 className="text-xl font-bold font-arabic mb-4 text-foreground">{t('tab.mood')}</h2>
                 <MoodTracker />
               </Fade>
             </Suspense>
@@ -402,7 +410,7 @@ const Dashboard = () => {
           <TabsContent value="settings" className="p-4 mt-0">
             <Suspense fallback={<TabSkeleton />}>
               <Fade>
-                <h2 className="text-xl font-bold font-arabic mb-4 text-foreground">الإعدادات والذكاء</h2>
+                <h2 className="text-xl font-bold font-arabic mb-4 text-foreground">{t('tab.settings')}</h2>
                 <SettingsHub onNavigate={setActiveTab} />
               </Fade>
             </Suspense>

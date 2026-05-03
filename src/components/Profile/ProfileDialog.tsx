@@ -6,9 +6,11 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useProfile, UserProfile } from '@/hooks/useProfile';
 import { useAuth } from '@/hooks/useAuth';
+import { useLanguage } from '@/hooks/useLanguage';
 import { toast } from 'sonner';
-import { User, Phone, Mail, MapPin, Calendar, Globe, Sparkles, Lock, CheckCircle2 } from 'lucide-react';
+import { User, Phone, Mail, MapPin, Calendar, Sparkles, Lock, CheckCircle2, Languages, Coins } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import type { Lang } from '@/lib/i18n';
 
 interface Props {
   open: boolean;
@@ -22,22 +24,34 @@ const CITIES_SA = [
   'الطائف', 'تبوك', 'بريدة', 'خميس مشيط', 'أبها', 'نجران', 'جيزان',
 ];
 
+const CURRENCIES = [
+  { code: 'SAR', label: 'ريال سعودي — SAR', flag: '🇸🇦' },
+  { code: 'USD', label: 'دولار أمريكي — USD', flag: '🇺🇸' },
+  { code: 'EUR', label: 'يورو — EUR',         flag: '🇪🇺' },
+  { code: 'AED', label: 'درهم إماراتي — AED', flag: '🇦🇪' },
+  { code: 'KWD', label: 'دينار كويتي — KWD',  flag: '🇰🇼' },
+  { code: 'GBP', label: 'جنيه إسترليني — GBP', flag: '🇬🇧' },
+];
+
 export default function ProfileDialog({ open, onOpenChange }: Props) {
   const { user } = useAuth();
   const { profile, loading, saving, save } = useProfile();
+  const { lang, dir, t, setLang } = useLanguage();
 
   const [form, setForm] = useState({
-    display_name: '',
-    gender: '' as 'male' | 'female' | '',
-    phone: '',
+    display_name:  '',
+    gender:        '' as 'male' | 'female' | '',
+    phone:         '',
     date_of_birth: '',
-    city: '',
-    nationality: 'SA',
-    avatar_emoji: '🌟',
-    bio: '',
+    city:          '',
+    nationality:   'SA',
+    avatar_emoji:  '🌟',
+    bio:           '',
+    base_currency: 'SAR',
+    app_language:  'ar' as Lang,
   });
   const [tab, setTab] = useState<'profile' | 'account'>('profile');
-  const [newPassword, setNewPassword] = useState('');
+  const [newPassword, setNewPassword]     = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [changingPassword, setChangingPassword] = useState(false);
 
@@ -53,6 +67,8 @@ export default function ProfileDialog({ open, onOpenChange }: Props) {
         nationality:   profile.nationality   ?? 'SA',
         avatar_emoji:  profile.avatar_emoji  ?? '🌟',
         bio:           profile.bio           ?? '',
+        base_currency: profile.base_currency ?? 'SAR',
+        app_language:  (profile as any).app_language ?? 'ar',
       });
     }
   }, [profile]);
@@ -61,51 +77,60 @@ export default function ProfileDialog({ open, onOpenChange }: Props) {
 
   const handleSave = async () => {
     if (!form.display_name.trim()) {
-      toast.error('الاسم مطلوب');
+      toast.error(t('toast.name.required'));
       return;
     }
     if (!form.gender) {
-      toast.error('يرجى تحديد الجنس حتى تتمكن جود من مخاطبتك بشكل صحيح');
+      toast.error(t('toast.gender.required'));
       return;
     }
+
+    // If language changed, update the language context immediately
+    if (form.app_language !== lang) {
+      await setLang(form.app_language);
+    }
+
     const { error } = await save({
       ...form,
-      gender: form.gender as 'male' | 'female',
-      phone:  form.phone || null,
+      gender:        form.gender as 'male' | 'female',
+      phone:         form.phone         || null,
       date_of_birth: form.date_of_birth || null,
-      city:   form.city || null,
-      bio:    form.bio  || null,
+      city:          form.city          || null,
+      bio:           form.bio           || null,
+      app_language:  form.app_language  as any,
     });
     if (error) {
-      toast.error('تعذّر حفظ البيانات');
+      toast.error(t('toast.save.error'));
     } else {
-      toast.success('تم حفظ الملف الشخصي ✓');
+      toast.success(t('toast.save.success'));
       onOpenChange(false);
     }
   };
 
   const handlePasswordChange = async () => {
-    if (newPassword.length < 6) { toast.error('كلمة المرور يجب أن تكون 6 أحرف على الأقل'); return; }
-    if (newPassword !== confirmPassword) { toast.error('كلمتا المرور غير متطابقتين'); return; }
+    if (newPassword.length < 6)           { toast.error(t('toast.password.short'));    return; }
+    if (newPassword !== confirmPassword)   { toast.error(t('toast.password.mismatch')); return; }
     setChangingPassword(true);
-    const { createClient } = await import('@supabase/supabase-js');
-    // Use supabase auth updateUser
     const { supabase } = await import('@/integrations/supabase/client');
     const { error } = await supabase.auth.updateUser({ password: newPassword });
     setChangingPassword(false);
     if (error) {
-      toast.error('تعذّر تغيير كلمة المرور');
+      toast.error(t('toast.password.error'));
     } else {
-      toast.success('تم تغيير كلمة المرور بنجاح ✓');
+      toast.success(t('toast.password.success'));
       setNewPassword(''); setConfirmPassword('');
     }
   };
 
-  const genderLabel = form.gender === 'female' ? 'أنثى' : form.gender === 'male' ? 'ذكر' : '';
+  const genderLabel = form.gender === 'female'
+    ? t('profile.jood.female.label')
+    : form.gender === 'male'
+      ? t('profile.jood.male.label')
+      : '';
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto p-0" dir="rtl">
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto p-0" dir={dir}>
         {/* Header */}
         <div className="bg-gradient-to-br from-jood-teal-900 to-jood-teal-700 p-6 rounded-t-xl">
           <div className="flex items-center gap-4">
@@ -115,13 +140,13 @@ export default function ProfileDialog({ open, onOpenChange }: Props) {
             </div>
             <div className="text-white">
               <h2 className="text-lg font-bold font-arabic leading-tight">
-                {form.display_name || 'ملفك الشخصي'}
+                {form.display_name || t('profile.title')}
               </h2>
-              <p className="text-white/60 text-sm font-arabic">{user?.email}</p>
+              <p className="text-white/60 text-sm">{user?.email}</p>
               {form.gender && (
                 <span className="inline-flex items-center gap-1 mt-1 text-xs text-jood-gold-300 font-arabic">
                   <Sparkles className="w-3 h-3" />
-                  جود تخاطبك بصيغة {genderLabel}
+                  {t('profile.jood.gender')} {genderLabel}
                 </span>
               )}
             </div>
@@ -129,13 +154,15 @@ export default function ProfileDialog({ open, onOpenChange }: Props) {
 
           {/* Tab toggle */}
           <div className="flex gap-1 mt-4 p-1 bg-white/10 rounded-xl">
-            {(['profile', 'account'] as const).map(t => (
-              <button key={t} onClick={() => setTab(t)}
+            {(['profile', 'account'] as const).map(tabKey => (
+              <button key={tabKey} onClick={() => setTab(tabKey)}
                 className={cn(
                   'flex-1 py-1.5 rounded-lg text-sm font-arabic transition-all',
-                  tab === t ? 'bg-white text-jood-teal-900 font-semibold shadow-sm' : 'text-white/70 hover:text-white',
+                  tab === tabKey
+                    ? 'bg-white text-jood-teal-900 font-semibold shadow-sm'
+                    : 'text-white/70 hover:text-white',
                 )}>
-                {t === 'profile' ? 'الملف الشخصي' : 'إعدادات الحساب'}
+                {tabKey === 'profile' ? t('profile.tab.profile') : t('profile.tab.account')}
               </button>
             ))}
           </div>
@@ -146,7 +173,9 @@ export default function ProfileDialog({ open, onOpenChange }: Props) {
             <>
               {/* Avatar picker */}
               <div>
-                <Label className="text-xs text-muted-foreground font-arabic mb-2 block">الرمز التعبيري</Label>
+                <Label className="text-xs text-muted-foreground font-arabic mb-2 block">
+                  {t('profile.avatar')}
+                </Label>
                 <div className="flex gap-2 flex-wrap">
                   {AVATAR_OPTIONS.map(e => (
                     <button key={e} onClick={() => set('avatar_emoji', e)}
@@ -162,28 +191,28 @@ export default function ProfileDialog({ open, onOpenChange }: Props) {
                 </div>
               </div>
 
-              {/* Display name — REQUIRED */}
+              {/* Display name */}
               <div className="space-y-1.5">
                 <Label className="font-arabic text-sm flex items-center gap-1">
                   <User className="w-3.5 h-3.5 text-muted-foreground" />
-                  الاسم
-                  <span className="text-destructive text-xs">*</span>
+                  {t('profile.name')}
+                  <span className="text-destructive text-xs">{t('profile.required')}</span>
                 </Label>
                 <Input
                   value={form.display_name}
                   onChange={e => set('display_name', e.target.value)}
-                  placeholder="اسمك الكريم"
+                  placeholder={lang === 'ar' ? 'اسمك الكريم' : 'Your name'}
                   className="h-11 font-arabic text-base"
                 />
               </div>
 
-              {/* Gender — REQUIRED, critical for AI */}
+              {/* Gender */}
               <div className="space-y-1.5">
                 <Label className="font-arabic text-sm flex items-center gap-1.5">
                   <Sparkles className="w-3.5 h-3.5 text-jood-gold-500" />
-                  الجنس
-                  <span className="text-destructive text-xs">*</span>
-                  <span className="text-muted-foreground text-xs font-normal">(تحتاجه جود لمخاطبتك بالصيغة الصحيحة)</span>
+                  {t('profile.gender')}
+                  <span className="text-destructive text-xs">{t('profile.required')}</span>
+                  <span className="text-muted-foreground text-xs font-normal">{t('profile.gender.hint')}</span>
                 </Label>
                 <div className="grid grid-cols-2 gap-3">
                   {(['male', 'female'] as const).map(g => (
@@ -199,24 +228,79 @@ export default function ProfileDialog({ open, onOpenChange }: Props) {
                           : 'border-border hover:border-border/80 text-muted-foreground',
                       )}
                     >
-                      {g === 'female' ? '👩 أنثى' : '👨 ذكر'}
+                      {t(g === 'female' ? 'profile.gender.female' : 'profile.gender.male')}
                     </button>
                   ))}
                 </div>
                 {form.gender && (
                   <p className="text-xs text-muted-foreground font-arabic flex items-center gap-1">
                     <CheckCircle2 className="w-3 h-3 text-green-500" />
-                    جود ستخاطبك بصيغة {form.gender === 'female' ? 'المؤنث (افعلي، استخدمي، أخبريني…)' : 'المذكر (افعل، استخدم، أخبرني…)'}
+                    {t(form.gender === 'female' ? 'profile.gender.jood.female' : 'profile.gender.jood.male')}
                   </p>
                 )}
               </div>
 
-              {/* Phone — optional */}
+              {/* App Language */}
+              <div className="space-y-1.5">
+                <Label className="font-arabic text-sm flex items-center gap-1.5">
+                  <Languages className="w-3.5 h-3.5 text-muted-foreground" />
+                  {t('profile.language')}
+                </Label>
+                <div className="grid grid-cols-2 gap-3">
+                  {(['ar', 'en'] as const).map(l => (
+                    <button
+                      key={l}
+                      onClick={() => set('app_language', l)}
+                      className={cn(
+                        'h-11 rounded-xl border-2 text-sm font-semibold transition-all',
+                        form.app_language === l
+                          ? 'border-jood-teal-500 bg-jood-teal-50 dark:bg-jood-teal-900/20 text-jood-teal-700 dark:text-jood-teal-300'
+                          : 'border-border hover:border-border/80 text-muted-foreground',
+                      )}
+                    >
+                      {l === 'ar' ? '🇸🇦 العربية' : '🇬🇧 English'}
+                    </button>
+                  ))}
+                </div>
+                {form.app_language === 'en' && (
+                  <p className="text-xs text-muted-foreground flex items-center gap-1">
+                    <CheckCircle2 className="w-3 h-3 text-green-500" />
+                    App UI will switch to English after saving
+                  </p>
+                )}
+              </div>
+
+              {/* Preferred Currency */}
+              <div className="space-y-1.5">
+                <Label className="font-arabic text-sm flex items-center gap-1.5">
+                  <Coins className="w-3.5 h-3.5 text-muted-foreground" />
+                  {t('profile.currency')}
+                </Label>
+                <div className="grid grid-cols-3 gap-2">
+                  {CURRENCIES.map(({ code, flag }) => (
+                    <button
+                      key={code}
+                      onClick={() => set('base_currency', code)}
+                      className={cn(
+                        'h-10 rounded-xl border-2 text-xs font-semibold transition-all flex items-center justify-center gap-1',
+                        form.base_currency === code
+                          ? 'border-jood-teal-500 bg-jood-teal-50 dark:bg-jood-teal-900/20 text-jood-teal-700 dark:text-jood-teal-300'
+                          : 'border-border hover:border-border/80 text-muted-foreground',
+                      )}
+                    >
+                      <span>{flag}</span>
+                      <span>{code}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Phone */}
               <div className="space-y-1.5">
                 <Label className="font-arabic text-sm flex items-center gap-1">
                   <Phone className="w-3.5 h-3.5 text-muted-foreground" />
-                  رقم الجوال
-                  <span className="text-muted-foreground text-xs font-normal">(اختياري)</span>
+                  {t('profile.phone')}
+                  <span className="text-muted-foreground text-xs font-normal">{t('profile.optional')}</span>
                 </Label>
                 <Input
                   value={form.phone}
@@ -228,12 +312,12 @@ export default function ProfileDialog({ open, onOpenChange }: Props) {
                 />
               </div>
 
-              {/* Date of birth — optional */}
+              {/* Date of birth */}
               <div className="space-y-1.5">
                 <Label className="font-arabic text-sm flex items-center gap-1">
                   <Calendar className="w-3.5 h-3.5 text-muted-foreground" />
-                  تاريخ الميلاد
-                  <span className="text-muted-foreground text-xs font-normal">(اختياري)</span>
+                  {t('profile.dob')}
+                  <span className="text-muted-foreground text-xs font-normal">{t('profile.optional')}</span>
                 </Label>
                 <Input
                   value={form.date_of_birth}
@@ -244,34 +328,34 @@ export default function ProfileDialog({ open, onOpenChange }: Props) {
                 />
               </div>
 
-              {/* City — optional */}
+              {/* City */}
               <div className="space-y-1.5">
                 <Label className="font-arabic text-sm flex items-center gap-1">
                   <MapPin className="w-3.5 h-3.5 text-muted-foreground" />
-                  المدينة
-                  <span className="text-muted-foreground text-xs font-normal">(اختياري)</span>
+                  {t('profile.city')}
+                  <span className="text-muted-foreground text-xs font-normal">{t('profile.optional')}</span>
                 </Label>
                 <select
                   value={form.city}
                   onChange={e => set('city', e.target.value)}
                   className="w-full h-11 rounded-md border border-input bg-background px-3 text-sm font-arabic text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
                 >
-                  <option value="">اختاري مدينتك…</option>
+                  <option value="">{t('profile.city.placeholder')}</option>
                   {CITIES_SA.map(c => <option key={c} value={c}>{c}</option>)}
-                  <option value="other">مدينة أخرى</option>
+                  <option value="other">{t('profile.city.other')}</option>
                 </select>
               </div>
 
-              {/* Bio — optional */}
+              {/* Bio */}
               <div className="space-y-1.5">
                 <Label className="font-arabic text-sm">
-                  نبذة عنك
-                  <span className="text-muted-foreground text-xs font-normal mr-1">(اختياري — تساعد جود على فهمك أفضل)</span>
+                  {t('profile.bio')}
+                  <span className="text-muted-foreground text-xs font-normal mr-1">{t('profile.bio.hint')}</span>
                 </Label>
                 <Textarea
                   value={form.bio}
                   onChange={e => set('bio', e.target.value)}
-                  placeholder="مثلاً: معلمة، أهتم بالتوفير والاستثمار، أحب القراءة…"
+                  placeholder={t('profile.bio.placeholder')}
                   className="font-arabic text-sm resize-none"
                   rows={3}
                 />
@@ -282,7 +366,7 @@ export default function ProfileDialog({ open, onOpenChange }: Props) {
                 disabled={saving || !form.display_name || !form.gender}
                 className="w-full h-11 jood-btn-primary font-arabic text-sm"
               >
-                {saving ? 'جارٍ الحفظ…' : 'حفظ الملف الشخصي'}
+                {saving ? t('profile.saving') : t('profile.save')}
               </Button>
             </>
           ) : (
@@ -292,25 +376,25 @@ export default function ProfileDialog({ open, onOpenChange }: Props) {
               <div className="space-y-1.5">
                 <Label className="font-arabic text-sm flex items-center gap-1">
                   <Mail className="w-3.5 h-3.5 text-muted-foreground" />
-                  البريد الإلكتروني
+                  {t('account.email')}
                 </Label>
                 <div className="h-11 rounded-md border border-input bg-muted/40 px-3 flex items-center text-sm text-muted-foreground" dir="ltr">
                   {user?.email}
                 </div>
-                <p className="text-xs text-muted-foreground font-arabic">لا يمكن تغيير البريد الإلكتروني حالياً</p>
+                <p className="text-xs text-muted-foreground font-arabic">{t('account.email.readonly')}</p>
               </div>
 
               {/* Password change */}
               <div className="space-y-3 pt-2 border-t border-border/40">
                 <Label className="font-arabic text-sm flex items-center gap-1">
                   <Lock className="w-3.5 h-3.5 text-muted-foreground" />
-                  تغيير كلمة المرور
+                  {t('account.password')}
                 </Label>
                 <Input
                   type="password"
                   value={newPassword}
                   onChange={e => setNewPassword(e.target.value)}
-                  placeholder="كلمة المرور الجديدة"
+                  placeholder={t('account.password.new')}
                   className="h-11 text-base"
                   minLength={6}
                 />
@@ -318,7 +402,7 @@ export default function ProfileDialog({ open, onOpenChange }: Props) {
                   type="password"
                   value={confirmPassword}
                   onChange={e => setConfirmPassword(e.target.value)}
-                  placeholder="تأكيد كلمة المرور"
+                  placeholder={t('account.password.confirm')}
                   className="h-11 text-base"
                 />
                 <Button
@@ -327,20 +411,20 @@ export default function ProfileDialog({ open, onOpenChange }: Props) {
                   className="w-full h-11 font-arabic text-sm"
                   variant="outline"
                 >
-                  {changingPassword ? 'جارٍ التغيير…' : 'تغيير كلمة المرور'}
+                  {changingPassword ? t('account.password.saving') : t('account.password.save')}
                 </Button>
               </div>
 
               {/* Account info */}
               <div className="pt-2 border-t border-border/40 space-y-2">
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground font-arabic">تاريخ الانضمام</span>
+                  <span className="text-muted-foreground font-arabic">{t('account.joined')}</span>
                   <span className="text-foreground font-mono text-xs">
-                    {user?.created_at ? new Date(user.created_at).toLocaleDateString('ar-SA') : '—'}
+                    {user?.created_at ? new Date(user.created_at).toLocaleDateString(lang === 'ar' ? 'ar-SA' : 'en-US') : '—'}
                   </span>
                 </div>
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground font-arabic">معرّف الحساب</span>
+                  <span className="text-muted-foreground font-arabic">{t('account.id')}</span>
                   <span className="text-foreground font-mono text-xs truncate max-w-[140px]">{user?.id?.slice(0, 8)}…</span>
                 </div>
               </div>
