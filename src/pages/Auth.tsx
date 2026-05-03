@@ -11,14 +11,18 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
 
 export default function Auth() {
-  const [email, setEmail]                 = useState('');
-  const [password, setPassword]           = useState('');
-  const [displayName, setDisplayName]     = useState('');
-  const [loading, setLoading]             = useState(false);
-  const [agreedToTerms, setAgreedToTerms] = useState(false);
+  const [email, setEmail]                     = useState('');
+  const [password, setPassword]               = useState('');
+  const [displayName, setDisplayName]         = useState('');
+  const [gender, setGender]                   = useState<'male' | 'female' | ''>('');
+  const [phone, setPhone]                     = useState('');
+  const [loading, setLoading]                 = useState(false);
+  const [agreedToTerms, setAgreedToTerms]     = useState(false);
   const [agreedToPrivacy, setAgreedToPrivacy] = useState(false);
+
   const { signIn, signUp, user } = useAuth();
   const { acceptAgreement, getLatestVersion } = useLegalAgreements();
   const navigate = useNavigate();
@@ -42,12 +46,14 @@ export default function Auth() {
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!displayName.trim()) { toast.error('الاسم مطلوب'); return; }
+    if (!gender) { toast.error('يرجى تحديد الجنس حتى تتمكن جود من مخاطبتك بالصيغة الصحيحة'); return; }
     if (!agreedToTerms || !agreedToPrivacy) {
       toast.error('يجب الموافقة على الشروط وسياسة الخصوصية');
       return;
     }
     setLoading(true);
-    const { error } = await signUp(email, password, displayName);
+    const { error } = await signUp(email, password, displayName, gender, phone || undefined);
     if (error) {
       toast.error(error.message || 'فشل إنشاء الحساب');
     } else {
@@ -55,7 +61,7 @@ export default function Auth() {
       const privacyVersion = getLatestVersion('privacy');
       if (termsVersion)   await acceptAgreement('terms',   termsVersion.version);
       if (privacyVersion) await acceptAgreement('privacy', privacyVersion.version);
-      toast.success('تم إنشاء حسابك! تفقدي بريدك الإلكتروني لتأكيد الحساب.');
+      toast.success('تم إنشاء حسابك! تفقد بريدك الإلكتروني لتأكيد الحساب.');
     }
     setLoading(false);
   };
@@ -87,8 +93,8 @@ export default function Auth() {
             <CardContent className="p-5">
               <Tabs defaultValue="signin" className="w-full">
                 <TabsList className="grid w-full grid-cols-2 mb-4 h-10">
-                  <TabsTrigger value="signin" className="font-arabic text-sm">تسجيل الدخول</TabsTrigger>
-                  <TabsTrigger value="signup" className="font-arabic text-sm">حساب جديد</TabsTrigger>
+                  <TabsTrigger value="signin"  className="font-arabic text-sm">تسجيل الدخول</TabsTrigger>
+                  <TabsTrigger value="signup"  className="font-arabic text-sm">حساب جديد</TabsTrigger>
                 </TabsList>
 
                 {/* ── Sign In ── */}
@@ -97,33 +103,20 @@ export default function Auth() {
                     <div className="space-y-1.5">
                       <Label htmlFor="si-email" className="font-arabic text-sm">البريد الإلكتروني</Label>
                       <Input
-                        id="si-email"
-                        type="email"
-                        placeholder="example@email.com"
-                        value={email}
-                        onChange={e => setEmail(e.target.value)}
-                        required
-                        className="h-11 text-left"
-                        dir="ltr"
+                        id="si-email" type="email" placeholder="example@email.com"
+                        value={email} onChange={e => setEmail(e.target.value)}
+                        required className="h-11 text-left text-base" dir="ltr"
                       />
                     </div>
                     <div className="space-y-1.5">
                       <Label htmlFor="si-password" className="font-arabic text-sm">كلمة المرور</Label>
                       <Input
-                        id="si-password"
-                        type="password"
-                        placeholder="••••••••"
-                        value={password}
-                        onChange={e => setPassword(e.target.value)}
-                        required
-                        className="h-11"
+                        id="si-password" type="password" placeholder="••••••••"
+                        value={password} onChange={e => setPassword(e.target.value)}
+                        required className="h-11 text-base"
                       />
                     </div>
-                    <Button
-                      type="submit"
-                      className="w-full h-11 jood-btn-primary font-arabic text-sm mt-2"
-                      disabled={loading}
-                    >
+                    <Button type="submit" className="w-full h-11 jood-btn-primary font-arabic text-sm mt-2" disabled={loading}>
                       {loading ? 'جارٍ الدخول…' : 'دخول'}
                     </Button>
                   </form>
@@ -132,41 +125,84 @@ export default function Auth() {
                 {/* ── Sign Up ── */}
                 <TabsContent value="signup">
                   <form onSubmit={handleSignUp} className="space-y-4">
+
+                    {/* Name — REQUIRED */}
                     <div className="space-y-1.5">
-                      <Label htmlFor="su-name" className="font-arabic text-sm">الاسم</Label>
+                      <Label htmlFor="su-name" className="font-arabic text-sm">
+                        الاسم <span className="text-destructive text-xs">*</span>
+                      </Label>
                       <Input
-                        id="su-name"
-                        type="text"
-                        placeholder="اسمك الكريم"
-                        value={displayName}
-                        onChange={e => setDisplayName(e.target.value)}
-                        className="h-11 font-arabic"
+                        id="su-name" type="text" placeholder="اسمك الكريم"
+                        value={displayName} onChange={e => setDisplayName(e.target.value)}
+                        required className="h-11 font-arabic text-base"
                       />
                     </div>
+
+                    {/* Gender — REQUIRED */}
                     <div className="space-y-1.5">
-                      <Label htmlFor="su-email" className="font-arabic text-sm">البريد الإلكتروني</Label>
+                      <Label className="font-arabic text-sm flex items-center gap-1">
+                        <Sparkles className="w-3.5 h-3.5 text-jood-gold-500" />
+                        الجنس
+                        <span className="text-destructive text-xs">*</span>
+                      </Label>
+                      <div className="grid grid-cols-2 gap-2">
+                        {(['female', 'male'] as const).map(g => (
+                          <button
+                            key={g} type="button"
+                            onClick={() => setGender(g)}
+                            className={cn(
+                              'h-11 rounded-xl border-2 font-arabic text-sm font-semibold transition-all',
+                              gender === g
+                                ? g === 'female'
+                                  ? 'border-pink-400 bg-pink-50 text-pink-700'
+                                  : 'border-primary bg-primary/5 text-primary'
+                                : 'border-border text-muted-foreground hover:border-border/60',
+                            )}
+                          >
+                            {g === 'female' ? '👩 أنثى' : '👨 ذكر'}
+                          </button>
+                        ))}
+                      </div>
+                      {gender && (
+                        <p className="text-[11px] text-muted-foreground font-arabic">
+                          ✓ جود ستخاطبك بصيغة {gender === 'female' ? 'المؤنث' : 'المذكر'}
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Email */}
+                    <div className="space-y-1.5">
+                      <Label htmlFor="su-email" className="font-arabic text-sm">
+                        البريد الإلكتروني <span className="text-destructive text-xs">*</span>
+                      </Label>
                       <Input
-                        id="su-email"
-                        type="email"
-                        placeholder="example@email.com"
-                        value={email}
-                        onChange={e => setEmail(e.target.value)}
-                        required
-                        className="h-11 text-left"
-                        dir="ltr"
+                        id="su-email" type="email" placeholder="example@email.com"
+                        value={email} onChange={e => setEmail(e.target.value)}
+                        required className="h-11 text-left text-base" dir="ltr"
                       />
                     </div>
+
+                    {/* Password */}
                     <div className="space-y-1.5">
-                      <Label htmlFor="su-password" className="font-arabic text-sm">كلمة المرور</Label>
+                      <Label htmlFor="su-password" className="font-arabic text-sm">
+                        كلمة المرور <span className="text-destructive text-xs">*</span>
+                      </Label>
                       <Input
-                        id="su-password"
-                        type="password"
-                        placeholder="٦ أحرف على الأقل"
-                        value={password}
-                        onChange={e => setPassword(e.target.value)}
-                        required
-                        minLength={6}
-                        className="h-11"
+                        id="su-password" type="password" placeholder="٦ أحرف على الأقل"
+                        value={password} onChange={e => setPassword(e.target.value)}
+                        required minLength={6} className="h-11 text-base"
+                      />
+                    </div>
+
+                    {/* Phone — optional */}
+                    <div className="space-y-1.5">
+                      <Label htmlFor="su-phone" className="font-arabic text-sm text-muted-foreground">
+                        رقم الجوال <span className="text-xs">(اختياري)</span>
+                      </Label>
+                      <Input
+                        id="su-phone" type="tel" placeholder="+966 5x xxx xxxx"
+                        value={phone} onChange={e => setPhone(e.target.value)}
+                        className="h-11 text-left text-base" dir="ltr"
                       />
                     </div>
 
@@ -181,9 +217,7 @@ export default function Auth() {
                         />
                         <Label htmlFor="terms-agreement" className="text-xs font-arabic leading-relaxed text-muted-foreground">
                           أوافق على{' '}
-                          <Link to="/terms" target="_blank" className="text-primary hover:underline">
-                            شروط الاستخدام
-                          </Link>
+                          <Link to="/terms" target="_blank" className="text-primary hover:underline">شروط الاستخدام</Link>
                           <span className="text-destructive mr-1">*</span>
                         </Label>
                       </div>
@@ -196,9 +230,7 @@ export default function Auth() {
                         />
                         <Label htmlFor="privacy-agreement" className="text-xs font-arabic leading-relaxed text-muted-foreground">
                           أوافق على{' '}
-                          <Link to="/privacy" target="_blank" className="text-primary hover:underline">
-                            سياسة الخصوصية
-                          </Link>
+                          <Link to="/privacy" target="_blank" className="text-primary hover:underline">سياسة الخصوصية</Link>
                           <span className="text-destructive mr-1">*</span>
                         </Label>
                       </div>
@@ -207,7 +239,7 @@ export default function Auth() {
                     <Button
                       type="submit"
                       className="w-full h-11 jood-btn-primary font-arabic text-sm"
-                      disabled={loading || !agreedToTerms || !agreedToPrivacy}
+                      disabled={loading || !agreedToTerms || !agreedToPrivacy || !displayName || !gender}
                     >
                       {loading ? 'جارٍ الإنشاء…' : 'إنشاء حساب'}
                     </Button>

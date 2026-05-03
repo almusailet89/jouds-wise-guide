@@ -1,12 +1,14 @@
 import React, { useState, lazy, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/hooks/useAuth';
+import { useProfile } from '@/hooks/useProfile';
 import { Button } from '@/components/ui/button';
 import { ChatInterface } from '@/components/Chat/ChatInterface';
 import { VoicePanel } from '@/components/Voice/VoicePanel';
 import { HomeOverview } from '@/components/Home/HomeOverview';
 import Onboarding from '@/components/Onboarding/Onboarding';
 import MajlisMode from '@/components/Voice/MajlisMode';
+import ProfileDialog from '@/components/Profile/ProfileDialog';
 
 // Heavy tab components — loaded only when the user first visits that tab
 const FinancialDashboard = lazy(() => import('@/components/Dashboard/FinancialDashboard').then(m => ({ default: m.FinancialDashboard })));
@@ -198,8 +200,10 @@ const MobileBottomNav: React.FC<{ activeTab: string; onTabChange: (t: string) =>
 // ─── Dashboard ────────────────────────────────────────────────────────────────
 const Dashboard = () => {
   const { user, signOut } = useAuth();
+  const { profile } = useProfile();
   const { theme, setTheme } = useTheme();
   const [activeTab, setActiveTab] = useState('home');
+  const [profileOpen, setProfileOpen] = useState(false);
   const { hijri, prayer } = useSaudiSignal();
   const [showOnboarding, setShowOnboarding] = useState(() => {
     if (typeof window === 'undefined') return false;
@@ -212,6 +216,23 @@ const Dashboard = () => {
 
       {showOnboarding && (
         <Onboarding onComplete={() => setShowOnboarding(false)} />
+      )}
+
+      <ProfileDialog open={profileOpen} onOpenChange={setProfileOpen} />
+
+      {/* Gender nudge — shown once if user hasn't set gender yet */}
+      {!profile?.gender && profile !== null && (
+        <div className="bg-jood-gold-500/10 border-b border-jood-gold-500/20 px-4 py-2 flex items-center justify-between gap-3">
+          <p className="text-xs font-arabic text-jood-gold-700 dark:text-jood-gold-300">
+            ✨ أخبري جود بجنسك حتى تخاطبك بالصيغة الصحيحة
+          </p>
+          <button
+            onClick={() => setProfileOpen(true)}
+            className="text-xs font-arabic font-semibold text-jood-gold-700 dark:text-jood-gold-300 underline underline-offset-2 flex-shrink-0"
+          >
+            إكمال الملف
+          </button>
+        </div>
       )}
 
       {/* ── Top bar ─────────────────────────────────────────────────────────── */}
@@ -292,10 +313,16 @@ const Dashboard = () => {
               </DialogContent>
             </Dialog>
 
-            <div className="flex items-center gap-1.5 text-muted-foreground">
-              <User className="w-3.5 h-3.5" />
-              <span className="text-xs hidden sm:inline">{user?.email?.split('@')[0]}</span>
-            </div>
+            <button
+              onClick={() => setProfileOpen(true)}
+              className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors px-2 py-1 rounded-lg hover:bg-muted/40"
+              title="الملف الشخصي"
+            >
+              <span className="text-base leading-none">{profile?.avatar_emoji || '👤'}</span>
+              <span className="text-xs hidden sm:inline font-arabic">
+                {profile?.display_name || user?.email?.split('@')[0]}
+              </span>
+            </button>
 
             <Button
               variant="ghost"
