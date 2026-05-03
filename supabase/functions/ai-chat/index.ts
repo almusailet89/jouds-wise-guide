@@ -214,7 +214,9 @@ serve(async (req) => {
 
     // System prompt
     stage = 'build_prompt';
-    const TODAY = new Date().toLocaleDateString('ar-SA', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+    const _now = new Date();
+    const TODAY = _now.toLocaleDateString('ar-SA', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+    const TODAY_ISO = `${_now.getFullYear()}-${String(_now.getMonth() + 1).padStart(2, '0')}-${String(_now.getDate()).padStart(2, '0')}`;
     const langRule = respondInEnglish ? "User spoke English — reply in English." : respondMixed ? "المستخدم يخلط عربي-إنجليزي — رديّ بنفس المزيج." : "";
     const modeRules = voice_mode
       ? `وضع صوتي: جملة واحدة (≤15 كلمة). ممنوع markdown.`
@@ -236,7 +238,7 @@ serve(async (req) => {
 ✓ مصاريف ودخل — مع تأكيد
 ✓ إيميل وواتساب — مع تأكيد
 
-السياق: اليوم ${TODAY} · ${userContext}
+السياق: اليوم ${TODAY} (${TODAY_ISO}) · ${userContext}
 أسبوع العمل: ${workDaysAr} · الإجازة: ${weekendAr}
 عند جدولة المهام والمواعيد، احترمي أيام العمل والإجازة. لا تقترحي اجتماعات في الإجازة إلا لو طلبها المستخدم صراحةً.${knownFacts}${missingHint}
 ${langRule}

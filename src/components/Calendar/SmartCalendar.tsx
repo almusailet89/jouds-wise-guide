@@ -110,7 +110,12 @@ const isSameDay = (a: Date, b: Date) =>
   a.getMonth() === b.getMonth() &&
   a.getDate() === b.getDate();
 
-const dateStr = (d: Date) => d.toISOString().split('T')[0];
+const dateStr = (d: Date) => {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+};
 
 // ─── Recurrence matching ──────────────────────────────────────────────────────
 const eventOccursOn = (e: EventRow, day: Date): boolean => {
@@ -239,6 +244,7 @@ const SmartCalendar: React.FC = () => {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'events',     filter: `user_id=eq.${user.id}` }, () => load())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'habits',     filter: `user_id=eq.${user.id}` }, () => load())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'habit_logs', filter: `user_id=eq.${user.id}` }, () => load())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks',      filter: `user_id=eq.${user.id}` }, () => load())
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [user?.id, load]);
