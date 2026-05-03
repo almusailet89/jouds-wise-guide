@@ -7,7 +7,11 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const DIRECT_EXECUTE = new Set(['add_task', 'add_habit', 'log_mood', 'remember_about_user']);
+const DIRECT_EXECUTE = new Set([
+  'add_task', 'add_habit', 'log_mood', 'remember_about_user',
+  'update_task', 'update_event', 'update_habit',
+  'delete_task', 'delete_event', 'delete_habit',
+]);
 
 const MEMORY_CATEGORIES = [
   'identity','work','family','financial','health','religion',
@@ -24,6 +28,19 @@ const functionTools = [
   { type: "function", function: { name: "draft_whatsapp", description: "Draft WhatsApp. Trigger: 'واتساب', 'راسل فلان'.", parameters: { type: "object", properties: { recipient: { type: "string" }, message: { type: "string" } }, required: ["recipient","message"] } } },
   { type: "function", function: { name: "add_financial_entry", description: "Record financial transaction. Trigger: amount stated (صرفت، دخلي، X ريال).", parameters: { type: "object", properties: { type: { type: "string", enum: ["expense","income","savings","investment"] }, amount: { type: "number" }, currency: { type: "string" }, category: { type: "string" }, description: { type: "string" } }, required: ["type","amount","currency"] } } },
   { type: "function", function: { name: "remember_about_user", description: "Save a durable fact about the user to long-term memory. Call this when the user reveals something stable about themselves (name, job, family, goals, preferences, health, religious practice, daily routine, etc.). DO NOT call for transient state like 'I'm tired today'. The fact should be third-person and concise.", parameters: { type: "object", properties: { category: { type: "string", enum: ["identity","work","family","financial","health","religion","routine","goals","interests","relationships","preferences","pain_points"], description: "Which life-area this fact belongs to." }, content: { type: "string", description: "Short third-person fact, e.g. 'يعمل مديراً تقنياً في أرامكو' or 'يصلي الفجر في المسجد كل يوم'." }, importance: { type: "number", minimum: 0, maximum: 1, description: "0.0–1.0; how foundational this is. Default 0.6." } }, required: ["category","content"] } } },
+
+  // ── Edit & Delete tools ──────────────────────────────────────────────────────
+  { type: "function", function: { name: "update_task", description: "Edit an existing task — reschedule, rename, change priority, or mark done. Trigger: 'غيّري مهمة', 'بدّلي تاريخ', 'عدّلي', 'خلّيها غداً', 'انتهيت من', 'reschedule', 'change task'.", parameters: { type: "object", properties: { search_title: { type: "string", description: "Key words from the task title to find it." }, new_title: { type: "string", description: "New title (omit if not changing)." }, due_date: { type: "string", description: "New due date YYYY-MM-DD (use TODAY_ISO year). Omit if not changing." }, priority: { type: "string", enum: ["low","medium","high"], description: "Omit if not changing." }, status: { type: "string", enum: ["pending","completed"], description: "Use 'completed' when user says they finished it." }, notes: { type: "string", description: "Omit if not changing." } }, required: ["search_title"] } } },
+
+  { type: "function", function: { name: "delete_task", description: "Permanently delete a task. Trigger: 'احذفي مهمة', 'امسحي', 'مو محتاجها', 'cancel task', 'remove task'.", parameters: { type: "object", properties: { search_title: { type: "string", description: "Key words from the task title to find it." } }, required: ["search_title"] } } },
+
+  { type: "function", function: { name: "update_event", description: "Edit an existing calendar event — reschedule, rename, change location. Trigger: 'غيّري الموعد', 'بدّلي وقت', 'عدّلي الاجتماع', 'reschedule meeting', 'change appointment'.", parameters: { type: "object", properties: { search_title: { type: "string", description: "Key words from the event title to find it." }, new_title: { type: "string", description: "New title (omit if not changing)." }, starts_at: { type: "string", description: "New start ISO datetime (omit if not changing). Use TODAY_ISO year." }, ends_at: { type: "string", description: "New end ISO datetime (omit if not changing)." }, location: { type: "string", description: "New location (omit if not changing)." } }, required: ["search_title"] } } },
+
+  { type: "function", function: { name: "delete_event", description: "Permanently delete a calendar event. Trigger: 'احذفي الموعد', 'امسحي الاجتماع', 'cancel appointment', 'remove event', 'مو رايح', 'إلغاء الموعد'.", parameters: { type: "object", properties: { search_title: { type: "string", description: "Key words from the event title to find it." } }, required: ["search_title"] } } },
+
+  { type: "function", function: { name: "update_habit", description: "Edit an existing habit — rename, change schedule, time, or pause/resume it. Trigger: 'غيّري العادة', 'بدّلي وقت العادة', 'أوقفي عادة', 'pause habit', 'change habit schedule'.", parameters: { type: "object", properties: { search_name: { type: "string", description: "Key words from the habit name to find it." }, new_name: { type: "string", description: "New name (omit if not changing)." }, frequency: { type: "string", enum: ["daily","weekly"], description: "Omit if not changing." }, target_days: { type: "array", items: { type: "integer", minimum: 0, maximum: 6 }, description: "New weekday indices (omit if not changing)." }, time_of_day: { type: "string", description: "New time HH:MM (omit if not changing)." }, is_active: { type: "boolean", description: "false = pause, true = resume." } }, required: ["search_name"] } } },
+
+  { type: "function", function: { name: "delete_habit", description: "Permanently delete a habit. Trigger: 'احذفي العادة', 'مو أبي أتعود', 'remove habit', 'stop tracking habit'.", parameters: { type: "object", properties: { search_name: { type: "string", description: "Key words from the habit name to find it." } }, required: ["search_name"] } } },
 ];
 
 async function executeFunction(functionCall: any, userId: string, supabase: any) {
@@ -95,6 +112,129 @@ async function executeFunction(functionCall: any, userId: string, supabase: any)
       // Silent — no user-facing summary; Jood continues her natural reply.
       return { kind: 'memory', summary: '', data: args, silent: true };
     }
+    // ── Update Task ────────────────────────────────────────────────────────────
+    case 'update_task': {
+      const { data: found } = await supabase.from('tasks')
+        .select('id, title, due_date').eq('user_id', userId)
+        .ilike('title', `%${args.search_title}%`)
+        .order('created_at', { ascending: false }).limit(1);
+      if (!found?.length) throw new Error(`ما لقيت مهمة تحتوي على "${args.search_title}"`);
+      const task = found[0];
+      const updates: any = { updated_at: new Date().toISOString() };
+      if (args.new_title)  updates.title       = args.new_title;
+      if (args.due_date)   updates.due_date     = args.due_date;
+      if (args.priority)   updates.priority     = args.priority;
+      if (args.status)     updates.status       = args.status;
+      if (args.notes !== undefined) updates.description = args.notes;
+      const { error } = await supabase.from('tasks').update(updates).eq('id', task.id);
+      if (error) throw new Error(`update_task: ${error.message}`);
+      const changes: string[] = [];
+      if (args.new_title) changes.push(`الاسم: "${args.new_title}"`);
+      if (args.due_date)  changes.push(`التاريخ: ${new Date(args.due_date + 'T12:00:00').toLocaleDateString('ar-SA', { weekday: 'long', month: 'long', day: 'numeric' })}`);
+      if (args.priority)  changes.push(`الأولوية: ${args.priority}`);
+      if (args.status === 'completed') changes.push('تم الإنجاز ✓');
+      const summary = changes.length
+        ? `✓ عدّلت مهمة "${task.title}" — ${changes.join('، ')}`
+        : `✓ عدّلت مهمة "${task.title}"`;
+      return { kind: 'task_update', summary, data: args };
+    }
+
+    // ── Delete Task ────────────────────────────────────────────────────────────
+    case 'delete_task': {
+      const { data: found } = await supabase.from('tasks')
+        .select('id, title').eq('user_id', userId)
+        .ilike('title', `%${args.search_title}%`)
+        .order('created_at', { ascending: false }).limit(1);
+      if (!found?.length) throw new Error(`ما لقيت مهمة تحتوي على "${args.search_title}"`);
+      const task = found[0];
+      const { error } = await supabase.from('tasks').delete().eq('id', task.id);
+      if (error) throw new Error(`delete_task: ${error.message}`);
+      return { kind: 'task_delete', summary: `✓ حذفت مهمة "${task.title}"`, data: args };
+    }
+
+    // ── Update Event ───────────────────────────────────────────────────────────
+    case 'update_event': {
+      const { data: found } = await supabase.from('events')
+        .select('id, title, starts_at').eq('user_id', userId)
+        .ilike('title', `%${args.search_title}%`)
+        .order('created_at', { ascending: false }).limit(1);
+      if (!found?.length) throw new Error(`ما لقيت موعد يحتوي على "${args.search_title}"`);
+      const ev = found[0];
+      const updates: any = { updated_at: new Date().toISOString() };
+      if (args.new_title) { updates.title = args.new_title; }
+      if (args.starts_at) { updates.starts_at = args.starts_at; updates.start_at = args.starts_at; }
+      if (args.ends_at)   { updates.ends_at = args.ends_at;   updates.end_at   = args.ends_at; }
+      if (args.location)  updates.location = args.location;
+      const { error } = await supabase.from('events').update(updates).eq('id', ev.id);
+      if (error) throw new Error(`update_event: ${error.message}`);
+      const changes: string[] = [];
+      if (args.new_title) changes.push(`الاسم: "${args.new_title}"`);
+      if (args.starts_at) changes.push(`الوقت: ${new Date(args.starts_at).toLocaleString('ar-SA', { weekday: 'long', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}`);
+      if (args.location)  changes.push(`المكان: ${args.location}`);
+      const summary = changes.length
+        ? `✓ عدّلت موعد "${ev.title}" — ${changes.join('، ')}`
+        : `✓ عدّلت موعد "${ev.title}"`;
+      return { kind: 'event_update', summary, data: args };
+    }
+
+    // ── Delete Event ───────────────────────────────────────────────────────────
+    case 'delete_event': {
+      const { data: found } = await supabase.from('events')
+        .select('id, title').eq('user_id', userId)
+        .ilike('title', `%${args.search_title}%`)
+        .order('created_at', { ascending: false }).limit(1);
+      if (!found?.length) throw new Error(`ما لقيت موعد يحتوي على "${args.search_title}"`);
+      const ev = found[0];
+      const { error } = await supabase.from('events').delete().eq('id', ev.id);
+      if (error) throw new Error(`delete_event: ${error.message}`);
+      return { kind: 'event_delete', summary: `✓ حذفت موعد "${ev.title}"`, data: args };
+    }
+
+    // ── Update Habit ───────────────────────────────────────────────────────────
+    case 'update_habit': {
+      const { data: found } = await supabase.from('habits')
+        .select('id, name').eq('user_id', userId)
+        .ilike('name', `%${args.search_name}%`)
+        .order('created_at', { ascending: false }).limit(1);
+      if (!found?.length) throw new Error(`ما لقيت عادة تحتوي على "${args.search_name}"`);
+      const habit = found[0];
+      const updates: any = { updated_at: new Date().toISOString() };
+      if (args.new_name !== undefined)  updates.name        = args.new_name;
+      if (args.frequency !== undefined) updates.frequency   = args.frequency;
+      if (args.target_days !== undefined) updates.target_days = args.target_days;
+      if (args.time_of_day !== undefined) updates.time_of_day = args.time_of_day;
+      if (args.is_active !== undefined)   updates.is_active   = args.is_active;
+      const { error } = await supabase.from('habits').update(updates).eq('id', habit.id);
+      if (error) throw new Error(`update_habit: ${error.message}`);
+      const changes: string[] = [];
+      if (args.new_name)    changes.push(`الاسم: "${args.new_name}"`);
+      if (args.frequency)   changes.push(args.frequency === 'daily' ? 'يومية' : 'أسبوعية');
+      if (args.time_of_day) changes.push(`الساعة ${args.time_of_day}`);
+      if (args.is_active === false) changes.push('موقوفة مؤقتاً ⏸');
+      if (args.is_active === true)  changes.push('مفعّلة مجدداً ▶');
+      const dayNames = ['الأحد','الإثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت'];
+      if (Array.isArray(args.target_days) && args.target_days.length) {
+        changes.push(args.target_days.map((d: number) => dayNames[d]).filter(Boolean).join('، '));
+      }
+      const summary = changes.length
+        ? `✓ عدّلت عادة "${habit.name}" — ${changes.join('، ')}`
+        : `✓ عدّلت عادة "${habit.name}"`;
+      return { kind: 'habit_update', summary, data: args };
+    }
+
+    // ── Delete Habit ───────────────────────────────────────────────────────────
+    case 'delete_habit': {
+      const { data: found } = await supabase.from('habits')
+        .select('id, name').eq('user_id', userId)
+        .ilike('name', `%${args.search_name}%`)
+        .order('created_at', { ascending: false }).limit(1);
+      if (!found?.length) throw new Error(`ما لقيت عادة تحتوي على "${args.search_name}"`);
+      const habit = found[0];
+      const { error } = await supabase.from('habits').delete().eq('id', habit.id);
+      if (error) throw new Error(`delete_habit: ${error.message}`);
+      return { kind: 'habit_delete', summary: `✓ حذفت عادة "${habit.name}"`, data: args };
+    }
+
     default: throw new Error(`Unknown function: ${name}`);
   }
 }
@@ -256,10 +396,10 @@ serve(async (req) => {
 ${genderRule}
 
 قدراتك:
-✓ مهام وتذكيرات — مباشرة بدون تأكيد
-✓ عادات يومية وأسبوعية — مباشرة
+✓ مهام وتذكيرات — إضافة / تعديل / حذف — مباشرة
+✓ عادات يومية وأسبوعية — إضافة / تعديل / إيقاف / حذف — مباشرة
 ✓ تسجيل المزاج — مباشرة
-✓ مواعيد التقويم — مع تأكيد
+✓ مواعيد التقويم — إضافة / تعديل / حذف — مع تأكيد للإضافة فقط
 ✓ مصاريف ودخل — مع تأكيد
 ✓ إيميل وواتساب — مع تأكيد
 
@@ -281,8 +421,10 @@ ${modeRules}
 • المستخدم يخطط للأمور القريبة — فكّري باليوم والأسبوع القادم كأولوية
 
 قواعد الأدوات:
-• المهام والعادات والمزاج: نفّذي فوراً
-• التقويم والمالية: اعرضي ملخصاً واطلبي نعم/لا
+• إضافة مهام/عادات/مزاج/تعديل/حذف أي منها: نفّذي فوراً وأخبري المستخدم بما فعلتِ
+• تعديل/حذف المواعيد: نفّذي فوراً (لا تطلبي تأكيداً لأن المستخدم طلب ذلك صراحةً)
+• إضافة مواعيد تقويم جديدة/مالية/إيميل: اعرضي ملخصاً واطلبي نعم/لا
+• عند التعديل أو الحذف: ابحثي عن العنصر بالاسم وأخبري المستخدم بالتغيير بالضبط
 • إذا طلب المستخدم عدة عناصر دفعة وحدة (مثلاً "ذكّريني بكل الصلوات الخمس" أو "أضيفي ثلاث مهام")، استدعي الأداة لكل عنصر — مهمة واحدة لكل صلاة (الفجر، الظهر، العصر، المغرب، العشاء)
 • للعادات بأيام محددة (مثلاً "من الأحد إلى الأربعاء")، استخدمي frequency=weekly مع target_days=[0,1,2,3] حيث 0=الأحد و6=السبت
 • إذا ذكر المستخدم وقتاً للعادة (مثلاً "الساعة 6 صباحاً")، أضيفي time_of_day بصيغة HH:MM
