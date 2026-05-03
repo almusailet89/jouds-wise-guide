@@ -16,7 +16,7 @@ const MEMORY_CATEGORIES = [
 
 // ─── Function tool definitions ────────────────────────────────────────────────
 const functionTools = [
-  { type: "function", function: { name: "add_task", description: "Add a task/reminder. Trigger: 'أضيفي مهمة', 'ذكّريني', 'remind me to', 'add to my list'.", parameters: { type: "object", properties: { title: { type: "string" }, due_date: { type: "string", description: "ISO date YYYY-MM-DD. CRITICAL: always use TODAY_ISO from the system context as the base year — never guess the year. Example: if TODAY_ISO is 2026-05-03 and user says 'May 6', use 2026-05-06." }, priority: { type: "string", enum: ["low","medium","high"] }, notes: { type: "string" } }, required: ["title"] } } },
+  { type: "function", function: { name: "add_task", description: "Add a task/reminder. Trigger: 'أضيفي مهمة', 'ذكّريني', 'remind me to', 'add to my list'.", parameters: { type: "object", properties: { title: { type: "string" }, due_date: { type: "string", description: "ISO date YYYY-MM-DD. ALWAYS set this — default to TODAY_ISO if no date mentioned. Use TODAY_ISO from system context as base; year is ALWAYS TODAY_ISO's year unless user explicitly says otherwise. 'بكرة/tomorrow' = TODAY+1, 'نهاية الأسبوع' = next Fri/Sat, 'الأسبوع الجاي' = same weekday next week. Never schedule more than 3 months ahead unless user specifically requests it." }, priority: { type: "string", enum: ["low","medium","high"] }, notes: { type: "string" } }, required: ["title", "due_date"] } } },
   { type: "function", function: { name: "add_habit", description: "Add a recurring habit. Trigger: 'عوّدني', 'أبي أتعود', 'حطّي عادة', 'track my habit'. For specific weekdays (e.g. 'من الأحد إلى الأربعاء' = Sun-Wed), set frequency='weekly' and provide target_days array (0=Sun, 1=Mon, 2=Tue, 3=Wed, 4=Thu, 5=Fri, 6=Sat).", parameters: { type: "object", properties: { name: { type: "string" }, frequency: { type: "string", enum: ["daily","weekly"] }, target_days: { type: "array", items: { type: "integer", minimum: 0, maximum: 6 }, description: "Weekday indices when frequency=weekly. 0=Sunday … 6=Saturday." }, time_of_day: { type: "string", description: "Optional time HH:MM (24h)" }, icon: { type: "string" } }, required: ["name"] } } },
   { type: "function", function: { name: "log_mood", description: "Log mood/energy. Trigger: 'أنا متعب', 'مزاجي ممتاز', 'feeling stressed/great', 'سجّلي مزاجي'.", parameters: { type: "object", properties: { score: { type: "number" }, label: { type: "string" }, note: { type: "string" } }, required: ["score","label"] } } },
   { type: "function", function: { name: "create_calendar_event", description: "Create calendar event/meeting. Trigger: 'احجزي', 'اجتماع', 'موعد', 'حطّي في التقويم', 'book'.", parameters: { type: "object", properties: { title: { type: "string" }, starts_at: { type: "string" }, ends_at: { type: "string" }, location: { type: "string" }, description: { type: "string" }, all_day: { type: "boolean" }, category: { type: "string" } }, required: ["title","starts_at"] } } },
@@ -35,7 +35,10 @@ async function executeFunction(functionCall: any, userId: string, supabase: any)
     case 'add_task': {
       const { error } = await supabase.from('tasks').insert({ user_id: userId, title: args.title, due_date: args.due_date || null, priority: args.priority || 'medium', description: args.notes || null, status: 'pending', category: 'general' });
       if (error) throw new Error(`add_task: ${error.message}`);
-      return { kind: 'task', summary: `✓ مهمة "${args.title}" أُضيفت`, data: args };
+      const taskDateFmt = args.due_date
+        ? new Date(args.due_date + 'T12:00:00').toLocaleDateString('ar-SA', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
+        : 'اليوم';
+      return { kind: 'task', summary: `✓ سجّلت مهمة "${args.title}" ليوم ${taskDateFmt}`, data: args };
     }
     case 'add_habit': {
       const freq = args.frequency || 'daily';
@@ -47,8 +50,8 @@ async function executeFunction(functionCall: any, userId: string, supabase: any)
       if (targetDays && targetDays.length) {
         detailAr = targetDays.map((d: number) => dayNames[d] ?? '').filter(Boolean).join('، ');
       }
-      const timeNote = args.time_of_day ? ` · الساعة ${args.time_of_day}` : '';
-      return { kind: 'task', summary: `✓ عادة "${args.name}" أُضيفت — ${detailAr}${timeNote}`, data: args };
+      const timeNote = args.time_of_day ? ` الساعة ${args.time_of_day}` : '';
+      return { kind: 'task', summary: `✓ سجّلت عادة "${args.name}" — ${detailAr}${timeNote}`, data: args };
     }
     case 'log_mood': {
       const score = Math.max(1, Math.min(10, Math.round(Number(args.score))));
@@ -62,7 +65,8 @@ async function executeFunction(functionCall: any, userId: string, supabase: any)
       const endsAt = args.ends_at || new Date(new Date(startsAt).getTime() + 60 * 60 * 1000).toISOString();
       const { error } = await supabase.from('events').insert({ user_id: userId, title: args.title, description: args.description || null, starts_at: startsAt, ends_at: endsAt, start_at: startsAt, end_at: endsAt, all_day: args.all_day ?? false, category: args.category || 'personal', location: args.location || null, source: 'jood_ai' });
       if (error) throw new Error(`create_calendar_event: ${error.message}`);
-      return { kind: 'event', summary: `✓ موعد "${args.title}" أُضيف للتقويم`, data: args };
+      const evtFmt = new Date(startsAt).toLocaleString('ar-SA', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+      return { kind: 'event', summary: `✓ سجّلت موعد "${args.title}" يوم ${evtFmt}`, data: args };
     }
     case 'compose_email':
       return { kind: 'email_draft', summary: `مسودة إيميل لـ ${args.to} جاهزة`, data: { to: args.to, subject: args.subject, body: args.body } };
@@ -264,6 +268,17 @@ ${genderRule}
 عند جدولة المهام والمواعيد، احترمي أيام العمل والإجازة. لا تقترحي اجتماعات في الإجازة إلا لو طلبها المستخدم صراحةً.${knownFacts}${missingHint}
 ${langRule}
 ${modeRules}
+
+ذكاء التاريخ والوقت (قواعد صارمة):
+• نحن الآن في ${TODAY} — السنة هي ${TODAY_ISO.slice(0,4)} دائماً
+• إذا لم يذكر المستخدم تاريخاً → استخدمي TODAY_ISO تلقائياً (اليوم)
+• "بكرة" / "غداً" → ${TODAY_ISO} + يوم واحد
+• "نهاية الأسبوع" → أقرب جمعة أو سبت
+• "الأسبوع الجاي" → نفس اليوم من الأسبوع القادم
+• "الشهر الجاي" → نفس اليوم من الشهر القادم
+• السنة دائماً ${TODAY_ISO.slice(0,4)} ما لم يذكر المستخدم سنة مختلفة صراحةً
+• لا تجدولي مهام أو أحداث بعد 3 أشهر من اليوم إلا إذا طلب المستخدم ذلك صراحةً
+• المستخدم يخطط للأمور القريبة — فكّري باليوم والأسبوع القادم كأولوية
 
 قواعد الأدوات:
 • المهام والعادات والمزاج: نفّذي فوراً
