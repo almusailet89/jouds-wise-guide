@@ -151,19 +151,25 @@ serve(async (req) => {
     let weekendDays: number[] = [5,6];       // Fri-Sat
     let knownFacts = "";
     let missingCategories: string[] = [];
+    let genderForPrompt: string | null = null;
     if (userId) {
       try {
         const [profileRes, taxonomyRes] = await Promise.all([
           supabaseClient.from('profiles')
-            .select('display_name, base_currency, working_days, weekend_days')
+            .select('display_name, gender, phone, city, date_of_birth, bio, base_currency, working_days, weekend_days')
             .eq('user_id', userId).maybeSingle(),
           supabaseClient.rpc('get_memory_taxonomy', { p_user_id: userId })
             .then((r: any) => r).catch(() => ({ data: [] })),
         ]);
         const profile = profileRes?.data;
+        genderForPrompt = profile?.gender ?? null;
         if (profile) {
+          const genderAr = profile.gender === 'female' ? 'أنثى' : profile.gender === 'male' ? 'ذكر' : '';
           userContext = [
             profile.display_name ? `الاسم: ${profile.display_name}` : '',
+            genderAr                ? `الجنس: ${genderAr}` : '',
+            profile.city            ? `المدينة: ${profile.city}` : '',
+            profile.bio             ? `نبذة: ${profile.bio}` : '',
             `العملة: ${profile.base_currency || 'SAR'}`,
           ].filter(Boolean).join(' · ');
           if (Array.isArray(profile.working_days) && profile.working_days.length) workingDays = profile.working_days;
@@ -214,11 +220,27 @@ serve(async (req) => {
 
     // System prompt
     stage = 'build_prompt';
-    const TODAY = new Date().toLocaleDateString('ar-SA', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+    const _now = new Date();
+    const TODAY = _now.toLocaleDateString('ar-SA', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+    const TODAY_ISO = `${_now.getFullYear()}-${String(_now.getMonth() + 1).padStart(2, '0')}-${String(_now.getDate()).padStart(2, '0')}`;
     const langRule = respondInEnglish ? "User spoke English — reply in English." : respondMixed ? "المستخدم يخلط عربي-إنجليزي — رديّ بنفس المزيج." : "";
     const modeRules = voice_mode
       ? `وضع صوتي: جملة واحدة (≤15 كلمة). ممنوع markdown.`
       : `وضع نص: يمكنكِ markdown وقوائم. ردودك موجزة.`;
+
+    // Gender-aware grammar rule
+    const genderRule = (() => {
+      const g = genderForPrompt;
+      if (g === 'female') return `
+قاعدة الجنس: المستخدمة أنثى — استخدمي دائماً صيغة المؤنث في كل ردودك.
+أمثلة صحيحة: "زيني، قولي، أخبريني، حسناً أنتِ، أهلاً بكِ، تفضّلي".
+لا تستخدمي صيغة المذكر أبداً معها.`;
+      if (g === 'male') return `
+قاعدة الجنس: المستخدم ذكر — استخدمي دائماً صيغة المذكر في كل ردودك.
+أمثلة صحيحة: "زيد، قل، أخبرني، حسناً أنتَ، أهلاً بك، تفضّل".
+لا تستخدمي صيغة المؤنث أبداً معه.`;
+      return `قاعدة الجنس: الجنس غير محدد — استخدمي صيغة محايدة أو اسألي المستخدم عن جنسه.`;
+    })();
 
     const SYSTEM = `أنتِ جود — سكرتيرة تنفيذية سعودية ذكية من الرياض.
 
@@ -227,6 +249,7 @@ serve(async (req) => {
 - مباشرة وذكية — لا تبدئين بـ "بالطبع" — ابدئي بالمضمون
 - ترديّن على Arabizi والمزيج عربي-إنجليزي بنفس أسلوب المستخدم
 - كل رد ينتهي بسؤال متابعة أو اقتراح واحد
+${genderRule}
 
 قدراتك:
 ✓ مهام وتذكيرات — مباشرة بدون تأكيد
@@ -236,7 +259,7 @@ serve(async (req) => {
 ✓ مصاريف ودخل — مع تأكيد
 ✓ إيميل وواتساب — مع تأكيد
 
-السياق: اليوم ${TODAY} · ${userContext}
+السياق: اليوم ${TODAY} (${TODAY_ISO}) · ${userContext}
 أسبوع العمل: ${workDaysAr} · الإجازة: ${weekendAr}
 عند جدولة المهام والمواعيد، احترمي أيام العمل والإجازة. لا تقترحي اجتماعات في الإجازة إلا لو طلبها المستخدم صراحةً.${knownFacts}${missingHint}
 ${langRule}
