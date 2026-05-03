@@ -122,9 +122,10 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
         income: form.income,
         risk_profile: form.risk_profile,
         interests: form.goals,
+        onboarding_done: true,   // persisted to DB so it survives new devices
       }, { onConflict: 'user_id' });
 
-      // Persist UI prefs locally
+      // Also persist locally for instant reads (avoids async DB round-trip on next load)
       localStorage.setItem('jood.onboarding.done', '1');
       localStorage.setItem('jood.prefs', JSON.stringify({
         voice_first: form.voice_first,

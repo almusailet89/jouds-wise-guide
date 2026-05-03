@@ -30,8 +30,10 @@ import { cn } from '@/lib/utils';
 const useSaudiSignal = () => {
   const [hijri, setHijri] = React.useState('');
   const [prayer, setPrayer] = React.useState<{ name: string; time: string } | null>(null);
+  const [sarUsd, setSarUsd] = React.useState<string | null>(null);
 
   React.useEffect(() => {
+    // Hijri date
     try {
       const h = new Intl.DateTimeFormat('ar-SA-u-ca-islamic', {
         year: 'numeric', month: 'long', day: 'numeric',
@@ -39,6 +41,7 @@ const useSaudiSignal = () => {
       setHijri(h);
     } catch { setHijri(''); }
 
+    // Prayer times
     fetch('https://api.aladhan.com/v1/timingsByCity?city=Riyadh&country=SA&method=4')
       .then(r => r.json())
       .then(d => {
@@ -56,9 +59,18 @@ const useSaudiSignal = () => {
         });
         if (next) setPrayer({ name: next[0], time: next[1] });
       }).catch(() => {});
+
+    // SAR/USD live rate (free API, no key required)
+    fetch('https://open.er-api.com/v6/latest/USD')
+      .then(r => r.json())
+      .then(d => {
+        const rate = d?.rates?.SAR;
+        if (rate) setSarUsd(Number(rate).toFixed(2));
+      })
+      .catch(() => setSarUsd('3.75')); // fallback to peg
   }, []);
 
-  return { hijri, prayer };
+  return { hijri, prayer, sarUsd };
 };
 
 // ─── Nav items (6 tabs) — built at render time so labels are translated ───────
@@ -212,11 +224,20 @@ const Dashboard = () => {
   const NAV = buildNav(t);
   const [activeTab, setActiveTab] = useState('home');
   const [profileOpen, setProfileOpen] = useState(false);
-  const { hijri, prayer } = useSaudiSignal();
+  const { hijri, prayer, sarUsd } = useSaudiSignal();
+  // Check localStorage first (fast), then sync from DB profile once loaded
   const [showOnboarding, setShowOnboarding] = useState(() => {
     if (typeof window === 'undefined') return false;
     return localStorage.getItem('jood.onboarding.done') !== '1';
   });
+  // Once profile loads, respect DB flag too (cross-device support)
+  React.useEffect(() => {
+    if (!profile) return;
+    if ((profile as any).onboarding_done === true) {
+      localStorage.setItem('jood.onboarding.done', '1');
+      setShowOnboarding(false);
+    }
+  }, [(profile as any)?.onboarding_done]);
   const [majlisOpen, setMajlisOpen] = useState(false);
 
   return (
@@ -266,7 +287,9 @@ const Dashboard = () => {
             {prayer && (
               <span className="signal-chip font-arabic text-[11px]">🕌 {prayer.name} {prayer.time}</span>
             )}
-            <span className="signal-chip text-[11px] font-mono">SAR/USD 3.75</span>
+            {sarUsd && (
+              <span className="signal-chip text-[11px] font-mono">SAR/USD {sarUsd}</span>
+            )}
           </div>
 
           {/* Right actions */}
@@ -290,7 +313,6 @@ const Dashboard = () => {
               className="h-8 w-8 relative text-muted-foreground hover:text-foreground"
             >
               <Bell className="w-4 h-4" />
-              <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-jood-gold-500 ring-2 ring-background" />
             </Button>
 
             <Button
