@@ -5,12 +5,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useProfile } from '@/hooks/useProfile';
 import { useLanguage } from '@/hooks/useLanguage';
 import { Button } from '@/components/ui/button';
-import { ChatInterface } from '@/components/Chat/ChatInterface';
-import { VoicePanel } from '@/components/Voice/VoicePanel';
 import { HomeOverview } from '@/components/Home/HomeOverview';
-import Onboarding from '@/components/Onboarding/Onboarding';
-import MajlisMode from '@/components/Voice/MajlisMode';
-import ProfileDialog from '@/components/Profile/ProfileDialog';
 
 // Heavy tab components — loaded only when the user first visits that tab
 const FinancialDashboard = lazy(() => import('@/components/Dashboard/FinancialDashboard').then(m => ({ default: m.FinancialDashboard })));
@@ -18,6 +13,16 @@ const MoodTracker        = lazy(() => import('@/components/Mood/MoodTracker'));
 const ExportPanel        = lazy(() => import('@/components/Export/ExportPanel').then(m => ({ default: m.ExportPanel })));
 const PlanningHub        = lazy(() => import('@/components/Planning/PlanningHub'));
 const SettingsHub        = lazy(() => import('@/components/Settings/SettingsHub'));
+
+// Chat tab — react-markdown + react-syntax-highlighter are heavy; load on demand
+const ChatInterface  = lazy(() => import('@/components/Chat/ChatInterface').then(m => ({ default: m.ChatInterface })));
+
+// Overlay / on-demand components — loaded only when actually opened
+const MajlisMode   = lazy(() => import('@/components/Voice/MajlisMode'));
+const Onboarding   = lazy(() => import('@/components/Onboarding/Onboarding'));
+const ProfileDialog = lazy(() => import('@/components/Profile/ProfileDialog'));
+// Voice panel loaded when user switches to voice mode
+const VoicePanel   = lazy(() => import('@/components/Voice/VoicePanel'));
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
@@ -84,6 +89,15 @@ const buildNav = (t: (k: string) => string) => [
   { value: 'settings',  label: t('nav.settings'),  icon: Settings },
 ];
 
+// ─── Lazy tab skeleton ────────────────────────────────────────────────────────
+const TabSkeleton: React.FC = () => (
+  <div className="space-y-3 animate-pulse">
+    <div className="h-8 bg-muted/50 rounded-xl w-1/3" />
+    <div className="h-32 bg-muted/30 rounded-2xl" />
+    <div className="h-24 bg-muted/20 rounded-2xl" />
+  </div>
+);
+
 // ─── Chat+Voice tab ───────────────────────────────────────────────────────────
 const ChatVoiceTab: React.FC<{ onMajlis: () => void }> = ({ onMajlis }) => {
   const [mode, setMode] = useState<'chat' | 'voice'>('chat');
@@ -140,7 +154,9 @@ const ChatVoiceTab: React.FC<{ onMajlis: () => void }> = ({ onMajlis }) => {
               transition={{ duration: 0.15 }}
               className="h-full"
             >
-              <ChatInterface />
+              <Suspense fallback={<TabSkeleton />}>
+                <ChatInterface />
+              </Suspense>
             </motion.div>
           ) : (
             <motion.div
@@ -151,7 +167,9 @@ const ChatVoiceTab: React.FC<{ onMajlis: () => void }> = ({ onMajlis }) => {
               transition={{ duration: 0.15 }}
               className="h-full overflow-y-auto"
             >
-              <VoicePanel />
+              <Suspense fallback={<TabSkeleton />}>
+                <VoicePanel />
+              </Suspense>
             </motion.div>
           )}
         </AnimatePresence>
@@ -159,15 +177,6 @@ const ChatVoiceTab: React.FC<{ onMajlis: () => void }> = ({ onMajlis }) => {
     </div>
   );
 };
-
-// ─── Lazy tab skeleton ────────────────────────────────────────────────────────
-const TabSkeleton: React.FC = () => (
-  <div className="space-y-3 animate-pulse">
-    <div className="h-8 bg-muted/50 rounded-xl w-1/3" />
-    <div className="h-32 bg-muted/30 rounded-2xl" />
-    <div className="h-24 bg-muted/20 rounded-2xl" />
-  </div>
-);
 
 // ─── Page-level fade wrapper ──────────────────────────────────────────────────
 const Fade: React.FC<{ children: React.ReactNode }> = ({ children }) => (
@@ -245,10 +254,14 @@ const Dashboard = () => {
     <div className="min-h-screen bg-background flex flex-col" dir={dir}>
 
       {showOnboarding && (
-        <Onboarding onComplete={() => setShowOnboarding(false)} />
+        <Suspense fallback={null}>
+          <Onboarding onComplete={() => setShowOnboarding(false)} />
+        </Suspense>
       )}
 
-      <ProfileDialog open={profileOpen} onOpenChange={setProfileOpen} />
+      <Suspense fallback={null}>
+        <ProfileDialog open={profileOpen} onOpenChange={setProfileOpen} />
+      </Suspense>
 
       {/* Gender nudge — shown once if user hasn't set gender yet */}
       {!profile?.gender && profile !== null && (
@@ -458,7 +471,11 @@ const Dashboard = () => {
 
       {/* ── Majlis overlay ───────────────────────────────────────────────────── */}
       <AnimatePresence>
-        {majlisOpen && <MajlisMode onClose={() => setMajlisOpen(false)} />}
+        {majlisOpen && (
+          <Suspense fallback={null}>
+            <MajlisMode onClose={() => setMajlisOpen(false)} />
+          </Suspense>
+        )}
       </AnimatePresence>
     </div>
   );
