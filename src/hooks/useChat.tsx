@@ -19,7 +19,16 @@ export interface ChatMessage {
   created_at: string;
   pending?: boolean;
   action_card?: {
-    kind: 'task' | 'event' | 'email_draft' | 'whatsapp_draft' | 'finance' | 'budget' | 'portfolio';
+    kind:
+      | 'task' | 'task_update' | 'task_delete'
+      | 'event' | 'event_update' | 'event_delete'
+      | 'email_draft' | 'whatsapp_draft'
+      | 'finance' | 'finance_update' | 'finance_delete'
+      | 'goal' | 'goal_update' | 'goal_delete'
+      | 'holding_update' | 'holding_delete'
+      | 'habit_update' | 'habit_delete'
+      | 'budget' | 'portfolio' | 'memory'
+      | (string & {}); // allow future kinds without TS errors
     summary: string;
     data: Record<string, any>;
   } | null;
