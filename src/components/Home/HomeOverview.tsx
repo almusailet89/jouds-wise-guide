@@ -331,7 +331,7 @@ export const HomeOverview: React.FC<HomeOverviewProps> = ({ onNavigate }) => {
                 </h3>
                 <Button
                   variant="ghost" size="sm"
-                  onClick={() => onNavigate('tasks')}
+                  onClick={() => onNavigate('planning')}
                   className="h-7 text-[11px] font-arabic text-muted-foreground hover:text-foreground"
                 >
                   عرض الكل <ChevronRight className="w-3 h-3 mr-0.5 rotate-180" />
@@ -571,8 +571,8 @@ export const HomeOverview: React.FC<HomeOverviewProps> = ({ onNavigate }) => {
         <h3 className="text-sm font-bold font-arabic mb-2 px-1">اختصارات سريعة</h3>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {[
-            { icon: Mic,       label: 'جلسة صوتية',     hint: 'المجلس',     tab: 'voice',      gold: true  },
-            { icon: Flame,     label: 'تسجيل عادة',     hint: 'اليوم',      tab: 'habits',     gold: false },
+            { icon: Mic,       label: 'جلسة صوتية',     hint: 'المجلس',     tab: 'chat',       gold: true  },
+            { icon: Flame,     label: 'تسجيل عادة',     hint: 'اليوم',      tab: 'planning',   gold: false },
             { icon: Target,    label: 'تتبع الميزانية', hint: 'الشهر',      tab: 'financial',  gold: true  },
             { icon: Sparkles,  label: 'محادثة جديدة',   hint: 'مع جود',     tab: 'chat',       gold: false },
           ].map(({ icon: Icon, label, hint, tab, gold }, i) => (
