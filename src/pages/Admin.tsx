@@ -126,21 +126,38 @@ const Admin = () => {
 
   const fetchStats = async () => {
     try {
-      // Get user count
-      const { count: userCount } = await supabase
-        .from('profiles')
-        .select('*', { count: 'exact', head: true });
+      // Run all four stat queries in parallel
+      const [
+        { count: userCount },
+        { count: conversationCount },
+        { count: subCount },
+        { data: storageData },
+      ] = await Promise.all([
+        supabase.from('profiles').select('*', { count: 'exact', head: true }),
+        supabase.from('ai_interactions').select('*', { count: 'exact', head: true }),
+        // Active subscriptions: paid and not yet expired
+        (supabase as any)
+          .from('subscriptions_moyasar')
+          .select('*', { count: 'exact', head: true })
+          .eq('status', 'paid')
+          .gt('expires_at', new Date().toISOString()),
+        // Approximate DB size from pg_total_relation_size via RPC
+        supabase.rpc('get_db_size_mb' as any).maybeSingle(),
+      ]);
 
-      // Get conversation count
-      const { count: conversationCount } = await supabase
-        .from('ai_interactions')
-        .select('*', { count: 'exact', head: true });
+      // Format storage: use RPC result if available, else show '—'
+      const storageMb: number | null = storageData as any;
+      const storageLabel = storageMb != null
+        ? storageMb >= 1024
+          ? `${(storageMb / 1024).toFixed(1)} GB`
+          : `${Math.round(storageMb)} MB`
+        : '—';
 
       setStats({
         total_users: userCount || 0,
-        active_subscriptions: 0, // TODO: Integrate with subscription system
+        active_subscriptions: subCount || 0,
         total_conversations: conversationCount || 0,
-        storage_usage: '0 MB' // TODO: Calculate actual storage usage
+        storage_usage: storageLabel,
       });
     } catch (error) {
       console.error('Error fetching stats:', error);
