@@ -53,16 +53,36 @@ const generateSmartReplies = (lastAssistant: string): string[] => {
 
 // ─── Action Card ─────────────────────────────────────────────────────────────
 const ACTION_ICONS: Record<string, React.ElementType> = {
-  task: CheckSquare, event: Calendar, email_draft: Mail,
-  whatsapp_draft: MessageCircle, finance: TrendingUp,
+  task: CheckSquare, task_update: CheckSquare, task_delete: CheckSquare,
+  event: Calendar, event_update: Calendar, event_delete: Calendar,
+  email_draft: Mail,
+  whatsapp_draft: MessageCircle,
+  finance: TrendingUp, finance_update: TrendingUp, finance_delete: TrendingUp,
+  goal: TrendingUp, goal_update: TrendingUp, goal_delete: TrendingUp,
+  holding_update: TrendingUp, holding_delete: TrendingUp,
+  habit_update: CheckSquare, habit_delete: CheckSquare,
   budget: TrendingUp, portfolio: TrendingUp,
+  memory: CheckSquare,
 };
 const ACTION_COLORS: Record<string, string> = {
   task:           'bg-amber-50 border-amber-200 text-amber-800',
+  task_update:    'bg-amber-50 border-amber-200 text-amber-800',
+  task_delete:    'bg-amber-50 border-amber-200 text-amber-800',
   event:          'bg-blue-50 border-blue-200 text-blue-800',
+  event_update:   'bg-blue-50 border-blue-200 text-blue-800',
+  event_delete:   'bg-blue-50 border-blue-200 text-blue-800',
   email_draft:    'bg-red-50 border-red-200 text-red-800',
   whatsapp_draft: 'bg-green-50 border-green-200 text-green-800',
   finance:        'bg-teal-50 border-teal-200 text-teal-800',
+  finance_update: 'bg-teal-50 border-teal-200 text-teal-800',
+  finance_delete: 'bg-teal-50 border-teal-200 text-teal-800',
+  goal:           'bg-jood-gold-50 border-jood-gold-200 text-jood-gold-800',
+  goal_update:    'bg-jood-gold-50 border-jood-gold-200 text-jood-gold-800',
+  goal_delete:    'bg-jood-gold-50 border-jood-gold-200 text-jood-gold-800',
+  holding_update: 'bg-purple-50 border-purple-200 text-purple-800',
+  holding_delete: 'bg-purple-50 border-purple-200 text-purple-800',
+  habit_update:   'bg-emerald-50 border-emerald-200 text-emerald-800',
+  habit_delete:   'bg-emerald-50 border-emerald-200 text-emerald-800',
   budget:         'bg-teal-50 border-teal-200 text-teal-800',
   portfolio:      'bg-purple-50 border-purple-200 text-purple-800',
 };

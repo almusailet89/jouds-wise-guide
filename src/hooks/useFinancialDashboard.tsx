@@ -493,17 +493,41 @@ export const useFinancialDashboard = () => {
     return ((thisMonth - lastMonth) / lastMonth) * 100;
   }, [financialEntries]);
 
-  // Initial data fetch
+  // Initial data fetch + realtime subscriptions
   useEffect(() => {
-    if (user && session) {
-      fetchFinancialEntries();
-      fetchPortfolioHoldings();
-      fetchPortfolioSummary();
-      fetchInsights();
-      fetchSavingsTarget();
-      fetchMonthlyBudget();
-    }
-  }, [user, session, fetchFinancialEntries, fetchPortfolioHoldings, fetchPortfolioSummary, fetchInsights, fetchSavingsTarget, fetchMonthlyBudget]);
+    if (!user || !session) return;
+
+    fetchFinancialEntries();
+    fetchPortfolioHoldings();
+    fetchPortfolioSummary();
+    fetchInsights();
+    fetchSavingsTarget();
+    fetchMonthlyBudget();
+
+    // Realtime: financial_data changes (chat add/edit/delete) → re-fetch entries
+    const entriesChannel = supabase
+      .channel(`fin-entries-rt-${user.id}`)
+      .on('postgres_changes' as any, { event: '*', schema: 'public', table: 'financial_data', filter: `user_id=eq.${user.id}` }, () => {
+        fetchFinancialEntries();
+        fetchPortfolioSummary();
+        fetchInsights();
+      })
+      .subscribe();
+
+    // Realtime: portfolio_holdings changes (chat edit/delete) → re-fetch holdings
+    const holdingsChannel = supabase
+      .channel(`fin-holdings-rt-${user.id}`)
+      .on('postgres_changes' as any, { event: '*', schema: 'public', table: 'portfolio_holdings', filter: `user_id=eq.${user.id}` }, () => {
+        fetchPortfolioHoldings();
+        fetchPortfolioSummary();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(entriesChannel);
+      supabase.removeChannel(holdingsChannel);
+    };
+  }, [user?.id, session?.access_token]);
 
   // Fetch news when holdings change
   useEffect(() => {

@@ -1,4 +1,5 @@
-import React, { useState, lazy, Suspense } from 'react';
+import React, { useState, lazy, Suspense, useEffect } from 'react';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/hooks/useAuth';
 import { useProfile } from '@/hooks/useProfile';
@@ -393,49 +394,61 @@ const Dashboard = () => {
 
           {/* ── Home ──────────────────────────────────────────────────────── */}
           <TabsContent value="home" className="p-4 mt-0">
-            <Fade><HomeOverview onNavigate={setActiveTab} /></Fade>
+            <ErrorBoundary fallbackLabel="تعذّر تحميل الرئيسية">
+              <Fade><HomeOverview onNavigate={setActiveTab} /></Fade>
+            </ErrorBoundary>
           </TabsContent>
 
           {/* ── Chat + Voice ──────────────────────────────────────────────── */}
           <TabsContent value="chat" className="flex-1 p-4 mt-0">
-            <ChatVoiceTab onMajlis={() => setMajlisOpen(true)} />
+            <ErrorBoundary fallbackLabel="تعذّر تحميل المحادثة">
+              <ChatVoiceTab onMajlis={() => setMajlisOpen(true)} />
+            </ErrorBoundary>
           </TabsContent>
 
           {/* ── Finance ──────────────────────────────────────────────────── */}
           <TabsContent value="financial" className="p-4 mt-0">
-            <Suspense fallback={<TabSkeleton />}>
-              <Fade><FinancialDashboard /></Fade>
-            </Suspense>
+            <ErrorBoundary fallbackLabel="تعذّر تحميل لوحة المالية">
+              <Suspense fallback={<TabSkeleton />}>
+                <Fade><FinancialDashboard /></Fade>
+              </Suspense>
+            </ErrorBoundary>
           </TabsContent>
 
           {/* ── Planning (Calendar + Tasks + Habits) ─────────────────────── */}
           <TabsContent value="planning" className="p-4 mt-0">
-            <Suspense fallback={<TabSkeleton />}>
-              <Fade>
-                <h2 className="text-xl font-bold font-arabic mb-4 text-foreground">{t('tab.planning')}</h2>
-                <PlanningHub />
-              </Fade>
-            </Suspense>
+            <ErrorBoundary fallbackLabel="تعذّر تحميل التخطيط">
+              <Suspense fallback={<TabSkeleton />}>
+                <Fade>
+                  <h2 className="text-xl font-bold font-arabic mb-4 text-foreground">{t('tab.planning')}</h2>
+                  <PlanningHub />
+                </Fade>
+              </Suspense>
+            </ErrorBoundary>
           </TabsContent>
 
           {/* ── Mood ─────────────────────────────────────────────────────── */}
           <TabsContent value="mood" className="p-4 mt-0">
-            <Suspense fallback={<TabSkeleton />}>
-              <Fade>
-                <h2 className="text-xl font-bold font-arabic mb-4 text-foreground">{t('tab.mood')}</h2>
-                <MoodTracker />
-              </Fade>
-            </Suspense>
+            <ErrorBoundary fallbackLabel="تعذّر تحميل المزاج">
+              <Suspense fallback={<TabSkeleton />}>
+                <Fade>
+                  <h2 className="text-xl font-bold font-arabic mb-4 text-foreground">{t('tab.mood')}</h2>
+                  <MoodTracker />
+                </Fade>
+              </Suspense>
+            </ErrorBoundary>
           </TabsContent>
 
           {/* ── Settings (Insights + Memory + Security) ───────────────────── */}
           <TabsContent value="settings" className="p-4 mt-0">
-            <Suspense fallback={<TabSkeleton />}>
-              <Fade>
-                <h2 className="text-xl font-bold font-arabic mb-4 text-foreground">{t('tab.settings')}</h2>
-                <SettingsHub onNavigate={setActiveTab} />
-              </Fade>
-            </Suspense>
+            <ErrorBoundary fallbackLabel="تعذّر تحميل الإعدادات">
+              <Suspense fallback={<TabSkeleton />}>
+                <Fade>
+                  <h2 className="text-xl font-bold font-arabic mb-4 text-foreground">{t('tab.settings')}</h2>
+                  <SettingsHub onNavigate={setActiveTab} />
+                </Fade>
+              </Suspense>
+            </ErrorBoundary>
           </TabsContent>
         </Tabs>
       </div>
