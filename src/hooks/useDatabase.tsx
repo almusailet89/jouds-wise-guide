@@ -131,10 +131,15 @@ export const useFinancialData = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (user) {
-      fetchFinancialData();
-    }
-  }, [user]);
+    if (!user) { setLoading(false); return; }
+    fetchFinancialData();
+    // Realtime: financial_data changes via chat → FinanceExtras + HomeOverview update instantly
+    const channel = (supabase as any)
+      .channel(`fin-data-rt-${user.id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'financial_data', filter: `user_id=eq.${user.id}` }, () => fetchFinancialData())
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [user?.id]);
 
   const fetchFinancialData = async () => {
     if (!user) return;

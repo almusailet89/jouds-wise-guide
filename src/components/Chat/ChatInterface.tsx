@@ -20,14 +20,22 @@ import { cn } from '@/lib/utils';
 type Cat = 'all' | 'finance' | 'health' | 'planning' | 'personal';
 
 const SUGGESTED_PROMPTS: { icon: string; ar: string; cat: Cat }[] = [
-  { icon: '💸', ar: 'أنفقت ١٥٠ ريال على الغداء اليوم',            cat: 'finance'  },
-  { icon: '🤲', ar: 'احسبي لي الزكاة بناءً على ثروتي الحالية',    cat: 'finance'  },
-  { icon: '📊', ar: 'كيف حال محفظتي الاستثمارية هذا الشهر؟',     cat: 'finance'  },
-  { icon: '🕌', ar: 'ذكّريني بمواعيد الصلاة الخمس اليوم',         cat: 'personal' },
-  { icon: '🌙', ar: 'كم باقي على رمضان؟',                          cat: 'personal' },
-  { icon: '✅', ar: 'أضيفي مهمة مراجعة الميزانية الشهرية',         cat: 'planning' },
-  { icon: '📆', ar: 'رتّبي لي جدول الأسبوع القادم كاملاً',         cat: 'planning' },
-  { icon: '💚', ar: 'كيف أحسّن نومي وطاقتي اليومية؟',             cat: 'health'   },
+  // Finance
+  { icon: '💸', ar: 'أنفقت ١٥٠ ريال على الغداء اليوم',              cat: 'finance'  },
+  { icon: '🎯', ar: 'حطّي هدف توفير سيارة ٦٠٠٠٠ ريال بنهاية السنة', cat: 'finance'  },
+  { icon: '🤲', ar: 'احسبي لي الزكاة بناءً على ثروتي الحالية',      cat: 'finance'  },
+  { icon: '📊', ar: 'كيف حال محفظتي الاستثمارية هذا الشهر؟',       cat: 'finance'  },
+  { icon: '📈', ar: 'أضيفي ٥٠٠ سهم أرامكو بسعر ٢٨ ريال للمحفظة',  cat: 'finance'  },
+  // Planning
+  { icon: '✅', ar: 'أضيفي مهمة مراجعة الميزانية الشهرية',           cat: 'planning' },
+  { icon: '📆', ar: 'احجزي اجتماع غداً الساعة ١٠ صباحاً',           cat: 'planning' },
+  { icon: '⭐', ar: 'عوّديني على المشي ٣٠ دقيقة يومياً الساعة ٧',   cat: 'planning' },
+  // Personal / Spiritual
+  { icon: '🕌', ar: 'ذكّريني بمواعيد الصلاة الخمس اليوم',           cat: 'personal' },
+  { icon: '🌙', ar: 'كم باقي على رمضان؟',                            cat: 'personal' },
+  // Health
+  { icon: '💚', ar: 'كيف أحسّن نومي وطاقتي اليومية؟',               cat: 'health'   },
+  { icon: '😊', ar: 'سجّلي إن مزاجي اليوم ممتاز — ١٠ من ١٠',       cat: 'health'   },
 ];
 
 const CATS: { value: Cat; label: string; icon: string }[] = [
