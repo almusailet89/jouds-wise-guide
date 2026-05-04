@@ -43,8 +43,8 @@ interface HomeOverviewProps {
 export const HomeOverview: React.FC<HomeOverviewProps> = ({ onNavigate }) => {
   const { user } = useAuth();
   const { profile } = useProfile();
-  const { tasks } = useTasks();
-  const { financialData } = useFinancialData();
+  const { tasks, loading: tasksLoading } = useTasks();
+  const { financialData, loading: finLoading } = useFinancialData();
 
   const [weather, setWeather] = useState<{ temp: number; desc: string; icon: React.ComponentType<any> } | null>(null);
   const [prayer, setPrayer] = useState<{ name: string; time: string; minutesTo: number } | null>(null);
@@ -338,7 +338,11 @@ export const HomeOverview: React.FC<HomeOverviewProps> = ({ onNavigate }) => {
                 </Button>
               </div>
 
-              {todayTasks.length === 0 ? (
+              {tasksLoading ? (
+                <div className="space-y-2 animate-pulse">
+                  {[1, 2].map(i => <div key={i} className="h-9 bg-muted/40 rounded-xl" />)}
+                </div>
+              ) : todayTasks.length === 0 ? (
                 <div className="text-center py-6">
                   <p className="text-xs text-muted-foreground font-arabic">لا مهام معلّقة — استمتعي بيومك!</p>
                 </div>
@@ -391,6 +395,17 @@ export const HomeOverview: React.FC<HomeOverviewProps> = ({ onNavigate }) => {
                 </Button>
               </div>
 
+              {finLoading ? (
+                <div className="space-y-2 animate-pulse">
+                  <div className="h-4 bg-muted/40 rounded w-1/2" />
+                  <div className="h-8 bg-muted/40 rounded w-2/3" />
+                  <div className="grid grid-cols-2 gap-2 pt-2 border-t border-border/30">
+                    <div className="h-6 bg-muted/30 rounded" />
+                    <div className="h-6 bg-muted/30 rounded" />
+                  </div>
+                </div>
+              ) : (
+              <>
               <div>
                 <p className="text-[10px] text-muted-foreground font-arabic">الرصيد الصافي هذا الشهر</p>
                 <p className={cn(
@@ -420,6 +435,8 @@ export const HomeOverview: React.FC<HomeOverviewProps> = ({ onNavigate }) => {
                     <p className="text-xs font-arabic truncate">{walletSummary.recent.label} · {fmt(walletSummary.recent.amount)}</p>
                   </div>
                 </div>
+              )}
+              </>
               )}
             </CardContent>
           </Card>
