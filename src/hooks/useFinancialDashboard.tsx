@@ -5,7 +5,7 @@ import { toast } from 'sonner';
 
 export interface FinancialEntry {
   id: string;
-  type: 'income' | 'expense' | 'savings';
+  type: 'income' | 'expense' | 'savings' | 'investment';
   amount: number;
   currency: string;
   category: string;
