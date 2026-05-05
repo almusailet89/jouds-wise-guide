@@ -119,7 +119,7 @@ serve(async (req) => {
       // match deployed schema and gracefully handle absence of the column.
       supabase.from('events').select('title, start_at').eq('user_id', user.id)
         .gte('start_at', `${today}T00:00:00`).lte('start_at', `${today}T23:59:59`).limit(5),
-      supabase.from('financial_entries').select('type, amount, currency, category, created_at')
+      supabase.from('financial_data').select('type, amount, currency, category, created_at')
         .eq('user_id', user.id).order('created_at', { ascending: false }).limit(10),
       fetchPrayerTimes(),
     ]);
