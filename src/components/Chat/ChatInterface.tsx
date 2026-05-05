@@ -32,48 +32,51 @@ import {
 import { useChat } from '@/hooks/useChat';
 import { useSubscription } from '@/hooks/useSubscription';
 import { useToast } from '@/hooks/use-toast';
+import { useLanguage } from '@/hooks/useLanguage';
 import { cn } from '@/lib/utils';
 
 // ─── Suggested prompts ───────────────────────────────────────────────────────
 type Cat = 'all' | 'finance' | 'health' | 'planning' | 'personal';
 
-const SUGGESTED_PROMPTS: { icon: string; ar: string; cat: Cat }[] = [
+const SUGGESTED_PROMPTS: { icon: string; ar: string; en: string; cat: Cat }[] = [
   // Finance
-  { icon: '💸', ar: 'أنفقت ١٥٠ ريال على الغداء اليوم',              cat: 'finance'  },
-  { icon: '🎯', ar: 'حطّي هدف توفير سيارة ٦٠٠٠٠ ريال بنهاية السنة', cat: 'finance'  },
-  { icon: '🤲', ar: 'احسبي لي الزكاة بناءً على ثروتي الحالية',      cat: 'finance'  },
-  { icon: '📊', ar: 'كيف حال محفظتي الاستثمارية هذا الشهر؟',       cat: 'finance'  },
-  { icon: '📈', ar: 'أضيفي ٥٠٠ سهم أرامكو بسعر ٢٨ ريال للمحفظة',  cat: 'finance'  },
+  { icon: '💸', ar: 'أنفقت ١٥٠ ريال على الغداء اليوم',              en: 'I spent 150 SAR on lunch today',                              cat: 'finance'  },
+  { icon: '🎯', ar: 'حطّي هدف توفير سيارة ٦٠٠٠٠ ريال بنهاية السنة', en: 'Set a savings goal of 60,000 SAR for a car by year end',       cat: 'finance'  },
+  { icon: '🤲', ar: 'احسبي لي الزكاة بناءً على ثروتي الحالية',      en: 'Calculate my zakat based on my current wealth',               cat: 'finance'  },
+  { icon: '📊', ar: 'كيف حال محفظتي الاستثمارية هذا الشهر؟',       en: 'How is my investment portfolio doing this month?',            cat: 'finance'  },
+  { icon: '📈', ar: 'أضيفي ٥٠٠ سهم أرامكو بسعر ٢٨ ريال للمحفظة',  en: 'Add 500 Aramco shares at 28 SAR to my portfolio',             cat: 'finance'  },
   // Planning
-  { icon: '✅', ar: 'أضيفي مهمة مراجعة الميزانية الشهرية',           cat: 'planning' },
-  { icon: '📆', ar: 'احجزي اجتماع غداً الساعة ١٠ صباحاً',           cat: 'planning' },
-  { icon: '⭐', ar: 'عوّديني على المشي ٣٠ دقيقة يومياً الساعة ٧',   cat: 'planning' },
+  { icon: '✅', ar: 'أضيفي مهمة مراجعة الميزانية الشهرية',           en: 'Add a task: review monthly budget',                           cat: 'planning' },
+  { icon: '📆', ar: 'احجزي اجتماع غداً الساعة ١٠ صباحاً',           en: 'Schedule a meeting tomorrow at 10 AM',                        cat: 'planning' },
+  { icon: '⭐', ar: 'عوّديني على المشي ٣٠ دقيقة يومياً الساعة ٧',   en: 'Build a habit: walk 30 minutes daily at 7 AM',                cat: 'planning' },
   // Personal / Spiritual
-  { icon: '🕌', ar: 'ذكّريني بمواعيد الصلاة الخمس اليوم',           cat: 'personal' },
-  { icon: '🌙', ar: 'كم باقي على رمضان؟',                            cat: 'personal' },
+  { icon: '🕌', ar: 'ذكّريني بمواعيد الصلاة الخمس اليوم',           en: "Remind me of today's prayer times",                           cat: 'personal' },
+  { icon: '🌙', ar: 'كم باقي على رمضان؟',                            en: 'How many days until Ramadan?',                                cat: 'personal' },
   // Health
-  { icon: '💚', ar: 'كيف أحسّن نومي وطاقتي اليومية؟',               cat: 'health'   },
-  { icon: '😊', ar: 'سجّلي إن مزاجي اليوم ممتاز — ١٠ من ١٠',       cat: 'health'   },
-];
-
-const CATS: { value: Cat; label: string; icon: string }[] = [
-  { value: 'all',      label: 'الكل',   icon: '✨' },
-  { value: 'finance',  label: 'مالية',  icon: '💰' },
-  { value: 'planning', label: 'تخطيط', icon: '📅' },
-  { value: 'personal', label: 'شخصية', icon: '🌙' },
-  { value: 'health',   label: 'صحة',   icon: '💚' },
+  { icon: '💚', ar: 'كيف أحسّن نومي وطاقتي اليومية؟',               en: 'How can I improve my sleep and daily energy?',                cat: 'health'   },
+  { icon: '😊', ar: 'سجّلي إن مزاجي اليوم ممتاز — ١٠ من ١٠',       en: 'Log my mood today as excellent — 10 out of 10',               cat: 'health'   },
 ];
 
 // ─── Smart-reply chip generator ───────────────────────────────────────────────
-const generateSmartReplies = (lastAssistant: string): string[] => {
-  const arHas = (...needles: string[]) => needles.some(n => lastAssistant.includes(n));
-  if (arHas('زكاة'))                        return ['احسبيها الآن', 'أضيفيها للتقويم', 'أرسلي تذكيراً'];
-  if (arHas('سهم', 'محفظة', 'استثمار'))    return ['اعرضي لي المحفظة', 'التوقع لخمس سنوات', 'اقتراح استثمار'];
-  if (arHas('مصروف', 'صرف', 'أنفقت'))      return ['كم صرفت هذا الشهر؟', 'صنّفيها', 'احذفي آخر إدخال'];
-  if (arHas('صلاة', 'الفجر', 'الظهر'))     return ['ذكّريني بـ١٠ دقائق', 'أضيفي للتقويم', 'وقت الصلاة القادمة'];
-  if (arHas('مهمة', 'مهام', 'تذكير'))      return ['مهام اليوم', 'أضيفي مهمة', 'علّمي كمكتمل'];
-  if (arHas('مزاج', 'متوتر', 'سعيد'))      return ['ليش؟', 'عطيني نصيحة', 'سجّلي مرة ثانية'];
-  if (arHas('عادة', 'سلسلة'))              return ['كم سلسلتي؟', 'أضيفي عادة', 'تذكير يومي'];
+const generateSmartReplies = (lastAssistant: string, lang: 'ar' | 'en'): string[] => {
+  const has = (...needles: string[]) => needles.some(n => lastAssistant.includes(n));
+  if (lang === 'en') {
+    if (has('zakat'))                              return ['Calculate now', 'Add to calendar', 'Send reminder'];
+    if (has('portfolio', 'stock', 'investment'))   return ['Show portfolio', '5-year forecast', 'Investment suggestion'];
+    if (has('expense', 'spent', 'spend'))          return ['How much this month?', 'Categorize it', 'Delete last entry'];
+    if (has('prayer', 'fajr', 'dhuhr'))            return ['Remind me in 10 min', 'Add to calendar', 'Next prayer time'];
+    if (has('task', 'reminder'))                   return ["Today's tasks", 'Add task', 'Mark complete'];
+    if (has('mood', 'stressed', 'happy'))          return ['Why?', 'Give me advice', 'Log again'];
+    if (has('habit', 'streak'))                    return ['My streak?', 'Add habit', 'Daily reminder'];
+    return ['Tell me more', 'Give me an example', 'Save this'];
+  }
+  if (has('زكاة'))                        return ['احسبيها الآن', 'أضيفيها للتقويم', 'أرسلي تذكيراً'];
+  if (has('سهم', 'محفظة', 'استثمار'))    return ['اعرضي لي المحفظة', 'التوقع لخمس سنوات', 'اقتراح استثمار'];
+  if (has('مصروف', 'صرف', 'أنفقت'))      return ['كم صرفت هذا الشهر؟', 'صنّفيها', 'احذفي آخر إدخال'];
+  if (has('صلاة', 'الفجر', 'الظهر'))     return ['ذكّريني بـ١٠ دقائق', 'أضيفي للتقويم', 'وقت الصلاة القادمة'];
+  if (has('مهمة', 'مهام', 'تذكير'))      return ['مهام اليوم', 'أضيفي مهمة', 'علّمي كمكتمل'];
+  if (has('مزاج', 'متوتر', 'سعيد'))      return ['ليش؟', 'عطيني نصيحة', 'سجّلي مرة ثانية'];
+  if (has('عادة', 'سلسلة'))              return ['كم سلسلتي؟', 'أضيفي عادة', 'تذكير يومي'];
   return ['اشرحي أكثر', 'أعطني مثالاً', 'احفظي هذا'];
 };
 
@@ -117,7 +120,8 @@ const ActionCard: React.FC<{ card: { kind: string; summary: string; data: Record
   const Icon  = ACTION_ICONS[card.kind] ?? CheckSquare;
   const color = ACTION_COLORS[card.kind] ?? ACTION_COLORS.task;
   const { toast } = useToast();
-  const copy = (t: string) => { navigator.clipboard.writeText(t); toast({ title: 'تم النسخ' }); };
+  const { t } = useLanguage();
+  const copy = (text: string) => { navigator.clipboard.writeText(text); toast({ title: t('chat.copy') }); };
 
   return (
     <motion.div
@@ -338,6 +342,15 @@ interface ChatInterfaceProps {
 export const ChatInterface: React.FC<ChatInterfaceProps> = ({ onMessage }) => {
   const { canAccessFeature } = useSubscription();
   const { toast } = useToast();
+  const { lang, t } = useLanguage();
+
+  const CATS: { value: Cat; label: string; icon: string }[] = [
+    { value: 'all',      label: t('chat.cat.all'),      icon: '✨' },
+    { value: 'finance',  label: t('chat.cat.finance'),  icon: '💰' },
+    { value: 'planning', label: t('chat.cat.planning'), icon: '📅' },
+    { value: 'personal', label: t('chat.cat.personal'), icon: '🌙' },
+    { value: 'health',   label: t('chat.cat.health'),   icon: '💚' },
+  ];
 
   const {
     sessions, messages, currentSessionId,
@@ -608,12 +621,12 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ onMessage }) => {
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: 0.04 * i, duration: 0.25 }}
-                        onClick={() => handleSend(p.ar)}
+                        onClick={() => handleSend(lang === 'ar' ? p.ar : p.en)}
                         className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl bg-card border border-border/50 hover:border-jood-teal-400/50 hover:bg-muted/40 transition-all text-right group"
                       >
                         <span className="text-xl flex-shrink-0">{p.icon}</span>
                         <span className="text-[15px] text-foreground font-arabic leading-snug flex-1">
-                          {p.ar}
+                          {lang === 'ar' ? p.ar : p.en}
                         </span>
                         <Send className="w-4 h-4 text-muted-foreground/30 group-hover:text-jood-teal-500 transition-colors flex-shrink-0 rotate-180" />
                       </motion.button>
@@ -657,7 +670,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ onMessage }) => {
                     className="flex flex-wrap gap-2 px-4 pb-4 pr-16"
                     dir="rtl"
                   >
-                    {generateSmartReplies(messages[messages.length - 1].content).map((chip, i) => (
+                    {generateSmartReplies(messages[messages.length - 1].content, lang).map((chip, i) => (
                       <motion.button
                         key={chip}
                         initial={{ opacity: 0, scale: 0.92 }}

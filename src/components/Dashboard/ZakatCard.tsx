@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { RefreshCw, Moon, TrendingUp, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { useLanguage } from '@/hooks/useLanguage';
 
 interface ZakatResult {
   nisab_sar: number;
@@ -17,19 +18,20 @@ interface ZakatResult {
   gold_price_per_gram_sar: number;
 }
 
-const ASSET_LABELS: Record<string, string> = {
-  cash:         'نقد',
-  gold:         'ذهب',
-  silver:       'فضة',
-  stocks:       'أسهم',
-  crypto:       'عملات رقمية',
-  receivables:  'ديون',
-  business:     'تجارة',
-  other:        'أخرى',
-};
 
 export const ZakatCard: React.FC = () => {
   const { session } = useAuth();
+  const { t, lang } = useLanguage();
+  const ASSET_LABELS: Record<string, string> = {
+    cash:        t('zakat.asset.cash'),
+    gold:        t('zakat.asset.gold'),
+    silver:      t('zakat.asset.silver'),
+    stocks:      t('zakat.asset.stocks'),
+    crypto:      t('zakat.asset.crypto'),
+    receivables: t('zakat.asset.receivables'),
+    business:    t('zakat.asset.business'),
+    other:       t('zakat.asset.other'),
+  };
   const [result, setResult] = useState<ZakatResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -50,7 +52,7 @@ export const ZakatCard: React.FC = () => {
       if (data?.error) throw new Error(data.error);
       setResult(data as ZakatResult);
     } catch (e: any) {
-      setError(e.message || 'فشل في حساب الزكاة');
+      setError(e.message || t('zakat.error.calc'));
     } finally {
       setLoading(false);
     }
@@ -67,7 +69,7 @@ export const ZakatCard: React.FC = () => {
     : [];
 
   const fmt = (n: number) =>
-    new Intl.NumberFormat('ar-SA', { style: 'currency', currency: 'SAR', maximumFractionDigits: 0 }).format(n);
+    new Intl.NumberFormat('en', { style: 'currency', currency: 'SAR', maximumFractionDigits: 0 }).format(n);
 
   return (
     <Card className="jood-card overflow-hidden">
@@ -79,9 +81,9 @@ export const ZakatCard: React.FC = () => {
               <Moon className="w-4 h-4 text-jood-gold-500" />
             </div>
             <div>
-              <span className="font-arabic font-semibold">حاسبة الزكاة</span>
+              <span className="font-arabic font-semibold">{t('zakat.title')}</span>
               <p className="text-[11px] text-muted-foreground font-normal font-arabic">
-                سعر الذهب الحالي: {result ? fmt(result.gold_price_per_gram_sar) + '/جرام' : '—'}
+                {t('zakat.gold.price')}: {result ? fmt(result.gold_price_per_gram_sar) + t('zakat.per.gram') : '—'}
               </p>
             </div>
           </CardTitle>
@@ -125,8 +127,8 @@ export const ZakatCard: React.FC = () => {
               {/* Nisab comparison */}
               <div className="space-y-2">
                 <div className="flex justify-between text-xs text-muted-foreground font-arabic">
-                  <span>الثروة المؤهلة</span>
-                  <span>النصاب: {fmt(result.nisab_sar)}</span>
+                  <span>{t('zakat.wealth')}</span>
+                  <span>{t('zakat.nisab')}: {fmt(result.nisab_sar)}</span>
                 </div>
                 <div className="relative">
                   <Progress value={wealthPct} className="h-2.5" />
@@ -148,7 +150,7 @@ export const ZakatCard: React.FC = () => {
                       ? 'bg-jood-gold-500/15 text-jood-gold-500 border-jood-gold-500/30 font-arabic'
                       : 'bg-jood-ok/15 text-jood-ok border-jood-ok/30 font-arabic'
                   }>
-                    {result.above_nisab ? 'فوق النصاب' : 'دون النصاب'}
+                    {result.above_nisab ? t('zakat.above') : t('zakat.below')}
                   </Badge>
                 </div>
               </div>
@@ -161,7 +163,7 @@ export const ZakatCard: React.FC = () => {
               }`}>
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-xs text-muted-foreground font-arabic mb-1">الزكاة الواجبة (2.5%)</p>
+                    <p className="text-xs text-muted-foreground font-arabic mb-1">{t('zakat.due')}</p>
                     <p className={`text-2xl font-bold font-mono ${result.above_nisab ? 'text-jood-gold-500' : 'text-jood-ok'}`}>
                       {fmt(result.sar_due)}
                     </p>
@@ -178,7 +180,7 @@ export const ZakatCard: React.FC = () => {
                 </div>
                 {!result.above_nisab && (
                   <p className="text-xs text-muted-foreground font-arabic mt-2">
-                    ثروتك أقل من النصاب — لا تجب عليك زكاة حالياً
+                    {t('zakat.no.due')}
                   </p>
                 )}
               </div>
@@ -186,7 +188,7 @@ export const ZakatCard: React.FC = () => {
               {/* Breakdown */}
               {breakdownEntries.length > 0 && (
                 <div className="space-y-1.5">
-                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">تفصيل الأصول</p>
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{t('zakat.breakdown')}</p>
                   {breakdownEntries.map(([type, amount]) => (
                     <div key={type} className="flex items-center justify-between py-1.5 border-b border-border/30 last:border-0">
                       <div className="flex items-center gap-2">
@@ -204,7 +206,7 @@ export const ZakatCard: React.FC = () => {
               {/* Hawl info */}
               <div className="flex items-center gap-2 text-[11px] text-muted-foreground font-arabic bg-muted/30 rounded-xl p-2.5">
                 <Moon className="w-3.5 h-3.5 flex-shrink-0 text-jood-gold-300" />
-                <span>الحول القمري 354 يوماً · بدء الحول: {new Date(hawlStart).toLocaleDateString('ar-SA')}</span>
+                <span>{t('zakat.hawl')} {new Date(hawlStart).toLocaleDateString(lang === 'ar' ? 'ar-SA' : 'en-US')}</span>
               </div>
             </motion.div>
           )}

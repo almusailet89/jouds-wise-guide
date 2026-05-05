@@ -9,6 +9,7 @@ import {
   TrendingUp, TrendingDown, Wallet, Target, Pencil, Check, X,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useLanguage } from '@/hooks/useLanguage';
 import type { FinancialEntry } from '@/hooks/useFinancialDashboard';
 
 interface WalletSummaryProps {
@@ -22,6 +23,7 @@ interface WalletSummaryProps {
 export const WalletSummary: React.FC<WalletSummaryProps> = ({
   entries, monthlyBudget, currency, onUpdateBudget, periodLabel,
 }) => {
+  const { t, dir } = useLanguage();
   const [editingBudget, setEditingBudget] = useState(false);
   const [budgetInput, setBudgetInput] = useState('');
 
@@ -39,7 +41,7 @@ export const WalletSummary: React.FC<WalletSummaryProps> = ({
   const budgetOverflow  = totals.expense > monthlyBudget && monthlyBudget > 0;
 
   const fmt = (n: number) =>
-    new Intl.NumberFormat('ar-SA', { maximumFractionDigits: 0 }).format(n);
+    new Intl.NumberFormat('en', { maximumFractionDigits: 0 }).format(n);
 
   const handleSaveBudget = () => {
     const val = parseFloat(budgetInput);
@@ -52,7 +54,7 @@ export const WalletSummary: React.FC<WalletSummaryProps> = ({
   const netPositive = totals.net >= 0;
 
   return (
-    <Card className="overflow-hidden border-jood-gold-300/30 shadow-luxury" dir="rtl">
+    <Card className="overflow-hidden border-jood-gold-300/30 shadow-luxury" dir={dir}>
       {/* Ambient background */}
       <div className="absolute inset-0 bg-gradient-to-br from-jood-teal-900/3 via-transparent to-jood-gold-500/3 pointer-events-none" />
 
@@ -68,7 +70,7 @@ export const WalletSummary: React.FC<WalletSummaryProps> = ({
           >
             <div className="flex items-center gap-2 mb-1">
               <Wallet className="w-4 h-4 text-jood-teal-700" />
-              <span className="text-xs text-muted-foreground font-arabic">الصافي — {periodLabel}</span>
+              <span className="text-xs text-muted-foreground font-arabic">{t('wallet.net')} — {periodLabel}</span>
             </div>
             <div className={cn(
               'text-3xl font-black font-arabic leading-none',
@@ -89,7 +91,7 @@ export const WalletSummary: React.FC<WalletSummaryProps> = ({
               <div className="w-5 h-5 rounded-full bg-emerald-500/15 flex items-center justify-center">
                 <TrendingUp className="w-3 h-3 text-emerald-600" />
               </div>
-              <span className="text-xs text-muted-foreground font-arabic">الدخل</span>
+              <span className="text-xs text-muted-foreground font-arabic">{t('wallet.income')}</span>
             </div>
             <div className="text-xl font-bold font-arabic text-emerald-700">
               {fmt(totals.income)}
@@ -107,7 +109,7 @@ export const WalletSummary: React.FC<WalletSummaryProps> = ({
               <div className="w-5 h-5 rounded-full bg-rose-500/15 flex items-center justify-center">
                 <TrendingDown className="w-3 h-3 text-rose-600" />
               </div>
-              <span className="text-xs text-muted-foreground font-arabic">المصاريف</span>
+              <span className="text-xs text-muted-foreground font-arabic">{t('wallet.expenses')}</span>
             </div>
             <div className="text-xl font-bold font-arabic text-rose-700">
               {fmt(totals.expense)}
@@ -121,7 +123,7 @@ export const WalletSummary: React.FC<WalletSummaryProps> = ({
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2">
               <Target className="w-4 h-4 text-jood-gold-600" />
-              <span className="text-sm font-bold font-arabic text-foreground">الميزانية الشهرية</span>
+              <span className="text-sm font-bold font-arabic text-foreground">{t('wallet.budget.title')}</span>
             </div>
 
             {/* Budget editor */}
@@ -149,7 +151,7 @@ export const WalletSummary: React.FC<WalletSummaryProps> = ({
                 onClick={() => { setEditingBudget(true); setBudgetInput(monthlyBudget ? String(monthlyBudget) : ''); }}
                 className="flex items-center gap-1 text-xs text-muted-foreground hover:text-jood-teal-700 transition-colors font-arabic group"
               >
-                {monthlyBudget > 0 ? `${fmt(monthlyBudget)} ${currency}` : 'حدّدي ميزانيتك'}
+                {monthlyBudget > 0 ? `${fmt(monthlyBudget)} ${currency}` : t('wallet.budget.set')}
                 <Pencil className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
               </button>
             )}
@@ -177,24 +179,24 @@ export const WalletSummary: React.FC<WalletSummaryProps> = ({
                   'font-bold',
                   budgetOverflow ? 'text-destructive' : budgetUsed > 80 ? 'text-amber-600' : 'text-jood-teal-700',
                 )}>
-                  {budgetUsed.toFixed(0)}٪ مُستخدَم
+                  {budgetUsed.toFixed(0)}% {t('wallet.budget.used')}
                 </span>
                 <span className="text-muted-foreground">
                   {budgetOverflow
-                    ? `تجاوزتِ الميزانية بـ ${fmt(totals.expense - monthlyBudget)} ${currency}`
-                    : `متبقٍ ${fmt(budgetRemaining)} ${currency}`}
+                    ? `${t('wallet.budget.overflow')} ${fmt(totals.expense - monthlyBudget)} ${currency}`
+                    : `${t('wallet.budget.remaining')} ${fmt(budgetRemaining)} ${currency}`}
                 </span>
               </div>
 
               {/* Inline tip */}
               {budgetOverflow && (
                 <p className="mt-2 text-xs text-destructive/80 font-arabic bg-destructive/5 rounded-lg px-3 py-2 border border-destructive/20">
-                  تجاوزتِ ميزانيتك هذه الفترة. اسألي جود عن تفاصيل المصاريف.
+                  {t('wallet.budget.overflow.tip')}
                 </p>
               )}
               {!budgetOverflow && budgetUsed > 80 && (
                 <p className="mt-2 text-xs text-amber-700 font-arabic bg-amber-500/5 rounded-lg px-3 py-2 border border-amber-300/30">
-                  اقتربتِ من سقف الميزانية — تبقّى {fmt(budgetRemaining)} {currency}.
+                  {t('wallet.budget.warning.tip')} — {t('wallet.budget.remaining')} {fmt(budgetRemaining)} {currency}.
                 </p>
               )}
             </>
@@ -202,7 +204,7 @@ export const WalletSummary: React.FC<WalletSummaryProps> = ({
             <div className="flex items-center gap-2 mt-1">
               <div className="h-3 rounded-full bg-muted/40 flex-1" />
               <span className="text-xs text-muted-foreground font-arabic">
-                قولي لجود: «حدّدي ميزانيتي بـ ٥٠٠٠ ريال» لتفعيل التتبع
+                {t('wallet.budget.hint')}
               </span>
             </div>
           )}

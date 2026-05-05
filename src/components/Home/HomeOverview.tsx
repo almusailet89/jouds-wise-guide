@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useProfile, useTasks, useFinancialData } from '@/hooks/useDatabase';
+import { useLanguage } from '@/hooks/useLanguage';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 import { MorningBrief } from './MorningBrief';
@@ -26,14 +27,10 @@ interface Recommendation {
   created_at: string;
 }
 
-// ─── Greeting logic ───────────────────────────────────────────────────────────
-const getArabicGreeting = () => {
-  const h = new Date().getHours();
-  if (h < 5) return 'مساء الخير';
-  if (h < 12) return 'صباح الخير';
-  if (h < 17) return 'مرحباً';
-  if (h < 20) return 'مساء الخير';
-  return 'مساء الخير';
+// Prayer key lookup — maps API key to i18n key
+const PRAYER_KEYS: Record<string, string> = {
+  Fajr: 'home.prayer.fajr', Dhuhr: 'home.prayer.dhuhr',
+  Asr: 'home.prayer.asr', Maghrib: 'home.prayer.maghrib', Isha: 'home.prayer.isha',
 };
 
 interface HomeOverviewProps {
@@ -46,8 +43,9 @@ export const HomeOverview: React.FC<HomeOverviewProps> = ({ onNavigate }) => {
   const { tasks, loading: tasksLoading } = useTasks();
   const { financialData, loading: finLoading } = useFinancialData();
 
-  const [weather, setWeather] = useState<{ temp: number; desc: string; icon: React.ComponentType<any> } | null>(null);
-  const [prayer, setPrayer] = useState<{ name: string; time: string; minutesTo: number } | null>(null);
+  const { t, lang } = useLanguage();
+  const [weather, setWeather] = useState<{ temp: number; descKey: string; icon: React.ComponentType<any> } | null>(null);
+  const [prayer, setPrayer] = useState<{ key: string; time: string; minutesTo: number } | null>(null);
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
   const [todayEvents, setTodayEvents] = useState<any[]>([]);
   const [todayHabits, setTodayHabits] = useState<any[]>([]);
@@ -55,7 +53,7 @@ export const HomeOverview: React.FC<HomeOverviewProps> = ({ onNavigate }) => {
 
   const displayName = profile?.display_name?.split(' ')[0]
     ?? user?.email?.split('@')[0]
-    ?? 'صديقتي';
+    ?? (lang === 'ar' ? 'صديقتي' : 'friend');
 
   // ── Weather (Riyadh) ─────────────────────────────────────────────────────
   useEffect(() => {
@@ -66,8 +64,8 @@ export const HomeOverview: React.FC<HomeOverviewProps> = ({ onNavigate }) => {
         if (!c) return;
         const code = c.weather_code;
         const icon = code < 3 ? Sun : code < 60 ? CloudSun : Cloud;
-        const desc = code < 3 ? 'صحو' : code < 60 ? 'غائم جزئياً' : 'ممطر';
-        setWeather({ temp: Math.round(c.temperature_2m), desc, icon });
+        const descKey = code < 3 ? 'home.weather.clear' : code < 60 ? 'home.weather.partly_cloudy' : 'home.weather.rainy';
+        setWeather({ temp: Math.round(c.temperature_2m), descKey, icon });
       }).catch(() => {});
   }, []);
 
@@ -78,19 +76,19 @@ export const HomeOverview: React.FC<HomeOverviewProps> = ({ onNavigate }) => {
       .then(d => {
         const t = d?.data?.timings;
         if (!t) return;
-        const names: [string, string][] = [
-          ['الفجر', t.Fajr], ['الظهر', t.Dhuhr], ['العصر', t.Asr],
-          ['المغرب', t.Maghrib], ['العشاء', t.Isha],
+        const prayers: [string, string][] = [
+          ['Fajr', t.Fajr], ['Dhuhr', t.Dhuhr], ['Asr', t.Asr],
+          ['Maghrib', t.Maghrib], ['Isha', t.Isha],
         ];
         const now = new Date();
         const nowMin = now.getHours() * 60 + now.getMinutes();
-        const next = names.find(([, time]) => {
+        const next = prayers.find(([, time]) => {
           const [h, m] = time.split(':').map(Number);
           return h * 60 + m > nowMin;
-        }) ?? names[0];
+        }) ?? prayers[0];
         const [h, m] = next[1].split(':').map(Number);
         const diff = (h * 60 + m) - nowMin;
-        setPrayer({ name: next[0], time: next[1], minutesTo: diff > 0 ? diff : 1440 + diff });
+        setPrayer({ key: PRAYER_KEYS[next[0]] ?? 'home.prayer.fajr', time: next[1], minutesTo: diff > 0 ? diff : 1440 + diff });
       }).catch(() => {});
   }, []);
 
@@ -221,7 +219,7 @@ export const HomeOverview: React.FC<HomeOverviewProps> = ({ onNavigate }) => {
   };
 
   const fmt = (n: number) =>
-    new Intl.NumberFormat('ar-SA', { style: 'currency', currency: 'SAR', maximumFractionDigits: 0 }).format(n);
+    new Intl.NumberFormat('en', { style: 'currency', currency: 'SAR', maximumFractionDigits: 0 }).format(n);
 
   const WeatherIcon = weather?.icon ?? Sun;
 
@@ -250,11 +248,11 @@ export const HomeOverview: React.FC<HomeOverviewProps> = ({ onNavigate }) => {
                 <span className="text-xl font-display text-jood-teal-900">ج</span>
               </motion.div>
               <div className="flex-1 min-w-0">
-                <p className="text-xs text-jood-gold-300/90 font-arabic mb-0.5">{getArabicGreeting()}</p>
+                <p className="text-xs text-jood-gold-300/90 font-arabic mb-0.5">{(() => { const h = new Date().getHours(); return h < 5 || h >= 20 ? t('home.greeting.evening') : h < 12 ? t('home.greeting.morning') : h < 17 ? t('home.greeting.afternoon') : t('home.greeting.evening'); })()}</p>
                 <h2 className="text-xl md:text-2xl font-bold font-arabic leading-tight">
-                  أهلاً {displayName}!
+                  {lang === 'ar' ? `أهلاً ${displayName}!` : `Hello ${displayName}!`}
                 </h2>
-                <p className="text-xs text-white/70 font-arabic mt-1">إليك ملخصك اليومي</p>
+                <p className="text-xs text-white/70 font-arabic mt-1">{t('home.daily.summary')}</p>
               </div>
             </div>
           </CardContent>
@@ -275,9 +273,9 @@ export const HomeOverview: React.FC<HomeOverviewProps> = ({ onNavigate }) => {
               <WeatherIcon className="w-5 h-5 text-jood-gold-500" />
             </div>
             <div>
-              <p className="text-[10px] text-muted-foreground font-arabic">الطقس · الرياض</p>
+              <p className="text-[10px] text-muted-foreground font-arabic">{t('home.weather.label')}</p>
               <p className="text-lg font-bold font-mono">{weather ? `${weather.temp}°C` : '—'}</p>
-              <p className="text-[11px] text-muted-foreground font-arabic">{weather?.desc ?? 'جاري التحميل...'}</p>
+              <p className="text-[11px] text-muted-foreground font-arabic">{weather ? t(weather.descKey) : t('home.weather.loading')}</p>
             </div>
           </CardContent>
         </Card>
@@ -289,10 +287,10 @@ export const HomeOverview: React.FC<HomeOverviewProps> = ({ onNavigate }) => {
               <Moon className="w-5 h-5 text-jood-teal-500" />
             </div>
             <div className="min-w-0">
-              <p className="text-[10px] text-muted-foreground font-arabic">الصلاة القادمة</p>
-              <p className="text-lg font-bold font-arabic">{prayer?.name ?? '—'}</p>
+              <p className="text-[10px] text-muted-foreground font-arabic">{t('home.prayer.next')}</p>
+              <p className="text-lg font-bold font-arabic">{prayer ? t(prayer.key) : '—'}</p>
               <p className="text-[11px] text-muted-foreground font-mono">
-                {prayer ? `${prayer.time} · بعد ${Math.floor(prayer.minutesTo / 60)}س ${prayer.minutesTo % 60}د` : ''}
+                {prayer ? `${prayer.time} · ${lang === 'ar' ? `بعد ${Math.floor(prayer.minutesTo / 60)}س ${prayer.minutesTo % 60}د` : `in ${Math.floor(prayer.minutesTo / 60)}h ${prayer.minutesTo % 60}m`}` : ''}
               </p>
             </div>
           </CardContent>
@@ -305,9 +303,9 @@ export const HomeOverview: React.FC<HomeOverviewProps> = ({ onNavigate }) => {
               <CheckCircle2 className="w-5 h-5 text-jood-teal-500" />
             </div>
             <div>
-              <p className="text-[10px] text-muted-foreground font-arabic">مهامي اليوم</p>
+              <p className="text-[10px] text-muted-foreground font-arabic">{t('home.tasks.today')}</p>
               <p className="text-lg font-bold font-mono">{todayTasks.length}</p>
-              <p className="text-[11px] text-muted-foreground font-arabic">مهمة معلّقة</p>
+              <p className="text-[11px] text-muted-foreground font-arabic">{t('home.tasks.pending')}</p>
             </div>
           </CardContent>
         </Card>

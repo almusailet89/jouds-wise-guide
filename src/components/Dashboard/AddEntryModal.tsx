@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useFinancialDashboard } from '@/hooks/useFinancialDashboard';
+import { useLanguage } from '@/hooks/useLanguage';
 import { Loader2 } from 'lucide-react';
 
 interface AddEntryModalProps {
@@ -13,14 +14,21 @@ interface AddEntryModalProps {
   onOpenChange: (open: boolean) => void;
 }
 
-const CATEGORIES = {
+const CATEGORIES_AR = {
   income:  ['الراتب', 'عمل حر', 'استثمار', 'أعمال', 'مكافأة', 'أخرى'],
   expense: ['مطاعم وطعام', 'مواصلات', 'سكن وإيجار', 'صحة', 'ترفيه', 'تسوق', 'فواتير', 'تعليم', 'أخرى'],
   savings: ['صندوق الطوارئ', 'استثمار', 'هدف محدد', 'أخرى'],
 };
+const CATEGORIES_EN = {
+  income:  ['Salary', 'Freelance', 'Investment', 'Business', 'Bonus', 'Other'],
+  expense: ['Food & Dining', 'Transport', 'Housing & Rent', 'Health', 'Entertainment', 'Shopping', 'Bills', 'Education', 'Other'],
+  savings: ['Emergency Fund', 'Investment', 'Specific Goal', 'Other'],
+};
 
 export const AddEntryModal: React.FC<AddEntryModalProps> = ({ open, onOpenChange }) => {
   const { addFinancialEntry } = useFinancialDashboard();
+  const { t, lang, dir } = useLanguage();
+  const CATEGORIES = lang === 'ar' ? CATEGORIES_AR : CATEGORIES_EN;
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({
     type: '' as 'income' | 'expense' | 'savings',
@@ -43,7 +51,7 @@ export const AddEntryModal: React.FC<AddEntryModalProps> = ({ open, onOpenChange
         type:        form.type,
         amount:      parseFloat(form.amount),
         currency:    form.currency,
-        category:    form.category || 'عام',
+        category:    form.category || (lang === 'ar' ? 'عام' : 'General'),
         description: form.description,
         date:        new Date(form.date).toISOString(),
       });
@@ -54,23 +62,23 @@ export const AddEntryModal: React.FC<AddEntryModalProps> = ({ open, onOpenChange
     }
   };
 
-  const TYPE_LABELS = { income: '💰 دخل', expense: '💸 مصروف', savings: '🏦 ادخار' };
+  const TYPE_LABELS = { income: t('entry.type.income'), expense: t('entry.type.expense'), savings: t('entry.type.savings') };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md" dir="rtl">
+      <DialogContent className="sm:max-w-md" dir={dir}>
         <DialogHeader>
-          <DialogTitle className="font-arabic text-xl">إضافة معاملة مالية</DialogTitle>
+          <DialogTitle className="font-arabic text-xl">{t('entry.title')}</DialogTitle>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Type + Amount */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label className="font-arabic text-xs">النوع *</Label>
+              <Label className="font-arabic text-xs">{t('entry.type')} *</Label>
               <Select value={form.type} onValueChange={v => set('type', v as any)}>
                 <SelectTrigger className="font-arabic">
-                  <SelectValue placeholder="اختاري النوع" />
+                  <SelectValue placeholder={t('entry.type.placeholder')} />
                 </SelectTrigger>
                 <SelectContent>
                   {(['income', 'expense', 'savings'] as const).map(t => (
@@ -81,7 +89,7 @@ export const AddEntryModal: React.FC<AddEntryModalProps> = ({ open, onOpenChange
             </div>
 
             <div className="space-y-1.5">
-              <Label className="font-arabic text-xs">المبلغ *</Label>
+              <Label className="font-arabic text-xs">{t('entry.amount')} *</Label>
               <Input
                 type="number"
                 step="0.01"
@@ -98,21 +106,21 @@ export const AddEntryModal: React.FC<AddEntryModalProps> = ({ open, onOpenChange
           {/* Currency + Date */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label className="font-arabic text-xs">العملة</Label>
+              <Label className="font-arabic text-xs">{t('entry.currency')}</Label>
               <Select value={form.currency} onValueChange={v => set('currency', v)}>
                 <SelectTrigger className="font-arabic">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="SAR">🇸🇦 ريال سعودي</SelectItem>
-                  <SelectItem value="USD">🇺🇸 دولار</SelectItem>
-                  <SelectItem value="EUR">🇪🇺 يورو</SelectItem>
+                  <SelectItem value="SAR">🇸🇦 {lang === 'ar' ? 'ريال سعودي' : 'Saudi Riyal'}</SelectItem>
+                  <SelectItem value="USD">🇺🇸 {lang === 'ar' ? 'دولار' : 'US Dollar'}</SelectItem>
+                  <SelectItem value="EUR">🇪🇺 {lang === 'ar' ? 'يورو' : 'Euro'}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             <div className="space-y-1.5">
-              <Label className="font-arabic text-xs">التاريخ</Label>
+              <Label className="font-arabic text-xs">{t('entry.date')}</Label>
               <Input
                 type="date"
                 value={form.date}
@@ -125,10 +133,10 @@ export const AddEntryModal: React.FC<AddEntryModalProps> = ({ open, onOpenChange
           {/* Category */}
           {form.type && (
             <div className="space-y-1.5">
-              <Label className="font-arabic text-xs">الفئة</Label>
+              <Label className="font-arabic text-xs">{t('entry.category')}</Label>
               <Select value={form.category} onValueChange={v => set('category', v)}>
                 <SelectTrigger className="font-arabic">
-                  <SelectValue placeholder="اختاري الفئة" />
+                  <SelectValue placeholder={t('entry.category.placeholder')} />
                 </SelectTrigger>
                 <SelectContent>
                   {CATEGORIES[form.type]?.map(cat => (
@@ -141,9 +149,9 @@ export const AddEntryModal: React.FC<AddEntryModalProps> = ({ open, onOpenChange
 
           {/* Note */}
           <div className="space-y-1.5">
-            <Label className="font-arabic text-xs">ملاحظة (اختياري)</Label>
+            <Label className="font-arabic text-xs">{t('entry.note')}</Label>
             <Textarea
-              placeholder="مثال: غداء مع العائلة..."
+              placeholder={t('entry.note.placeholder')}
               value={form.description}
               onChange={e => set('description', e.target.value)}
               rows={2}
@@ -153,14 +161,14 @@ export const AddEntryModal: React.FC<AddEntryModalProps> = ({ open, onOpenChange
 
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={loading} className="font-arabic">
-              إلغاء
+              {t('entry.cancel')}
             </Button>
             <Button
               type="submit"
               disabled={loading || !form.type || !form.amount}
               className="font-arabic bg-jood-teal-900 hover:bg-jood-teal-700 text-white"
             >
-              {loading ? <><Loader2 className="w-4 h-4 ml-2 animate-spin" /> جارٍ الحفظ...</> : 'حفظ المعاملة'}
+              {loading ? <><Loader2 className="w-4 h-4 ml-2 animate-spin" /> {t('entry.saving')}</> : t('entry.save')}
             </Button>
           </div>
         </form>

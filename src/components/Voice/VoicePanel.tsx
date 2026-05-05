@@ -5,18 +5,19 @@ import { Button } from '@/components/ui/button';
 import { useChat } from '@/hooks/useChat';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
+import { useLanguage } from '@/hooks/useLanguage';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 
 // ─── Mode types ───────────────────────────────────────────────────────────────
 type VoiceMode = 'idle' | 'listening' | 'processing' | 'thinking' | 'speaking';
 
-const MODE_CONFIG: Record<VoiceMode, { ar: string; color: string }> = {
-  idle:       { ar: 'اضغطي للتحدث مع جود',   color: 'from-jood-teal-700 to-jood-teal-900' },
-  listening:  { ar: 'أستمع إليك…',           color: 'from-red-600 to-red-800' },
-  processing: { ar: 'جار التعرف على صوتك…',  color: 'from-amber-600 to-amber-800' },
-  thinking:   { ar: 'جود تفكّر…',            color: 'from-jood-teal-600 to-jood-teal-800' },
-  speaking:   { ar: 'جود تتحدث',             color: 'from-jood-gold-500 to-amber-700' },
+const MODE_CONFIG: Record<VoiceMode, { ar: string; en: string; color: string }> = {
+  idle:       { ar: 'اضغطي للتحدث مع جود',  en: 'Tap to talk to Jood',        color: 'from-jood-teal-700 to-jood-teal-900' },
+  listening:  { ar: 'أستمع إليك…',          en: 'Listening…',                 color: 'from-red-600 to-red-800' },
+  processing: { ar: 'جار التعرف على صوتك…', en: 'Recognizing your voice…',    color: 'from-amber-600 to-amber-800' },
+  thinking:   { ar: 'جود تفكّر…',           en: 'Jood is thinking…',          color: 'from-jood-teal-600 to-jood-teal-800' },
+  speaking:   { ar: 'جود تتحدث',            en: 'Jood is speaking',           color: 'from-jood-gold-500 to-amber-700' },
 };
 
 // ─── Waveform bars ────────────────────────────────────────────────────────────
@@ -64,6 +65,7 @@ function getBestMimeType(): string {
 export const VoicePanel: React.FC = () => {
   const { session } = useAuth();
   const { toast } = useToast();
+  const { lang } = useLanguage();
   const { sendMessage, speakMessage, stopSpeaking, messages, loading, speaking, speakingIntensity } = useChat();
 
   const [mode, setMode] = useState<VoiceMode>('idle');
@@ -93,8 +95,8 @@ export const VoicePanel: React.FC = () => {
       stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
     } catch {
       toast({
-        title: 'لا يمكن الوصول للميكروفون',
-        description: 'يرجى السماح بالوصول للميكروفون في إعدادات المتصفح',
+        title: lang === 'ar' ? 'لا يمكن الوصول للميكروفون' : 'Microphone access denied',
+        description: lang === 'ar' ? 'يرجى السماح بالوصول للميكروفون في إعدادات المتصفح' : 'Please allow microphone access in your browser settings',
         variant: 'destructive',
       });
       return;
@@ -122,7 +124,7 @@ export const VoicePanel: React.FC = () => {
 
       isProcessingRef.current = true;
       setMode('processing');
-      setTranscript('جار التعرف على صوتك…');
+      setTranscript(lang === 'ar' ? 'جار التعرف على صوتك…' : 'Recognizing your voice…');
 
       try {
         const ext = mimeTypeRef.current.includes('mp4') ? 'mp4'
@@ -153,7 +155,7 @@ export const VoicePanel: React.FC = () => {
         isProcessingRef.current = false;
         setMode('idle');
         setTranscript('');
-        toast({ title: 'لم أستطع التعرف على صوتك', description: 'حاولي مجدداً', variant: 'destructive' });
+        toast({ title: lang === 'ar' ? 'لم أستطع التعرف على صوتك' : 'Could not recognize your voice', description: lang === 'ar' ? 'حاولي مجدداً' : 'Please try again', variant: 'destructive' });
       }
     };
 
@@ -236,7 +238,7 @@ export const VoicePanel: React.FC = () => {
           exit={{ opacity: 0 }}
           className="text-base font-arabic font-semibold text-foreground text-center"
         >
-          {cfg.ar}
+          {lang === 'ar' ? cfg.ar : cfg.en}
         </motion.p>
       </AnimatePresence>
 

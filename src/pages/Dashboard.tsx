@@ -34,9 +34,14 @@ import { useTheme } from 'next-themes';
 import { cn } from '@/lib/utils';
 
 // ─── Saudi Signal Strip ───────────────────────────────────────────────────────
+const SIGNAL_PRAYER_KEYS: Record<string, string> = {
+  Fajr: 'home.prayer.fajr', Dhuhr: 'home.prayer.dhuhr',
+  Asr: 'home.prayer.asr', Maghrib: 'home.prayer.maghrib', Isha: 'home.prayer.isha',
+};
+
 const useSaudiSignal = () => {
   const [hijri, setHijri] = React.useState('');
-  const [prayer, setPrayer] = React.useState<{ name: string; time: string } | null>(null);
+  const [prayer, setPrayer] = React.useState<{ key: string; time: string } | null>(null);
   const [sarUsd, setSarUsd] = React.useState<string | null>(null);
 
   React.useEffect(() => {
@@ -52,19 +57,19 @@ const useSaudiSignal = () => {
     fetch('https://api.aladhan.com/v1/timingsByCity?city=Riyadh&country=SA&method=4')
       .then(r => r.json())
       .then(d => {
-        const t = d?.data?.timings;
-        if (!t) return;
-        const names: [string, string][] = [
-          ['الفجر', t.Fajr], ['الظهر', t.Dhuhr], ['العصر', t.Asr],
-          ['المغرب', t.Maghrib], ['العشاء', t.Isha],
+        const timings = d?.data?.timings;
+        if (!timings) return;
+        const entries: [string, string][] = [
+          ['Fajr', timings.Fajr], ['Dhuhr', timings.Dhuhr], ['Asr', timings.Asr],
+          ['Maghrib', timings.Maghrib], ['Isha', timings.Isha],
         ];
         const now = new Date();
         const nowMin = now.getHours() * 60 + now.getMinutes();
-        const next = names.find(([, time]) => {
+        const next = entries.find(([, time]) => {
           const [h2, m2] = time.split(':').map(Number);
           return h2 * 60 + m2 > nowMin;
         });
-        if (next) setPrayer({ name: next[0], time: next[1] });
+        if (next) setPrayer({ key: SIGNAL_PRAYER_KEYS[next[0]] ?? 'home.prayer.fajr', time: next[1] });
       }).catch(() => {});
 
     // SAR/USD live rate (free API, no key required)
@@ -316,7 +321,7 @@ const Dashboard = () => {
               <span className="signal-chip font-arabic text-[11px]">🌙 {hijri}</span>
             )}
             {prayer && (
-              <span className="signal-chip font-arabic text-[11px]">🕌 {prayer.name} {prayer.time}</span>
+              <span className="signal-chip font-arabic text-[11px]">🕌 {t(prayer.key)} {prayer.time}</span>
             )}
             {sarUsd && (
               <span className="signal-chip text-[11px] font-mono">SAR/USD {sarUsd}</span>

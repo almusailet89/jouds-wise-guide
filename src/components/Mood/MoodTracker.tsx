@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Heart, TrendingUp, Calendar, BarChart3, Loader2 } from "lucide-react";
 import { useMoodLogs } from '@/hooks/useDatabase';
+import { useLanguage } from '@/hooks/useLanguage';
 
 // mood_score 1-5 mapped to Arabic + emoji
 const MOOD_OPTIONS = [
@@ -20,6 +21,7 @@ const scoreToOption = (score: number) =>
 
 const MoodTracker: React.FC = () => {
   const { moodLogs, loading, addMoodLog } = useMoodLogs();
+  const { t, lang } = useLanguage();
   const [selected, setSelected] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -59,12 +61,12 @@ const MoodTracker: React.FC = () => {
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base font-arabic">
             <Heart className="h-5 w-5 text-jood-teal-500" />
-            كيف حالك اليوم؟
+            {t('mood.title')}
           </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-5 gap-2">
-            {MOOD_OPTIONS.map(({ score, ar, emoji, color }) => (
+            {MOOD_OPTIONS.map(({ score, ar, label, emoji, color }) => (
               <Button
                 key={score}
                 variant="outline"
@@ -75,7 +77,7 @@ const MoodTracker: React.FC = () => {
                 }`}
               >
                 <span className="text-2xl">{emoji}</span>
-                <span className="text-xs font-arabic">{ar}</span>
+                <span className="text-xs font-arabic">{lang === 'ar' ? ar : label}</span>
               </Button>
             ))}
           </div>
@@ -89,7 +91,7 @@ const MoodTracker: React.FC = () => {
                 className="mt-4 p-3 rounded-xl bg-jood-teal-500/10 border border-jood-teal-500/20"
               >
                 <p className="text-sm font-arabic text-jood-teal-700">
-                  ✨ تم تسجيل مزاجك. تذكّري أن كل يوم فرصة جديدة.
+                  ✨ {lang === 'ar' ? 'تم تسجيل مزاجك. تذكّري أن كل يوم فرصة جديدة.' : 'Mood logged. Remember, every day is a new opportunity.'}
                 </p>
               </motion.div>
             )}
@@ -109,7 +111,7 @@ const MoodTracker: React.FC = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-2xl font-bold font-mono">{last7.length}</p>
-                <p className="text-xs text-muted-foreground font-arabic mt-0.5">سجلات هذا الأسبوع</p>
+                <p className="text-xs text-muted-foreground font-arabic mt-0.5">{lang === 'ar' ? 'سجلات هذا الأسبوع' : 'Logs this week'}</p>
               </div>
               <Calendar className="h-7 w-7 text-jood-teal-500/60" />
             </div>
@@ -121,7 +123,7 @@ const MoodTracker: React.FC = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-2xl font-bold font-mono">{avgScore}</p>
-                <p className="text-xs text-muted-foreground font-arabic mt-0.5">متوسط المزاج</p>
+                <p className="text-xs text-muted-foreground font-arabic mt-0.5">{t('mood.avg')}</p>
               </div>
               <BarChart3 className="h-7 w-7 text-jood-teal-500/60" />
             </div>
@@ -133,7 +135,7 @@ const MoodTracker: React.FC = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-2xl font-bold font-mono">{streak}</p>
-                <p className="text-xs text-muted-foreground font-arabic mt-0.5">أيام إيجابية متتالية</p>
+                <p className="text-xs text-muted-foreground font-arabic mt-0.5">{t('mood.streak')}</p>
               </div>
               <TrendingUp className="h-7 w-7 text-jood-gold-500/70" />
             </div>
@@ -144,7 +146,7 @@ const MoodTracker: React.FC = () => {
       {/* Mood history */}
       <Card className="jood-card">
         <CardHeader>
-          <CardTitle className="text-base font-arabic">سجل المزاج الأخير</CardTitle>
+          <CardTitle className="text-base font-arabic">{t('mood.history')}</CardTitle>
         </CardHeader>
         <CardContent>
           {loading ? (
@@ -153,7 +155,7 @@ const MoodTracker: React.FC = () => {
             </div>
           ) : moodLogs.length === 0 ? (
             <p className="text-center text-muted-foreground text-sm font-arabic py-6">
-              لا توجد سجلات بعد. ابدئي بتسجيل مزاجك اليوم!
+              {t('mood.no.logs')}
             </p>
           ) : (
             <div className="space-y-2">
@@ -165,10 +167,10 @@ const MoodTracker: React.FC = () => {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
                         <Badge variant="outline" className={opt.color + ' text-xs'}>
-                          {opt.ar}
+                          {lang === 'ar' ? opt.ar : opt.label}
                         </Badge>
                         <span className="text-xs text-muted-foreground">
-                          {new Date(log.created_at).toLocaleDateString('ar-SA', {
+                          {new Date(log.created_at).toLocaleDateString(lang === 'ar' ? 'ar-SA' : 'en-US', {
                             weekday: 'short', month: 'short', day: 'numeric',
                           })}
                         </span>
@@ -195,24 +197,24 @@ const MoodTracker: React.FC = () => {
       {/* AI Insights (static, contextual) */}
       <Card className="jood-card">
         <CardHeader>
-          <CardTitle className="text-base font-arabic">رؤى جود</CardTitle>
+          <CardTitle className="text-base font-arabic">{lang === 'ar' ? 'رؤى جود' : 'Jood Insights'}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-2.5">
           {dominant && (
             <div className="p-3 rounded-xl bg-jood-teal-500/8 border border-jood-teal-500/15">
               <p className="text-sm font-arabic text-foreground">
-                🔍 <strong>نمط مكتشف:</strong> مزاجك السائد هذا الأسبوع كان "{dominant.ar}" {dominant.emoji}
+                🔍 <strong>{lang === 'ar' ? 'نمط مكتشف:' : 'Pattern found:'}</strong> {lang === 'ar' ? `مزاجك السائد هذا الأسبوع كان "${dominant.ar}" ${dominant.emoji}` : `Your dominant mood this week was "${dominant.label}" ${dominant.emoji}`}
               </p>
             </div>
           )}
           <div className="p-3 rounded-xl bg-jood-gold-500/8 border border-jood-gold-500/15">
             <p className="text-sm font-arabic text-foreground">
-              💡 <strong>توصية:</strong> المزاج الإيجابي يرتبط بقرارات مالية أفضل. حاولي تسجيل مزاجك يومياً.
+              💡 <strong>{lang === 'ar' ? 'توصية:' : 'Tip:'}</strong> {lang === 'ar' ? 'المزاج الإيجابي يرتبط بقرارات مالية أفضل. حاولي تسجيل مزاجك يومياً.' : 'Positive mood is linked to better financial decisions. Try logging daily.'}
             </p>
           </div>
           <div className="p-3 rounded-xl bg-muted/40 border border-border/40">
             <p className="text-sm font-arabic text-foreground">
-              📊 <strong>اتجاه:</strong> استمراري تسجيل مزاجك يساعد جود على تقديم توصيات مالية أكثر دقة.
+              📊 <strong>{lang === 'ar' ? 'اتجاه:' : 'Trend:'}</strong> {lang === 'ar' ? 'استمراري تسجيل مزاجك يساعد جود على تقديم توصيات مالية أكثر دقة.' : 'Consistent mood tracking helps Jood provide more accurate financial recommendations.'}
             </p>
           </div>
         </CardContent>

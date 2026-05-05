@@ -15,15 +15,11 @@ import { InsightsPanel } from './InsightsPanel';
 import { NewsPanel } from './NewsPanel';
 import { ZakatCard } from './ZakatCard';
 import FinanceExtras from './FinanceExtras';
+import { useLanguage } from '@/hooks/useLanguage';
 import { cn } from '@/lib/utils';
 
 // ─── Time filter options ────────────────────────────────────────────────────
 type Period = 'month' | '30d' | 'ytd';
-const PERIODS: { value: Period; label: string }[] = [
-  { value: 'month', label: 'هذا الشهر' },
-  { value: '30d',   label: '٣٠ يوم' },
-  { value: 'ytd',   label: 'هذا العام' },
-];
 
 // ─── Filter entries by period ────────────────────────────────────────────────
 function filterByPeriod(entries: any[], period: Period) {
@@ -41,15 +37,21 @@ function filterByPeriod(entries: any[], period: Period) {
   });
 }
 
-const PERIOD_LABEL: Record<Period, string> = {
-  month: 'هذا الشهر',
-  '30d': '٣٠ يوم',
-  ytd:   'هذا العام',
-};
-
 // ═══════════════════════════════════════════════════════════════════════════
 export const FinancialDashboard: React.FC = () => {
+  const { t, dir } = useLanguage();
   const [period, setPeriod] = useState<Period>('month');
+
+  const PERIODS: { value: Period; label: string }[] = [
+    { value: 'month', label: t('fin.period.month') },
+    { value: '30d',   label: t('fin.period.30d') },
+    { value: 'ytd',   label: t('fin.period.ytd') },
+  ];
+  const PERIOD_LABEL: Record<Period, string> = {
+    month: t('fin.period.month'),
+    '30d': t('fin.period.30d'),
+    ytd:   t('fin.period.ytd'),
+  };
   const [showAddEntry,   setShowAddEntry]   = useState(false);
   const [showAddHolding, setShowAddHolding] = useState(false);
   const [showLedger,     setShowLedger]     = useState(false);
@@ -69,7 +71,7 @@ export const FinancialDashboard: React.FC = () => {
   const allocationData = useMemo(() => {
     if (!portfolioSummary?.asset_allocation) return [];
     return Object.entries(portfolioSummary.asset_allocation).map(([type, pct]) => ({
-      name: type === 'stock' ? 'أسهم' : type === 'crypto' ? 'كريبتو' : type === 'real_estate' ? 'عقار' : type,
+      name: type === 'stock' ? t('fin.asset.stock') : type === 'crypto' ? t('fin.asset.crypto') : type === 'real_estate' ? t('fin.asset.real_estate') : type,
       value: Number(pct),
       color: '',
     }));
@@ -81,14 +83,14 @@ export const FinancialDashboard: React.FC = () => {
   const currency = 'SAR';
 
   return (
-    <div className="space-y-6" dir="rtl">
+    <div className="space-y-6" dir={dir}>
 
       {/* ── Header ─────────────────────────────────────────────────────── */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h2 className="text-2xl font-black font-arabic text-foreground">محفظتي</h2>
+          <h2 className="text-2xl font-black font-arabic text-foreground">{t('fin.title')}</h2>
           <p className="text-sm text-muted-foreground font-arabic mt-0.5">
-            كل شيء في مكان واحد — الرصيد، الميزانية، الاستثمار
+            {t('fin.subtitle')}
           </p>
         </div>
 
@@ -118,7 +120,7 @@ export const FinancialDashboard: React.FC = () => {
             className="gap-1.5 font-arabic text-xs border-border/50"
           >
             <FileText className="w-3.5 h-3.5" />
-            السجل الكامل
+            {t('fin.ledger')}
           </Button>
 
           <Button
@@ -129,7 +131,7 @@ export const FinancialDashboard: React.FC = () => {
             className="gap-1.5 font-arabic text-xs border-border/50"
           >
             <RefreshCw className={cn('w-3.5 h-3.5', loading && 'animate-spin')} />
-            تحديث
+            {t('fin.refresh')}
           </Button>
 
           <Button
@@ -138,7 +140,7 @@ export const FinancialDashboard: React.FC = () => {
             className="gap-1.5 font-arabic text-xs bg-jood-teal-900 hover:bg-jood-teal-700 text-white"
           >
             <Plus className="w-3.5 h-3.5" />
-            إضافة معاملة
+            {t('fin.add.entry')}
           </Button>
         </div>
       </div>
@@ -158,9 +160,7 @@ export const FinancialDashboard: React.FC = () => {
       <div className="flex items-center gap-2 rounded-xl bg-jood-teal-900/5 border border-jood-teal-700/20 px-4 py-2.5">
         <span className="text-lg">💬</span>
         <p className="text-xs font-arabic text-muted-foreground">
-          يمكنك إدخال أي معاملة أو تحديث الميزانية بصوتك عبر{' '}
-          <span className="font-bold text-jood-teal-700">المجلس</span> أو بالكتابة في{' '}
-          <span className="font-bold text-jood-teal-700">محادثة جود</span> — مثال: «صرفت ٣٠٠ ريال على التسوق» أو «حدّدي ميزانيتي بـ ٨٠٠٠ ريال»
+          {t('fin.chat.hint')}
         </p>
       </div>
 
@@ -188,7 +188,7 @@ export const FinancialDashboard: React.FC = () => {
           className="space-y-5"
         >
           <div className="flex items-center justify-between">
-            <h3 className="text-base font-bold font-arabic text-foreground">المحفظة الاستثمارية</h3>
+            <h3 className="text-base font-bold font-arabic text-foreground">{t('fin.portfolio.title')}</h3>
             <Button
               onClick={() => setShowAddHolding(true)}
               size="sm"
@@ -196,18 +196,18 @@ export const FinancialDashboard: React.FC = () => {
               className="gap-1.5 font-arabic text-xs"
             >
               <Plus className="w-3.5 h-3.5" />
-              إضافة أصل
+              {t('fin.add.holding')}
             </Button>
           </div>
           <PortfolioTable holdings={portfolioHoldings} />
-          <AllocationChart data={allocationData} title="توزيع الأصول" />
+          <AllocationChart data={allocationData} title={t('fin.allocation.title')} />
         </motion.div>
       )}
 
       {/* Add holding button if portfolio is empty */}
       {portfolioHoldings.length === 0 && (
         <div className="text-center py-6 rounded-xl border border-dashed border-border/50">
-          <p className="font-arabic text-sm text-muted-foreground mb-3">لا توجد أصول في المحفظة بعد</p>
+          <p className="font-arabic text-sm text-muted-foreground mb-3">{t('fin.portfolio.empty')}</p>
           <Button
             onClick={() => setShowAddHolding(true)}
             size="sm"
@@ -215,7 +215,7 @@ export const FinancialDashboard: React.FC = () => {
             className="gap-1.5 font-arabic text-xs"
           >
             <Plus className="w-3.5 h-3.5" />
-            أضيفي أول أصل
+            {t('fin.portfolio.add.first')}
           </Button>
         </div>
       )}
