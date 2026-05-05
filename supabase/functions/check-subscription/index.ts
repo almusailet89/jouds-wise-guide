@@ -101,8 +101,36 @@ serve(async (req) => {
         });
       }
 
-      logStep("No active or trial subscription found");
-      return new Response(JSON.stringify({ 
+      // Check for past_due subscriptions — payment failed but still in grace period
+      const pastDueSubscriptions = await stripe.subscriptions.list({
+        customer: customerId,
+        status: "past_due",
+        limit: 1,
+      });
+
+      if (pastDueSubscriptions.data.length > 0) {
+        const subscription = pastDueSubscriptions.data[0];
+        const subscriptionEnd = new Date(subscription.current_period_end * 1000).toISOString();
+        const priceId = subscription.items.data[0].price.id;
+        let plan = 'monthly';
+        if (priceId === 'price_1S8Q7ZDlAGsKyGn8w97rsZ5B') {
+          plan = 'annual';
+        }
+        logStep("Past-due subscription found", { subscriptionId: subscription.id, plan });
+        return new Response(JSON.stringify({
+          subscribed: true,
+          inTrial: false,
+          paymentIssue: true,   // frontend uses this to show "update payment" banner
+          plan,
+          subscriptionEnd
+        }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 200,
+        });
+      }
+
+      logStep("No active, trial, or past-due subscription found");
+      return new Response(JSON.stringify({
         subscribed: false,
         inTrial: false,
         plan: null,

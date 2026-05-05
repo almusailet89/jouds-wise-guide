@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/hooks/useAuth';
 import { useProfile } from '@/hooks/useProfile';
 import { useLanguage } from '@/hooks/useLanguage';
+import { useSubscription } from '@/hooks/useSubscription';
 import { Button } from '@/components/ui/button';
 import { HomeOverview } from '@/components/Home/HomeOverview';
 
@@ -231,6 +232,7 @@ const Dashboard = () => {
   const { profile } = useProfile();
   const { theme, setTheme } = useTheme();
   const { t, dir } = useLanguage();
+  const { hasPaymentIssue, openCustomerPortal } = useSubscription();
   const NAV = buildNav(t);
   const [activeTab, setActiveTab] = useState('home');
   const [profileOpen, setProfileOpen] = useState(false);
@@ -262,6 +264,21 @@ const Dashboard = () => {
       <Suspense fallback={null}>
         <ProfileDialog open={profileOpen} onOpenChange={setProfileOpen} />
       </Suspense>
+
+      {/* Payment issue banner — shown when Stripe subscription is past_due */}
+      {hasPaymentIssue && (
+        <div className="bg-destructive/10 border-b border-destructive/20 px-4 py-2 flex items-center justify-between gap-3">
+          <p className="text-xs font-arabic text-destructive">
+            ⚠️ فشل تجديد اشتراكك — يرجى تحديث بيانات الدفع للاستمرار في الوصول.
+          </p>
+          <button
+            onClick={() => openCustomerPortal().catch(() => {})}
+            className="text-xs font-arabic font-semibold text-destructive underline underline-offset-2 flex-shrink-0"
+          >
+            تحديث الدفع
+          </button>
+        </div>
+      )}
 
       {/* Gender nudge — shown once if user hasn't set gender yet */}
       {!profile?.gender && profile !== null && (

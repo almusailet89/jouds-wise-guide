@@ -7,6 +7,8 @@ import { useToast } from './use-toast';
 interface SubscriptionData {
   subscribed: boolean;
   inTrial: boolean;
+  /** true when Stripe status is "past_due" — payment failed, grace period active */
+  paymentIssue?: boolean;
   plan: 'monthly' | 'annual' | null;
   subscriptionEnd: string | null;
   trialEnd?: string | null;
@@ -19,6 +21,8 @@ interface SubscriptionContextType {
   createCheckout: (priceId: string) => Promise<string>;
   openCustomerPortal: () => Promise<void>;
   isSubscribed: boolean;
+  /** true when subscribed but payment has failed — show "update payment" banner */
+  hasPaymentIssue: boolean;
   canAccessFeature: (feature: string) => boolean;
 }
 
@@ -187,6 +191,7 @@ export const SubscriptionProvider = ({ children }: SubscriptionProviderProps) =>
   }, [user]);
 
   const isSubscribed = isAdmin() || subscription?.subscribed || subscription?.inTrial || false;
+  const hasPaymentIssue = !isAdmin() && (subscription?.paymentIssue ?? false);
 
   const value = {
     subscription,
@@ -195,6 +200,7 @@ export const SubscriptionProvider = ({ children }: SubscriptionProviderProps) =>
     createCheckout,
     openCustomerPortal,
     isSubscribed,
+    hasPaymentIssue,
     canAccessFeature,
   };
 
