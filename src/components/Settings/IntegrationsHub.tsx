@@ -28,6 +28,7 @@ interface Integration {
   oauthUrl?: string;
   keyLabel?: string;
   capabilities: string[];
+  capabilitiesEn: string[];
   color: string;
 }
 
@@ -43,6 +44,7 @@ const INTEGRATIONS: Integration[] = [
     authType: 'apikey',
     keyLabel: 'WhatsApp Business API Key',
     capabilities: ['إرسال رسائل', 'إشعارات الاجتماعات', 'تذكيرات المهام', 'موجز يومي'],
+    capabilitiesEn: ['Send messages', 'Meeting notifications', 'Task reminders', 'Daily digest'],
     color: 'bg-green-500',
   },
   {
@@ -56,6 +58,7 @@ const INTEGRATIONS: Integration[] = [
     authType: 'oauth',
     oauthUrl: 'https://accounts.google.com/o/oauth2/auth',
     capabilities: ['مزامنة الأحداث', 'حجز الاجتماعات', 'دعوات التقويم', 'تذكيرات ذكية'],
+    capabilitiesEn: ['Event sync', 'Meeting booking', 'Calendar invites', 'Smart reminders'],
     color: 'bg-blue-500',
   },
   {
@@ -68,6 +71,7 @@ const INTEGRATIONS: Integration[] = [
     descAr: 'مزامنة مع iCloud لمستخدمي iPhone و Mac',
     authType: 'oauth',
     capabilities: ['مزامنة iCloud', 'أحداث iPhone', 'تذكيرات آبل'],
+    capabilitiesEn: ['iCloud sync', 'iPhone events', 'Apple reminders'],
     color: 'bg-gray-800',
   },
   {
@@ -81,6 +85,7 @@ const INTEGRATIONS: Integration[] = [
     authType: 'oauth',
     oauthUrl: 'https://accounts.google.com/o/oauth2/auth',
     capabilities: ['صياغة إيميلات', 'إرسال مباشر', 'متابعة المحادثات', 'تصنيف ذكي'],
+    capabilitiesEn: ['Draft emails', 'Direct send', 'Thread tracking', 'Smart labels'],
     color: 'bg-red-500',
   },
   {
@@ -93,6 +98,7 @@ const INTEGRATIONS: Integration[] = [
     descAr: 'تكامل مايكروسوفت للبريد والتقويم — مثالي لبيئة الشركات',
     authType: 'oauth',
     capabilities: ['البريد الإلكتروني', 'Teams meetings', 'تقويم Outlook', 'OneDrive'],
+    capabilitiesEn: ['Email', 'Teams meetings', 'Outlook calendar', 'OneDrive'],
     color: 'bg-blue-700',
   },
   {
@@ -105,6 +111,7 @@ const INTEGRATIONS: Integration[] = [
     descAr: 'احصل على إشعارات جود في سلاك — تنبيهات المهام والملخصات اليومية',
     authType: 'oauth',
     capabilities: ['إشعارات الفريق', 'ملخص يومي', 'تذكيرات المهام', 'تقارير المحفظة'],
+    capabilitiesEn: ['Team notifications', 'Daily summary', 'Task reminders', 'Portfolio reports'],
     color: 'bg-purple-600',
   },
   {
@@ -118,6 +125,7 @@ const INTEGRATIONS: Integration[] = [
     authType: 'apikey',
     keyLabel: 'Notion Integration Token',
     capabilities: ['مزامنة المهام', 'إضافة ملاحظات', 'تحديث قواعد البيانات'],
+    capabilitiesEn: ['Task sync', 'Add notes', 'Update databases'],
     color: 'bg-gray-900',
   },
   {
@@ -131,6 +139,7 @@ const INTEGRATIONS: Integration[] = [
     authType: 'apikey',
     keyLabel: 'Telegram Bot Token',
     capabilities: ['ملخص صباحي', 'تنبيهات فورية', 'أوامر سريعة'],
+    capabilitiesEn: ['Morning brief', 'Instant alerts', 'Quick commands'],
     color: 'bg-sky-500',
   },
   {
@@ -143,6 +152,7 @@ const INTEGRATIONS: Integration[] = [
     descAr: 'احجز اجتماعات Teams وتلقَّ الإشعارات مباشرة فيه',
     authType: 'coming_soon',
     capabilities: ['حجز اجتماعات', 'إشعارات Teams', 'تسجيل الاجتماعات'],
+    capabilitiesEn: ['Book meetings', 'Teams notifications', 'Record meetings'],
     color: 'bg-indigo-600',
   },
   {
@@ -155,6 +165,7 @@ const INTEGRATIONS: Integration[] = [
     descAr: 'احجز اجتماعات زووم من المحادثة — جود تُنشئ الرابط',
     authType: 'coming_soon',
     capabilities: ['إنشاء اجتماعات', 'توليد روابط', 'إرسال دعوات'],
+    capabilitiesEn: ['Create meetings', 'Generate links', 'Send invites'],
     color: 'bg-blue-400',
   },
 ];
@@ -256,7 +267,7 @@ const IntegrationCard: React.FC<{
           <div>
             <p className="text-[11px] font-arabic text-muted-foreground mb-2">{t('integr.capabilities')}</p>
             <div className="flex flex-wrap gap-1.5">
-              {integration.capabilities.map(cap => (
+              {(lang === 'ar' ? integration.capabilities : integration.capabilitiesEn).map(cap => (
                 <span key={cap} className="text-[11px] font-arabic px-2 py-0.5 bg-muted/60 rounded-full text-foreground/70">
                   {cap}
                 </span>

@@ -422,10 +422,10 @@ export const MajlisMode: React.FC<MajlisModeProps> = ({ onClose }) => {
       <div className="absolute top-0 inset-x-0 z-10 flex items-center justify-between p-5">
         <div className="flex items-center gap-2 text-white">
           <Sparkles className="w-4 h-4 text-jood-gold-300" />
-          <span className="font-arabic text-sm font-bold">المجلس</span>
+          <span className="font-arabic text-sm font-bold">{t('header.majlis')}</span>
           {continuous && (
             <span className="text-[10px] bg-jood-gold-500/30 text-jood-gold-100 border border-jood-gold-300/30 rounded-full px-2 py-0.5 font-arabic">
-              مستمر
+              {t('majlis.continuous')}
             </span>
           )}
           {/* Engine badge */}
@@ -443,7 +443,7 @@ export const MajlisMode: React.FC<MajlisModeProps> = ({ onClose }) => {
               'rounded-full h-10 w-10 text-white hover:bg-white/10',
               previewPlaying && 'bg-jood-gold-500/30 ring-2 ring-jood-gold-300/40',
             )}
-            title="استمعي لصوت جود الأصلي"
+            title={t('majlis.preview.title')}
           >
             <Headphones className="w-4 h-4" />
           </Button>
@@ -548,7 +548,7 @@ export const MajlisMode: React.FC<MajlisModeProps> = ({ onClose }) => {
           onClick={replay}
           disabled={!lastReply || mode !== 'idle'}
           className="text-white hover:bg-white/10 rounded-full h-12 w-12 flex-shrink-0 disabled:opacity-30"
-          title="إعادة الاستماع"
+          title={t('majlis.replay.title')}
         >
           <Volume2 className="w-5 h-5" />
         </Button>
@@ -595,7 +595,7 @@ export const MajlisMode: React.FC<MajlisModeProps> = ({ onClose }) => {
             continuous && 'bg-jood-gold-500/20 border border-jood-gold-300/40',
             'disabled:opacity-40',
           )}
-          title={continuous ? 'إيقاف المستمر' : 'تشغيل المستمر'}
+          title={t(continuous ? 'majlis.cont.stop' : 'majlis.cont.start')}
         >
           {continuous ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5" />}
         </Button>
@@ -603,7 +603,7 @@ export const MajlisMode: React.FC<MajlisModeProps> = ({ onClose }) => {
 
       {/* Bottom hint */}
       <p className="absolute bottom-2 inset-x-0 text-center text-[10px] text-white/40 font-arabic">
-        اضغطة قصيرة = حديث مستمر · اضغطة مطوّلة = push-to-talk
+        {t('majlis.hint')}
       </p>
     </motion.div>
   );

@@ -120,8 +120,9 @@ const ActionCard: React.FC<{ card: { kind: string; summary: string; data: Record
   const Icon  = ACTION_ICONS[card.kind] ?? CheckSquare;
   const color = ACTION_COLORS[card.kind] ?? ACTION_COLORS.task;
   const { toast } = useToast();
-  const { t } = useLanguage();
+  const { t, lang, dir } = useLanguage();
   const copy = (text: string) => { navigator.clipboard.writeText(text); toast({ title: t('chat.copy') }); };
+  const dtLocale = lang === 'ar' ? 'ar-SA' : 'en-US';
 
   return (
     <motion.div
@@ -129,7 +130,7 @@ const ActionCard: React.FC<{ card: { kind: string; summary: string; data: Record
       animate={{ opacity: 1, y: 0, scale: 1 }}
       transition={{ duration: 0.3 }}
       className={cn('mt-3 p-3.5 rounded-2xl border', color)}
-      dir="rtl"
+      dir={dir}
     >
       <div className="flex items-start gap-3">
         <div className={cn('w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0', color)}>
@@ -140,31 +141,31 @@ const ActionCard: React.FC<{ card: { kind: string; summary: string; data: Record
           {card.kind === 'email_draft' && (
             <div className="space-y-2">
               <div className="text-xs font-arabic bg-white/60 rounded-xl p-3 space-y-1">
-                <p><span className="opacity-60">إلى:</span> {card.data.to}</p>
-                <p><span className="opacity-60">الموضوع:</span> {card.data.subject}</p>
+                <p><span className="opacity-60">{t('chat.email.to')}:</span> {card.data.to}</p>
+                <p><span className="opacity-60">{t('chat.email.subject')}:</span> {card.data.subject}</p>
                 <p className="mt-2 leading-relaxed whitespace-pre-wrap">{card.data.body}</p>
               </div>
-              <button onClick={() => copy(`إلى: ${card.data.to}\nالموضوع: ${card.data.subject}\n\n${card.data.body}`)}
+              <button onClick={() => copy(`${t('chat.email.to')}: ${card.data.to}\n${t('chat.email.subject')}: ${card.data.subject}\n\n${card.data.body}`)}
                 className="flex items-center gap-1.5 text-xs font-arabic opacity-60 hover:opacity-100">
-                <Copy className="w-3 h-3" /> نسخ الإيميل
+                <Copy className="w-3 h-3" /> {t('chat.email.copy')}
               </button>
             </div>
           )}
           {card.kind === 'whatsapp_draft' && (
             <div className="space-y-2">
               <div className="text-xs font-arabic bg-white/60 rounded-xl p-3">
-                <p><span className="opacity-60">لـ:</span> {card.data.recipient}</p>
+                <p><span className="opacity-60">{t('chat.whatsapp.to')}:</span> {card.data.recipient}</p>
                 <p className="mt-2 leading-relaxed">{card.data.message}</p>
               </div>
               <button onClick={() => copy(card.data.message)}
                 className="flex items-center gap-1.5 text-xs font-arabic opacity-60 hover:opacity-100">
-                <Copy className="w-3 h-3" /> نسخ الرسالة
+                <Copy className="w-3 h-3" /> {t('chat.whatsapp.copy')}
               </button>
             </div>
           )}
           {card.kind === 'event' && card.data.starts_at && (
             <p className="text-xs font-arabic opacity-75">
-              📅 {new Date(card.data.starts_at).toLocaleString('ar-SA', {
+              📅 {new Date(card.data.starts_at).toLocaleString(dtLocale, {
                 weekday: 'short', month: 'short', day: 'numeric',
                 hour: '2-digit', minute: '2-digit',
               })}
@@ -207,6 +208,7 @@ const MessageBubble: React.FC<{
   speaking: boolean;
 }> = ({ role, content, onSpeak, speaking }) => {
   const isUser = role === 'user';
+  const { t: tl, lang: msgLang } = useLanguage();
 
   if (isUser) {
     return (
@@ -285,7 +287,7 @@ const MessageBubble: React.FC<{
             className="mt-1.5 flex items-center gap-1.5 text-xs text-muted-foreground/50 hover:text-muted-foreground opacity-0 group-hover:opacity-100 transition-all"
           >
             <Volume2 className="w-3.5 h-3.5" />
-            <span className="font-arabic">استمع</span>
+            <span className="font-arabic">{tl('chat.listen')}</span>
           </button>
         </div>
       </div>
@@ -299,7 +301,9 @@ const SessionItem: React.FC<{
   active: boolean;
   onClick: () => void;
   onDelete: () => void;
-}> = ({ session, active, onClick, onDelete }) => (
+}> = ({ session, active, onClick, onDelete }) => {
+  const { lang: sLang } = useLanguage();
+  return (
   <div className="relative group" dir="rtl">
     <button
       onClick={onClick}
@@ -315,7 +319,7 @@ const SessionItem: React.FC<{
         <span className="truncate text-sm font-arabic leading-snug">{session.title}</span>
       </div>
       <p className="text-xs mt-0.5 opacity-45 font-arabic pr-5">
-        {new Date(session.updated_at).toLocaleDateString('ar-SA', { month: 'short', day: 'numeric' })}
+        {new Date(session.updated_at).toLocaleDateString(sLang === 'ar' ? 'ar-SA' : 'en-US', { month: 'short', day: 'numeric' })}
       </p>
     </button>
     {/* Delete button */}
@@ -332,7 +336,8 @@ const SessionItem: React.FC<{
       <Trash2 className="w-3.5 h-3.5" />
     </button>
   </div>
-);
+  );
+};
 
 // ═══════════════════════════════════════════════════════════════════════════════
 interface ChatInterfaceProps {
@@ -387,7 +392,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ onMessage }) => {
   const toggleListening = useCallback(() => {
     const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SR) {
-      toast({ title: 'التعرف على الصوت غير مدعوم', description: 'استخدمي Chrome أو Edge', variant: 'destructive' });
+      toast({ title: t('chat.voice.unsupported'), description: t('chat.voice.use.browser'), variant: 'destructive' });
       return;
     }
     if (listening) { recognitionRef.current?.stop(); setListening(false); return; }
@@ -421,7 +426,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ onMessage }) => {
 
   const handleSpeak = useCallback(async (text: string) => {
     if (!canAccessFeature('voice')) {
-      toast({ title: 'ميزة مميزة', description: 'الاستماع متاح للمشتركين', variant: 'destructive' });
+      toast({ title: t('chat.premium.title'), description: t('chat.premium.voice.desc'), variant: 'destructive' });
       return;
     }
     await speakMessage(text);
@@ -470,7 +475,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ onMessage }) => {
                 className="w-full flex items-center gap-2.5 px-4 py-3 rounded-xl border border-border/50 bg-background/60 hover:bg-muted/60 transition-all text-sm font-arabic font-medium text-foreground"
               >
                 <Plus className="w-4 h-4 text-jood-teal-600" />
-                محادثة جديدة
+                {t('chat.new')}
               </button>
             </div>
 
@@ -484,12 +489,12 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ onMessage }) => {
                 <div className="text-center py-12 px-4" dir="rtl">
                   <MessageSquare className="w-8 h-8 mx-auto text-muted-foreground/30 mb-2" />
                   <p className="text-xs text-muted-foreground font-arabic leading-relaxed">
-                    لا توجد محادثات بعد<br />ابدئي بسؤال جود!
+                    {t('chat.empty.title')}<br />{t('chat.empty.hint')}
                   </p>
                 </div>
               ) : (
                 <div className="space-y-0.5 py-1" dir="rtl">
-                  <p className="text-[10px] text-muted-foreground/50 font-arabic px-3 py-1 uppercase tracking-wide">المحادثات السابقة</p>
+                  <p className="text-[10px] text-muted-foreground/50 font-arabic px-3 py-1 uppercase tracking-wide">{t('chat.prev.label')}</p>
                   {sessions.map(s => (
                     <SessionItem
                       key={s.id}
@@ -511,7 +516,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ onMessage }) => {
                 </div>
                 <div>
                   <p className="text-xs font-bold text-foreground font-arabic">جود AI</p>
-                  <p className="text-[10px] text-muted-foreground/60">مدعوم بـ GPT-5</p>
+                  <p className="text-[10px] text-muted-foreground/60">{t('chat.engine.badge')}</p>
                 </div>
               </div>
             </div>
@@ -536,11 +541,11 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ onMessage }) => {
           <div className="flex-1 min-w-0">
             <p className="text-sm font-semibold text-foreground font-arabic truncate">
               {currentSessionId
-                ? (sessions.find(s => s.id === currentSessionId)?.title ?? 'محادثة')
-                : 'جود — مساعدتك الذكية'}
+                ? (sessions.find(s => s.id === currentSessionId)?.title ?? t('chat.session.default'))
+                : t('chat.default.title')}
             </p>
             <p className="text-[11px] text-muted-foreground/70 font-arabic">
-              متصلة بالمالية · المهام · التقويم
+              {t('chat.connected')}
             </p>
           </div>
 
@@ -560,7 +565,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ onMessage }) => {
                     transition={{ duration: 0.8, repeat: Infinity, delay: i * 0.1 }}
                   />
                 ))}
-                <span className="text-xs text-jood-gold-600 font-arabic mr-1">تتحدث</span>
+                <span className="text-xs text-jood-gold-600 font-arabic mr-1">{t('chat.speaking')}</span>
               </motion.div>
             )}
           </AnimatePresence>
@@ -590,9 +595,9 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ onMessage }) => {
                     <span className="text-3xl font-bold text-white">ج</span>
                   </motion.div>
 
-                  <h2 className="text-2xl font-bold text-foreground font-arabic mb-1">مرحباً، أنا جود</h2>
+                  <h2 className="text-2xl font-bold text-foreground font-arabic mb-1">{t('chat.welcome.greet')}</h2>
                   <p className="text-base text-muted-foreground font-arabic mb-8 max-w-xs leading-relaxed">
-                    كيف أقدر أساعدك اليوم؟
+                    {t('chat.welcome.sub')}
                   </p>
 
                   {/* Category filter */}
@@ -706,18 +711,18 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ onMessage }) => {
                   dir="rtl"
                 >
                   <div className="flex items-center gap-2 bg-jood-gold-500/8 border border-jood-gold-300/40 rounded-2xl px-4 py-3 flex-wrap">
-                    <span className="text-sm text-muted-foreground font-arabic">تأكيد الإجراء:</span>
+                    <span className="text-sm text-muted-foreground font-arabic">{t('chat.confirm.title')}</span>
                     <Button size="sm" onClick={() => confirmAction('yes')}
                       className="bg-jood-teal-700 hover:bg-jood-teal-900 text-white rounded-xl h-9 px-4 text-sm font-arabic gap-1.5">
-                      <Check className="w-4 h-4" /> نعم
+                      <Check className="w-4 h-4" /> {t('chat.confirm.yes')}
                     </Button>
                     <Button size="sm" variant="outline" onClick={() => confirmAction('edit')}
                       className="rounded-xl h-9 px-4 text-sm font-arabic gap-1.5">
-                      <Edit3 className="w-4 h-4" /> تعديل
+                      <Edit3 className="w-4 h-4" /> {t('chat.confirm.edit')}
                     </Button>
                     <Button size="sm" variant="outline" onClick={() => confirmAction('no')}
                       className="rounded-xl h-9 px-4 text-sm font-arabic gap-1.5 text-destructive border-destructive/30 hover:bg-destructive/8">
-                      <X className="w-4 h-4" /> إلغاء
+                      <X className="w-4 h-4" /> {t('chat.confirm.no')}
                     </Button>
                   </div>
                 </motion.div>
@@ -754,8 +759,8 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ onMessage }) => {
                 onKeyDown={handleKeyDown}
                 placeholder={
                   awaitingConfirmation
-                    ? 'اكتب تعديلاتك أو استخدم الأزرار أعلاه…'
-                    : 'اكتبي لجود…'
+                    ? t('chat.input.edit')
+                    : t('chat.input.placeholder')
                 }
                 disabled={loading}
                 rows={1}
@@ -793,7 +798,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ onMessage }) => {
             </div>
 
             <p className="text-center text-xs text-muted-foreground/40 mt-2 font-arabic">
-              جود AI · GPT-5 · متوافق مع PDPL
+              {t('chat.footer.badge')}
             </p>
           </div>
         </div>

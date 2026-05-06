@@ -11,6 +11,7 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
+import { useLanguage } from '@/hooks/useLanguage';
 import { cn } from '@/lib/utils';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -57,6 +58,7 @@ interface AIRecommendationsProps {
 export const AIRecommendations: React.FC<AIRecommendationsProps> = ({ onNavigate }) => {
   const { user } = useAuth();
   const { toast } = useToast();
+  const { t } = useLanguage();
 
   const [items, setItems] = useState<Recommendation[]>([]);
   const [filter, setFilter] = useState<string>('all');
@@ -113,7 +115,7 @@ export const AIRecommendations: React.FC<AIRecommendationsProps> = ({ onNavigate
       .update({ acted_at: new Date().toISOString() }).eq('id', rec.id);
     setItems(prev => prev.map(r => r.id === rec.id ? { ...r, acted_at: new Date().toISOString() } : r));
     if (rec.cta_target && onNavigate) onNavigate(rec.cta_target);
-    toast({ title: 'جاري التنفيذ ✨', description: rec.title });
+    toast({ title: t('rec.toast.acting'), description: rec.title });
   };
 
   const restore = async (id: string) => {
@@ -160,9 +162,9 @@ export const AIRecommendations: React.FC<AIRecommendationsProps> = ({ onNavigate
       }
 
       await load();
-      toast({ title: 'توصيات جديدة 🧠', description: 'راجعي البطاقات الجديدة.' });
+      toast({ title: t('rec.toast.generated'), description: t('rec.toast.generated.desc') });
     } catch (err) {
-      toast({ title: 'تعذر التوليد', description: String(err), variant: 'destructive' });
+      toast({ title: t('rec.toast.failed'), description: String(err), variant: 'destructive' });
     } finally {
       setGenerating(false);
     }
@@ -176,10 +178,10 @@ export const AIRecommendations: React.FC<AIRecommendationsProps> = ({ onNavigate
         <div>
           <div className="flex items-center gap-2 mb-1">
             <Brain className="w-5 h-5 text-jood-gold-500" />
-            <h2 className="text-xl font-bold font-arabic">توصيات جود الذكية</h2>
+            <h2 className="text-xl font-bold font-arabic">{t('rec.title')}</h2>
           </div>
           <p className="text-xs text-muted-foreground font-arabic">
-            مقترحات شخصية مبنية على بياناتك — مراجعة مستمرة.
+            {t('rec.subtitle')}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -188,7 +190,7 @@ export const AIRecommendations: React.FC<AIRecommendationsProps> = ({ onNavigate
             onClick={() => setShowDismissed(v => !v)}
             className="font-arabic text-xs"
           >
-            {showDismissed ? 'إخفاء المتجاهلة' : 'إظهار المتجاهلة'}
+            {t(showDismissed ? 'rec.hide.dismissed' : 'rec.show.dismissed')}
           </Button>
           <Button
             onClick={generate} disabled={generating} size="sm"
@@ -198,7 +200,7 @@ export const AIRecommendations: React.FC<AIRecommendationsProps> = ({ onNavigate
               ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
               : <RefreshCcw className="w-3.5 h-3.5" />
             }
-            توليد جديد
+            {t('rec.generate')}
           </Button>
         </div>
       </div>
@@ -216,7 +218,7 @@ export const AIRecommendations: React.FC<AIRecommendationsProps> = ({ onNavigate
                 className="gap-1.5 px-3 py-1.5 rounded-lg text-xs font-arabic data-[state=active]:bg-jood-teal-900 data-[state=active]:text-white"
               >
                 <Icon className="w-3.5 h-3.5" />
-                {k.label}
+                {t('rec.cat.' + k.value)}
                 {n > 0 && (
                   <Badge variant="secondary" className="h-4 px-1 text-[9px] ml-0.5">
                     {n}
@@ -232,15 +234,15 @@ export const AIRecommendations: React.FC<AIRecommendationsProps> = ({ onNavigate
       {loading ? (
         <div className="text-center py-12 text-muted-foreground text-xs font-arabic">
           <Loader2 className="w-6 h-6 mx-auto mb-2 animate-spin opacity-40" />
-          جارٍ التحميل…
+          {t('rec.loading')}
         </div>
       ) : filtered.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center">
             <Sparkles className="w-10 h-10 mx-auto mb-3 text-muted-foreground/40" />
-            <p className="text-sm font-arabic text-muted-foreground mb-3">لا توصيات في هذه الفئة</p>
+            <p className="text-sm font-arabic text-muted-foreground mb-3">{t('rec.empty')}</p>
             <Button onClick={generate} size="sm" variant="outline" className="font-arabic">
-              <RefreshCcw className="w-3.5 h-3.5 ml-1" /> ولّدي توصيات
+              <RefreshCcw className="w-3.5 h-3.5 ml-1" /> {t('rec.empty.btn')}
             </Button>
           </CardContent>
         </Card>
@@ -277,7 +279,7 @@ export const AIRecommendations: React.FC<AIRecommendationsProps> = ({ onNavigate
                             <Icon className={cn('w-4 h-4', K.color)} />
                           </div>
                           <Badge variant="outline" className="font-arabic text-[10px]">
-                            {K.label}
+                            {t(('rec.cat.' + K.value) as string)}
                           </Badge>
                           {r.confidence != null && (
                             <span className={cn(
@@ -289,7 +291,7 @@ export const AIRecommendations: React.FC<AIRecommendationsProps> = ({ onNavigate
                           )}
                           {acted && (
                             <Badge className="bg-emerald-600 text-white text-[10px] font-arabic gap-0.5">
-                              <Check className="w-2.5 h-2.5" /> نُفّذت
+                              <Check className="w-2.5 h-2.5" /> {t('rec.acted')}
                             </Badge>
                           )}
                         </div>
@@ -331,7 +333,7 @@ export const AIRecommendations: React.FC<AIRecommendationsProps> = ({ onNavigate
                             onClick={() => restore(r.id)}
                             className="h-8 text-[11px] font-arabic text-jood-teal-700"
                           >
-                            استعادة
+                            {t('rec.restore')}
                           </Button>
                         )}
                       </div>

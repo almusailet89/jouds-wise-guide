@@ -239,7 +239,7 @@ const HabitsTracker: React.FC = () => {
         completed_date: todayStr,
       });
       if (error && !error.message.includes('duplicate')) {
-        toast({ title: 'خطأ', description: error.message, variant: 'destructive' });
+        toast({ title: t('hab.error'), description: error.message, variant: 'destructive' });
         return;
       }
     } else {

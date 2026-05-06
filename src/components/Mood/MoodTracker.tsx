@@ -91,7 +91,7 @@ const MoodTracker: React.FC = () => {
                 className="mt-4 p-3 rounded-xl bg-jood-teal-500/10 border border-jood-teal-500/20"
               >
                 <p className="text-sm font-arabic text-jood-teal-700">
-                  ✨ {lang === 'ar' ? 'تم تسجيل مزاجك. تذكّري أن كل يوم فرصة جديدة.' : 'Mood logged. Remember, every day is a new opportunity.'}
+                  ✨ {t('mood.logged')}
                 </p>
               </motion.div>
             )}
@@ -111,7 +111,7 @@ const MoodTracker: React.FC = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-2xl font-bold font-mono">{last7.length}</p>
-                <p className="text-xs text-muted-foreground font-arabic mt-0.5">{lang === 'ar' ? 'سجلات هذا الأسبوع' : 'Logs this week'}</p>
+                <p className="text-xs text-muted-foreground font-arabic mt-0.5">{t('mood.logs.week')}</p>
               </div>
               <Calendar className="h-7 w-7 text-jood-teal-500/60" />
             </div>
@@ -197,24 +197,24 @@ const MoodTracker: React.FC = () => {
       {/* AI Insights (static, contextual) */}
       <Card className="jood-card">
         <CardHeader>
-          <CardTitle className="text-base font-arabic">{lang === 'ar' ? 'رؤى جود' : 'Jood Insights'}</CardTitle>
+          <CardTitle className="text-base font-arabic">{t('mood.insights.title')}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-2.5">
           {dominant && (
             <div className="p-3 rounded-xl bg-jood-teal-500/8 border border-jood-teal-500/15">
               <p className="text-sm font-arabic text-foreground">
-                🔍 <strong>{lang === 'ar' ? 'نمط مكتشف:' : 'Pattern found:'}</strong> {lang === 'ar' ? `مزاجك السائد هذا الأسبوع كان "${dominant.ar}" ${dominant.emoji}` : `Your dominant mood this week was "${dominant.label}" ${dominant.emoji}`}
+                🔍 <strong>{t('mood.pattern.label')}</strong> {t('mood.pattern.body')} &quot;{lang === 'ar' ? dominant.ar : dominant.label}&quot; {dominant.emoji}
               </p>
             </div>
           )}
           <div className="p-3 rounded-xl bg-jood-gold-500/8 border border-jood-gold-500/15">
             <p className="text-sm font-arabic text-foreground">
-              💡 <strong>{lang === 'ar' ? 'توصية:' : 'Tip:'}</strong> {lang === 'ar' ? 'المزاج الإيجابي يرتبط بقرارات مالية أفضل. حاولي تسجيل مزاجك يومياً.' : 'Positive mood is linked to better financial decisions. Try logging daily.'}
+              💡 <strong>{t('mood.tip.label')}</strong> {t('mood.tip.body')}
             </p>
           </div>
           <div className="p-3 rounded-xl bg-muted/40 border border-border/40">
             <p className="text-sm font-arabic text-foreground">
-              📊 <strong>{lang === 'ar' ? 'اتجاه:' : 'Trend:'}</strong> {lang === 'ar' ? 'استمراري تسجيل مزاجك يساعد جود على تقديم توصيات مالية أكثر دقة.' : 'Consistent mood tracking helps Jood provide more accurate financial recommendations.'}
+              📊 <strong>{t('mood.trend.label')}</strong> {t('mood.trend.body')}
             </p>
           </div>
         </CardContent>
