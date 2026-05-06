@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import {
-  Sparkles, Volume2, RefreshCw, X, ArrowLeft,
+  Sparkles, Volume2, RefreshCw, X, ArrowLeft, ArrowRight,
   Bell, Wallet, BookHeart, Calendar, Lightbulb, Loader2,
 } from 'lucide-react';
 import { useDailyBrief, type BriefHighlight } from '@/hooks/useDailyBrief';
@@ -36,6 +36,7 @@ interface MorningBriefProps {
 export const MorningBrief: React.FC<MorningBriefProps> = ({ onActionClick }) => {
   const { t, dir, lang } = useLanguage();
   const { brief, loading, error, generate, markRead, markSpoken, dismiss } = useDailyBrief(lang);
+  const fa = lang === 'ar' ? 'font-arabic' : '';
   const { speakMessage, speaking } = useChat();
 
   // Mark as read when brief becomes visible
@@ -64,7 +65,7 @@ export const MorningBrief: React.FC<MorningBriefProps> = ({ onActionClick }) => 
       <Card className="p-6 bg-gradient-to-br from-jood-teal-700/5 via-card to-jood-gold-500/5 border-jood-gold-300/30">
         <div className="flex items-center gap-3 text-muted-foreground">
           <Loader2 className="w-4 h-4 animate-spin text-jood-gold-500" />
-          <span className="font-arabic text-sm">{t('brief.loading')}</span>
+          <span className={cn(fa, 'text-sm')}>{t('brief.loading')}</span>
         </div>
       </Card>
     );
@@ -118,7 +119,7 @@ export const MorningBrief: React.FC<MorningBriefProps> = ({ onActionClick }) => 
           <div className="relative z-10 flex items-center justify-between mb-3">
             <div className="flex items-center gap-2 text-jood-gold-300">
               <Sparkles className="w-4 h-4" />
-              <span className="font-arabic text-xs font-bold tracking-wide">{t('brief.label')}</span>
+              <span className={cn(fa, 'text-xs font-bold tracking-wide')}>{t('brief.label')}</span>
             </div>
             <div className="flex items-center gap-1">
               <Button
@@ -145,18 +146,18 @@ export const MorningBrief: React.FC<MorningBriefProps> = ({ onActionClick }) => 
 
           {/* Greeting */}
           <div className="relative z-10 mb-3">
-            <h2 className="font-arabic text-2xl md:text-3xl font-bold text-white leading-tight">
+            <h2 className={cn(fa, 'text-2xl md:text-3xl font-bold text-white leading-tight')}>
               {brief.greeting}
             </h2>
             {brief.meta?.hijri && (
-              <p className="text-xs text-jood-gold-300/80 font-arabic mt-1">
+              <p className={cn(fa, 'text-xs text-jood-gold-300/80 mt-1')}>
                 🌙 {brief.meta.hijri}
               </p>
             )}
           </div>
 
           {/* Content */}
-          <p className="relative z-10 font-arabic text-sm md:text-base text-white/90 leading-relaxed mb-4">
+          <p className={cn('relative z-10 text-sm md:text-base text-white/90 leading-relaxed mb-4', fa)}>
             {brief.content}
           </p>
 
@@ -173,8 +174,9 @@ export const MorningBrief: React.FC<MorningBriefProps> = ({ onActionClick }) => 
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: 0.1 * i }}
                     className={cn(
-                      'flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-arabic',
+                      'flex items-center gap-1.5 rounded-full px-3 py-1 text-xs',
                       'bg-white/10 backdrop-blur-sm border border-white/15 text-white',
+                      fa,
                     )}
                   >
                     <span className={cn('w-5 h-5 rounded-full flex items-center justify-center', colorCls)}>
@@ -192,10 +194,13 @@ export const MorningBrief: React.FC<MorningBriefProps> = ({ onActionClick }) => 
             {brief.suggested_action && (
               <button
                 onClick={onActionClick}
-                className="flex items-center gap-2 text-jood-gold-200 hover:text-jood-gold-100 font-arabic text-sm group transition"
+                className={cn('flex items-center gap-2 text-jood-gold-200 hover:text-jood-gold-100 text-sm group transition', fa)}
               >
                 <span>{brief.suggested_action}</span>
-                <ArrowLeft className="w-3.5 h-3.5 group-hover:-translate-x-1 transition-transform" />
+                {lang === 'ar'
+                  ? <ArrowLeft className="w-3.5 h-3.5 group-hover:-translate-x-1 transition-transform" />
+                  : <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
+                }
               </button>
             )}
 
@@ -204,7 +209,9 @@ export const MorningBrief: React.FC<MorningBriefProps> = ({ onActionClick }) => 
               disabled={speaking || loading}
               size="sm"
               className={cn(
-                'mr-auto gap-1.5 font-arabic',
+                lang === 'ar' ? 'mr-auto' : 'ml-auto',
+                'gap-1.5',
+                fa,
                 'bg-jood-gold-500/90 hover:bg-jood-gold-400 text-jood-teal-900 font-bold',
                 'shadow-md',
               )}
