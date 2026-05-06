@@ -3,7 +3,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { PortfolioHolding, useFinancialDashboard } from '@/hooks/useFinancialDashboard';
-import { Trash2, Edit, TrendingUp, TrendingDown } from 'lucide-react';
+import { Trash2, TrendingUp, TrendingDown } from 'lucide-react';
+import { useLanguage } from '@/hooks/useLanguage';
 
 interface PortfolioTableProps {
   holdings: PortfolioHolding[];
@@ -11,10 +12,11 @@ interface PortfolioTableProps {
 
 export const PortfolioTable: React.FC<PortfolioTableProps> = ({ holdings }) => {
   const { deletePortfolioHolding } = useFinancialDashboard();
+  const { t, lang, dir } = useLanguage();
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const handleDelete = async (id: string) => {
-    if (confirm('Are you sure you want to delete this holding?')) {
+    if (confirm(t('port.delete.confirm'))) {
       setDeletingId(id);
       try {
         await deletePortfolioHolding(id);
@@ -28,45 +30,48 @@ export const PortfolioTable: React.FC<PortfolioTableProps> = ({ holdings }) => {
 
   const getAssetIcon = (assetType: string) => {
     switch (assetType) {
-      case 'stock':
-        return '📈';
-      case 'crypto':
-        return '₿';
-      case 'real_estate':
-        return '🏠';
-      default:
-        return '📊';
+      case 'stock':       return '📈';
+      case 'crypto':      return '₿';
+      case 'real_estate': return '🏠';
+      default:            return '📊';
     }
   };
 
+  const getAssetTypeLabel = (assetType: string) => {
+    const key = `port.type.${assetType}`;
+    const translated = t(key);
+    // Fallback: humanise the raw value if key not found
+    return translated !== key ? translated : assetType.replace('_', ' ');
+  };
+
   const formatCurrency = (amount: number, currency: string) => {
-    return `${amount.toLocaleString()} ${currency}`;
+    return `${amount.toLocaleString('en')} ${currency}`;
   };
 
   const calculatePnL = (holding: PortfolioHolding) => {
     const currentPrice = holding.current_price || holding.avg_price || 0;
     const buyPrice = holding.avg_price || 0;
     const quantity = holding.quantity || 1;
-    
     const pnl = (currentPrice - buyPrice) * quantity;
     const pnlPercent = buyPrice > 0 ? ((currentPrice - buyPrice) / buyPrice) * 100 : 0;
-    
     return { pnl, pnlPercent };
   };
 
+  const dtLocale = lang === 'ar' ? 'ar-SA' : 'en-US';
+
   return (
-    <div className="rounded-md border border-border/50 overflow-hidden">
+    <div className="rounded-md border border-border/50 overflow-hidden" dir={dir}>
       <Table>
         <TableHeader>
           <TableRow className="bg-muted/30">
-            <TableHead className="font-semibold">Asset</TableHead>
-            <TableHead className="font-semibold">Type</TableHead>
-            <TableHead className="font-semibold">Quantity</TableHead>
-            <TableHead className="font-semibold">Buy Price</TableHead>
-            <TableHead className="font-semibold">Current Price</TableHead>
-            <TableHead className="font-semibold">P/L</TableHead>
-            <TableHead className="font-semibold">Last Updated</TableHead>
-            <TableHead className="font-semibold w-20">Actions</TableHead>
+            <TableHead className="font-semibold font-arabic">{t('port.col.asset')}</TableHead>
+            <TableHead className="font-semibold font-arabic">{t('port.col.type')}</TableHead>
+            <TableHead className="font-semibold font-arabic">{t('port.col.qty')}</TableHead>
+            <TableHead className="font-semibold font-arabic">{t('port.col.buy')}</TableHead>
+            <TableHead className="font-semibold font-arabic">{t('port.col.current')}</TableHead>
+            <TableHead className="font-semibold font-arabic">{t('port.col.pl')}</TableHead>
+            <TableHead className="font-semibold font-arabic">{t('port.col.updated')}</TableHead>
+            <TableHead className="font-semibold font-arabic w-20">{t('port.col.actions')}</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -75,8 +80,8 @@ export const PortfolioTable: React.FC<PortfolioTableProps> = ({ holdings }) => {
               <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                 <div className="flex flex-col items-center gap-2">
                   <TrendingUp className="h-12 w-12 opacity-50" />
-                  <p className="font-medium">No holdings yet</p>
-                  <p className="text-sm">Add your first investment to start tracking</p>
+                  <p className="font-medium font-arabic">{t('port.empty.title')}</p>
+                  <p className="text-sm font-arabic">{t('port.empty.hint')}</p>
                 </div>
               </TableCell>
             </TableRow>
@@ -95,7 +100,7 @@ export const PortfolioTable: React.FC<PortfolioTableProps> = ({ holdings }) => {
                           {holding.symbol || holding.address || 'Unknown'}
                         </div>
                         {holding.property_type && (
-                          <div className="text-sm text-muted-foreground">
+                          <div className="text-sm text-muted-foreground font-arabic">
                             {holding.property_type}
                           </div>
                         )}
@@ -103,13 +108,14 @@ export const PortfolioTable: React.FC<PortfolioTableProps> = ({ holdings }) => {
                     </div>
                   </TableCell>
                   <TableCell>
-                    <Badge variant="outline" className="capitalize">
-                      {holding.asset_type.replace('_', ' ')}
+                    <Badge variant="outline" className="font-arabic capitalize">
+                      {getAssetTypeLabel(holding.asset_type)}
                     </Badge>
                   </TableCell>
                   <TableCell>
-                    {holding.asset_type === 'real_estate' ? '1 property' : 
-                     (holding.quantity || 0).toLocaleString()}
+                    {holding.asset_type === 'real_estate'
+                      ? t('port.property')
+                      : (holding.quantity || 0).toLocaleString('en')}
                   </TableCell>
                   <TableCell>
                     {formatCurrency(holding.avg_price || 0, holding.currency)}
@@ -119,7 +125,9 @@ export const PortfolioTable: React.FC<PortfolioTableProps> = ({ holdings }) => {
                       {formatCurrency(holding.current_price || holding.avg_price || 0, holding.currency)}
                       {holding.current_price && holding.current_price !== holding.avg_price && (
                         <div className={`text-xs ${isPositive ? 'text-green-600' : 'text-red-600'}`}>
-                          {isPositive ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+                          {isPositive
+                            ? <TrendingUp className="w-3 h-3" />
+                            : <TrendingDown className="w-3 h-3" />}
                         </div>
                       )}
                     </div>
@@ -133,9 +141,9 @@ export const PortfolioTable: React.FC<PortfolioTableProps> = ({ holdings }) => {
                     </div>
                   </TableCell>
                   <TableCell className="text-xs text-muted-foreground">
-                    {holding.last_updated ? 
-                      new Date(holding.last_updated).toLocaleDateString() : 
-                      'Never'}
+                    {holding.last_updated
+                      ? new Date(holding.last_updated).toLocaleDateString(dtLocale)
+                      : t('port.never')}
                   </TableCell>
                   <TableCell>
                     <div className="flex gap-1">

@@ -825,6 +825,25 @@ const strings: Record<Lang, Record<string, string>> = {
     'ob.toast.fail':       'تعذر الحفظ',
     'ob.toast.req.title':  'أكملي البيانات',
     'ob.toast.req.desc':   'الحقول المطلوبة فارغة',
+
+    // Portfolio Table
+    'port.col.asset':    'الأصل',
+    'port.col.type':     'النوع',
+    'port.col.qty':      'الكمية',
+    'port.col.buy':      'سعر الشراء',
+    'port.col.current':  'السعر الحالي',
+    'port.col.pl':       'الربح/الخسارة',
+    'port.col.updated':  'آخر تحديث',
+    'port.col.actions':  'إجراءات',
+    'port.empty.title':  'لا توجد أصول بعد',
+    'port.empty.hint':   'أضيفي أول استثمار لك وابدئي التتبع',
+    'port.property':     'عقار واحد',
+    'port.never':        'لم يُحدَّث',
+    'port.delete.confirm': 'هل أنت متأكدة من حذف هذا الأصل؟',
+    'port.type.stock':       'سهم',
+    'port.type.crypto':      'تشفير',
+    'port.type.real_estate': 'عقار',
+    'port.type.other':       'أخرى',
   },
 
   en: {
@@ -1650,6 +1669,25 @@ const strings: Record<Lang, Record<string, string>> = {
     'ob.toast.fail':       'Save failed',
     'ob.toast.req.title':  'Complete the fields',
     'ob.toast.req.desc':   'Required fields are empty',
+
+    // Portfolio Table
+    'port.col.asset':    'Asset',
+    'port.col.type':     'Type',
+    'port.col.qty':      'Quantity',
+    'port.col.buy':      'Buy Price',
+    'port.col.current':  'Current Price',
+    'port.col.pl':       'P/L',
+    'port.col.updated':  'Last Updated',
+    'port.col.actions':  'Actions',
+    'port.empty.title':  'No holdings yet',
+    'port.empty.hint':   'Add your first investment to start tracking',
+    'port.property':     '1 property',
+    'port.never':        'Never',
+    'port.delete.confirm': 'Are you sure you want to delete this holding?',
+    'port.type.stock':       'Stock',
+    'port.type.crypto':      'Crypto',
+    'port.type.real_estate': 'Real Estate',
+    'port.type.other':       'Other',
   },
 };
 
