@@ -8,30 +8,29 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
+import { useLanguage } from '@/hooks/useLanguage';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
-// 12 default memory categories. Aligned with the DB taxonomy + edge function.
-const CATEGORIES: Array<{
+// Category icons and colors only — labels/hints are computed inside component via t()
+const CATEGORY_META: Array<{
   key: string;
-  label: string;
-  hint: string;
   icon: React.ComponentType<{ className?: string }>;
   color: string;
 }> = [
-  { key: 'identity',      label: 'الهوية',          hint: 'الاسم، العمر، المدينة',          icon: User,         color: 'text-blue-600 bg-blue-500/10 border-blue-500/30' },
-  { key: 'work',          label: 'العمل',           hint: 'الوظيفة، الجهة، ساعات العمل',     icon: Briefcase,    color: 'text-indigo-600 bg-indigo-500/10 border-indigo-500/30' },
-  { key: 'family',        label: 'العائلة',         hint: 'الزوج/ة، الأبناء، الأهل',         icon: Users,        color: 'text-rose-600 bg-rose-500/10 border-rose-500/30' },
-  { key: 'financial',     label: 'المالية',         hint: 'الدخل، الأهداف، العملة',          icon: Wallet,       color: 'text-emerald-600 bg-emerald-500/10 border-emerald-500/30' },
-  { key: 'health',        label: 'الصحة',           hint: 'الحالة، الأدوية، اللياقة',         icon: HeartPulse,   color: 'text-red-600 bg-red-500/10 border-red-500/30' },
-  { key: 'religion',      label: 'الالتزام الديني',  hint: 'الصلاة، الصيام، التزاماتك',       icon: Moon,         color: 'text-jood-teal-700 bg-jood-teal-500/10 border-jood-teal-500/30' },
-  { key: 'routine',       label: 'الروتين اليومي',   hint: 'النوم، الاستيقاظ، الجدول',         icon: Clock,        color: 'text-amber-600 bg-amber-500/10 border-amber-500/30' },
-  { key: 'goals',         label: 'الأهداف',         hint: 'قصيرة وطويلة المدى',              icon: Target,       color: 'text-violet-600 bg-violet-500/10 border-violet-500/30' },
-  { key: 'interests',     label: 'الاهتمامات',      hint: 'هواياتك، ما تحبين',                icon: Sparkles,     color: 'text-pink-600 bg-pink-500/10 border-pink-500/30' },
-  { key: 'relationships', label: 'العلاقات',        hint: 'الأشخاص المهمون',                 icon: Link2,        color: 'text-cyan-600 bg-cyan-500/10 border-cyan-500/30' },
-  { key: 'preferences',   label: 'التفضيلات',       hint: 'أسلوب التواصل، الرسمية',           icon: MessageSquare,color: 'text-jood-gold-700 bg-jood-gold-500/10 border-jood-gold-500/30' },
-  { key: 'pain_points',   label: 'التحديات',        hint: 'ما تريدين تحسينه',                 icon: AlertCircle,  color: 'text-orange-600 bg-orange-500/10 border-orange-500/30' },
+  { key: 'identity',      icon: User,          color: 'text-blue-600 bg-blue-500/10 border-blue-500/30' },
+  { key: 'work',          icon: Briefcase,      color: 'text-indigo-600 bg-indigo-500/10 border-indigo-500/30' },
+  { key: 'family',        icon: Users,          color: 'text-rose-600 bg-rose-500/10 border-rose-500/30' },
+  { key: 'financial',     icon: Wallet,         color: 'text-emerald-600 bg-emerald-500/10 border-emerald-500/30' },
+  { key: 'health',        icon: HeartPulse,     color: 'text-red-600 bg-red-500/10 border-red-500/30' },
+  { key: 'religion',      icon: Moon,           color: 'text-jood-teal-700 bg-jood-teal-500/10 border-jood-teal-500/30' },
+  { key: 'routine',       icon: Clock,          color: 'text-amber-600 bg-amber-500/10 border-amber-500/30' },
+  { key: 'goals',         icon: Target,         color: 'text-violet-600 bg-violet-500/10 border-violet-500/30' },
+  { key: 'interests',     icon: Sparkles,       color: 'text-pink-600 bg-pink-500/10 border-pink-500/30' },
+  { key: 'relationships', icon: Link2,          color: 'text-cyan-600 bg-cyan-500/10 border-cyan-500/30' },
+  { key: 'preferences',   icon: MessageSquare,  color: 'text-jood-gold-700 bg-jood-gold-500/10 border-jood-gold-500/30' },
+  { key: 'pain_points',   icon: AlertCircle,    color: 'text-orange-600 bg-orange-500/10 border-orange-500/30' },
 ];
 
 interface TaxonomyRow {
@@ -45,13 +44,21 @@ interface TaxonomyRow {
 const MemoryTaxonomyPanel: React.FC<{ onMemoryAdded?: () => void }> = ({ onMemoryAdded }) => {
   const { user } = useAuth();
   const { toast } = useToast();
+  const { t, dir } = useLanguage();
   const [rows, setRows] = useState<TaxonomyRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [draft, setDraft] = useState('');
   const [saving, setSaving] = useState(false);
 
-  // ── Load taxonomy ──────────────────────────────────────────────────────
+  // Build translated categories inside component
+  const CATEGORIES = CATEGORY_META.map(m => ({
+    ...m,
+    label: t(`tax.cat.${m.key}` as any),
+    hint:  t(`tax.cat.${m.key}.hint` as any),
+  }));
+
+  // ── Load taxonomy ──────────────────────────────────────────────────────────
   const load = async () => {
     if (!user) return;
     setLoading(true);
@@ -62,7 +69,7 @@ const MemoryTaxonomyPanel: React.FC<{ onMemoryAdded?: () => void }> = ({ onMemor
 
   useEffect(() => { load(); }, [user?.id]);
 
-  // ── Save a new fact under a category ───────────────────────────────────
+  // ── Save a new fact under a category ──────────────────────────────────────
   const saveFact = async (categoryKey: string) => {
     if (!user || !draft.trim()) return;
     setSaving(true);
@@ -72,27 +79,27 @@ const MemoryTaxonomyPanel: React.FC<{ onMemoryAdded?: () => void }> = ({ onMemor
       category: categoryKey,
       content: draft.trim().slice(0, 400),
       importance: 0.7,
-      confidence: 1.0,   // user-entered = full confidence
+      confidence: 1.0,
       is_template: false,
       active: true,
     });
     setSaving(false);
     if (error) {
-      toast({ title: 'فشل الحفظ', description: error.message, variant: 'destructive' });
+      toast({ title: t('tax.save.error'), description: error.message, variant: 'destructive' });
       return;
     }
     setDraft('');
     setActiveCategory(null);
     await load();
     onMemoryAdded?.();
-    toast({ title: 'تم الحفظ', description: 'جود تتذكر هذي المعلومة الحين' });
+    toast({ title: t('tax.save.success'), description: t('tax.save.success.desc') });
   };
 
-  // ── Render ─────────────────────────────────────────────────────────────
+  // ── Render ─────────────────────────────────────────────────────────────────
   if (loading) {
     return (
       <div className="p-4 text-center text-xs text-muted-foreground font-arabic">
-        تحميل التصنيفات...
+        {t('tax.loading')}
       </div>
     );
   }
@@ -107,18 +114,19 @@ const MemoryTaxonomyPanel: React.FC<{ onMemoryAdded?: () => void }> = ({ onMemor
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       className="space-y-4 p-4 rounded-2xl bg-gradient-to-br from-jood-teal-500/5 to-jood-gold-500/5 border border-border/30"
+      dir={dir}
     >
       {/* Header + progress */}
       <div className="flex items-center justify-between gap-3">
         <div>
-          <h3 className="font-arabic font-semibold text-sm">معرفة جود عنكِ</h3>
+          <h3 className="font-arabic font-semibold text-sm">{t('tax.title')}</h3>
           <p className="text-xs text-muted-foreground font-arabic mt-0.5">
-            كل ما تشاركينه معها يجعل ردودها أدق وأسرع
+            {t('tax.subtitle')}
           </p>
         </div>
         <div className="text-left">
           <div className="text-lg font-bold text-jood-teal-700">{filledCount}/{totalCount}</div>
-          <div className="text-[10px] text-muted-foreground font-arabic">{pct}% مكتمل</div>
+          <div className="text-[10px] text-muted-foreground font-arabic">{pct}{t('tax.pct')}</div>
         </div>
       </div>
 
@@ -192,7 +200,7 @@ const MemoryTaxonomyPanel: React.FC<{ onMemoryAdded?: () => void }> = ({ onMemor
                       className="h-7 px-2 text-[10px] font-arabic gap-1 bg-jood-teal-500 hover:bg-jood-teal-600 text-white flex-1"
                     >
                       <Plus className="w-3 h-3" />
-                      {saving ? 'يحفظ' : 'إضافة'}
+                      {saving ? t('tax.saving') : t('tax.add')}
                     </Button>
                     <Button
                       size="sm"
@@ -200,7 +208,7 @@ const MemoryTaxonomyPanel: React.FC<{ onMemoryAdded?: () => void }> = ({ onMemor
                       onClick={() => { setActiveCategory(null); setDraft(''); }}
                       className="h-7 px-2 text-[10px] font-arabic"
                     >
-                      إلغاء
+                      {t('tax.cancel')}
                     </Button>
                   </div>
                 </motion.div>
@@ -213,7 +221,7 @@ const MemoryTaxonomyPanel: React.FC<{ onMemoryAdded?: () => void }> = ({ onMemor
       {/* Tip */}
       {filledCount < totalCount && (
         <p className="text-[10px] text-muted-foreground font-arabic text-center pt-1 border-t border-border/20">
-          💡 جود تتعلم منكِ تلقائياً أثناء المحادثة — أو املئيها هنا للبدء بسرعة
+          {t('tax.tip')}
         </p>
       )}
     </motion.div>

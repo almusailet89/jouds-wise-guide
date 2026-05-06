@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
+import { useLanguage } from '@/hooks/useLanguage';
 import { cn } from '@/lib/utils';
 import {
   CheckCircle2, Circle, ExternalLink, ChevronDown, ChevronUp,
@@ -158,11 +159,11 @@ const INTEGRATIONS: Integration[] = [
   },
 ];
 
-const CATEGORY_LABELS: Record<string, { ar: string; icon: React.ElementType }> = {
-  communication: { ar: 'التواصل',      icon: MessageSquare },
-  calendar:      { ar: 'التقويم',      icon: Calendar },
-  productivity:  { ar: 'الإنتاجية',   icon: Zap },
-  finance:       { ar: 'المالية',      icon: Briefcase },
+const CATEGORY_ICONS: Record<string, React.ElementType> = {
+  communication: MessageSquare,
+  calendar:      Calendar,
+  productivity:  Zap,
+  finance:       Briefcase,
 };
 
 const STORAGE_KEY = 'jood.integrations';
@@ -180,8 +181,11 @@ const IntegrationCard: React.FC<{
 }> = ({ integration, connected, apiKey, onConnect, onDisconnect, onKeyChange, notifEnabled, onToggleNotif }) => {
   const [expanded, setExpanded] = useState(false);
   const [inputVal, setInputVal] = useState(apiKey);
+  const { t, lang } = useLanguage();
 
   const isComingSoon = integration.authType === 'coming_soon';
+  const displayName = lang === 'ar' ? integration.nameAr : integration.name;
+  const displayDesc = lang === 'ar' ? integration.descAr : integration.description;
 
   return (
     <motion.div
@@ -202,11 +206,11 @@ const IntegrationCard: React.FC<{
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <span className="font-semibold text-sm text-foreground font-arabic">{integration.nameAr}</span>
+            <span className="font-semibold text-sm text-foreground font-arabic">{displayName}</span>
             {connected && <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" />}
-            {isComingSoon && <Badge variant="secondary" className="text-[10px] font-arabic">قريباً</Badge>}
+            {isComingSoon && <Badge variant="secondary" className="text-[10px] font-arabic">{t('integr.coming.soon')}</Badge>}
           </div>
-          <p className="text-xs text-muted-foreground font-arabic mt-0.5 truncate">{integration.descAr}</p>
+          <p className="text-xs text-muted-foreground font-arabic mt-0.5 truncate">{displayDesc}</p>
         </div>
 
         <div className="flex items-center gap-2 flex-shrink-0">
@@ -233,7 +237,7 @@ const IntegrationCard: React.FC<{
                 else setExpanded(!expanded);
               }}
             >
-              {connected ? 'فصل' : integration.authType === 'apikey' ? 'ربط' : 'تسجيل دخول'}
+              {connected ? t('integr.btn.disconnect') : integration.authType === 'apikey' ? t('integr.btn.connect') : t('integr.btn.login')}
             </Button>
           )}
           <button
@@ -250,7 +254,7 @@ const IntegrationCard: React.FC<{
         <div className="px-4 pb-4 border-t border-border/20 pt-3 space-y-3">
           {/* Capabilities */}
           <div>
-            <p className="text-[11px] font-arabic text-muted-foreground mb-2">القدرات المتاحة:</p>
+            <p className="text-[11px] font-arabic text-muted-foreground mb-2">{t('integr.capabilities')}</p>
             <div className="flex flex-wrap gap-1.5">
               {integration.capabilities.map(cap => (
                 <span key={cap} className="text-[11px] font-arabic px-2 py-0.5 bg-muted/60 rounded-full text-foreground/70">
@@ -269,7 +273,7 @@ const IntegrationCard: React.FC<{
                   type="password"
                   value={inputVal}
                   onChange={e => { setInputVal(e.target.value); onKeyChange(integration.id, e.target.value); }}
-                  placeholder="أدخل المفتاح..."
+                  placeholder={t('integr.key.placeholder')}
                   className="text-sm font-mono h-9"
                   dir="ltr"
                 />
@@ -279,7 +283,7 @@ const IntegrationCard: React.FC<{
                   className="h-9 bg-jood-teal-900 hover:bg-jood-teal-800 text-white text-xs font-arabic"
                   disabled={!inputVal.trim()}
                 >
-                  ربط
+                  {t('integr.btn.connect')}
                 </Button>
               </div>
             </div>
@@ -290,7 +294,7 @@ const IntegrationCard: React.FC<{
             <div className="flex items-start gap-2 p-2.5 bg-muted/40 rounded-xl">
               <Info className="w-3.5 h-3.5 text-muted-foreground mt-0.5 flex-shrink-0" />
               <p className="text-[11px] font-arabic text-muted-foreground leading-relaxed">
-                ستُعاد توجيهك لتسجيل الدخول بحسابك. بعد الموافقة، ستُربط جود تلقائياً.
+                {t('integr.oauth.hint')}
               </p>
             </div>
           )}
@@ -299,7 +303,7 @@ const IntegrationCard: React.FC<{
           {isComingSoon && (
             <div className="flex items-center gap-2 text-xs font-arabic text-muted-foreground">
               <Settings2 className="w-3.5 h-3.5" />
-              قيد التطوير — سيكون متاحاً قريباً
+              {t('integr.dev.msg')}
             </div>
           )}
 
@@ -308,9 +312,9 @@ const IntegrationCard: React.FC<{
             <div className="flex items-center gap-2 p-2.5 bg-emerald-500/5 rounded-xl border border-emerald-500/20">
               <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
               <div className="flex-1">
-                <p className="text-xs font-arabic text-emerald-600 font-semibold">مرتبط بنجاح</p>
+                <p className="text-xs font-arabic text-emerald-600 font-semibold">{t('integr.success')}</p>
                 <p className="text-[10px] font-arabic text-muted-foreground mt-0.5">
-                  الإشعارات {notifEnabled ? 'مفعّلة' : 'معطّلة'} — يمكنك تغييرها من الزر أعلاه
+                  {t('notif.types.title')} {notifEnabled ? t('integr.notif.on') : t('integr.notif.off')} {t('integr.notif.hint')}
                 </p>
               </div>
             </div>
@@ -324,6 +328,7 @@ const IntegrationCard: React.FC<{
 // ─── Main Component ───────────────────────────────────────────────────────────
 const IntegrationsHub: React.FC = () => {
   const { toast } = useToast();
+  const { t, lang } = useLanguage();
   const [activeCategory, setActiveCategory] = useState<string>('all');
 
   // Persisted state: { [id]: { connected, apiKey, notifEnabled } }
@@ -344,26 +349,26 @@ const IntegrationsHub: React.FC = () => {
     const integration = INTEGRATIONS.find(i => i.id === id);
     if (!integration) return;
 
+    const displayName = lang === 'ar' ? integration.nameAr : integration.name;
     if (integration.authType === 'oauth') {
-      // Real OAuth would redirect — for now simulate with toast + mock connection
-      toast({ title: `جاري الاتصال بـ ${integration.nameAr}…`, description: 'ستُعاد التوجيه لتسجيل الدخول.' });
-      // Simulate successful OAuth after 1.5s (in production this would be a real redirect)
+      toast({ title: `${displayName}…` });
       setTimeout(() => {
         save({ ...states, [id]: { connected: true, apiKey: '', notifEnabled: true } });
-        toast({ title: `✓ تم ربط ${integration.nameAr}`, description: 'جود جاهزة للتكامل الآن.' });
+        toast({ title: `✓ ${t('integr.success')} — ${displayName}` });
       }, 1500);
     } else {
       const cur = get(id);
       if (!cur.apiKey.trim()) return;
       save({ ...states, [id]: { ...cur, connected: true } });
-      toast({ title: `✓ تم ربط ${integration?.nameAr}` });
+      toast({ title: `✓ ${t('integr.success')} — ${displayName}` });
     }
   };
 
   const handleDisconnect = (id: string) => {
     const integration = INTEGRATIONS.find(i => i.id === id);
+    const displayName = integration ? (lang === 'ar' ? integration.nameAr : integration.name) : '';
     save({ ...states, [id]: { connected: false, apiKey: '', notifEnabled: true } });
-    toast({ title: `تم فصل ${integration?.nameAr}`, variant: 'default' });
+    toast({ title: `${t('integr.btn.disconnect')} — ${displayName}`, variant: 'default' });
   };
 
   const handleKeyChange = (id: string, key: string) => {
@@ -388,14 +393,14 @@ const IntegrationsHub: React.FC = () => {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="font-bold text-foreground font-arabic text-base">التكاملات والاتصالات</h3>
+          <h3 className="font-bold text-foreground font-arabic text-base">{t('integr.title')}</h3>
           <p className="text-xs text-muted-foreground font-arabic mt-0.5">
-            اربط جود بتطبيقاتك المفضّلة لتجربة سكرتيرة متكاملة
+            {t('integr.subtitle')}
           </p>
         </div>
         {connectedCount > 0 && (
           <Badge className="bg-jood-teal-900/10 text-jood-teal-700 border-jood-teal-700/20 font-arabic text-xs">
-            {connectedCount} مرتبط
+            {connectedCount} {t('integr.connected')}
           </Badge>
         )}
       </div>
@@ -403,8 +408,8 @@ const IntegrationsHub: React.FC = () => {
       {/* Category filter */}
       <div className="flex gap-1.5 flex-wrap">
         {categories.map(cat => {
-          const info = cat === 'all' ? { ar: 'الكل', icon: Globe } : CATEGORY_LABELS[cat];
-          const Icon = info?.icon ?? Globe;
+          const Icon = cat === 'all' ? Globe : (CATEGORY_ICONS[cat] ?? Globe);
+          const label = cat === 'all' ? t('integr.cat.all') : t(`integr.cat.${cat}` as any);
           return (
             <button
               key={cat}
@@ -417,7 +422,7 @@ const IntegrationsHub: React.FC = () => {
               )}
             >
               <Icon className="w-3.5 h-3.5" />
-              {cat === 'all' ? 'الكل' : CATEGORY_LABELS[cat]?.ar ?? cat}
+              {label}
             </button>
           );
         })}
@@ -447,8 +452,7 @@ const IntegrationsHub: React.FC = () => {
       <div className="flex items-start gap-2 p-3 bg-muted/30 rounded-xl border border-border/20">
         <Info className="w-3.5 h-3.5 text-muted-foreground mt-0.5 flex-shrink-0" />
         <p className="text-[11px] font-arabic text-muted-foreground leading-relaxed">
-          بيانات التكامل مشفّرة ومحمية. لن تصل جود إلى أي معلومات دون إذنك الصريح.
-          OAuth tokens تُخزَّن بأمان ولا تُشارَك مع أطراف خارجية.
+          {t('integr.privacy')}
         </p>
       </div>
     </div>

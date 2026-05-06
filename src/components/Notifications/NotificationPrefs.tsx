@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
+import { useLanguage } from '@/hooks/useLanguage';
 import { cn } from '@/lib/utils';
 import {
   Bell, BellOff, Smartphone, Mail, MessageSquare,
@@ -50,19 +51,21 @@ const DEFAULT_PREFS: NotifPrefs = {
   frequency: 'instant',
 };
 
-const CHANNEL_CONFIG: { key: keyof NotifPrefs['channels']; label: string; icon: React.ElementType; desc: string }[] = [
-  { key: 'daily_brief',      label: 'الموجز اليومي',       icon: Zap,         desc: 'ملخص صباحي يومي من جود' },
-  { key: 'prayer_times',     label: 'أوقات الصلاة',        icon: Clock,       desc: 'تذكير قبل كل صلاة بـ 10 دقائق' },
-  { key: 'task_reminders',   label: 'تذكيرات المهام',      icon: CheckSquare, desc: 'حين يقترب موعد مهمة' },
-  { key: 'habit_reminders',  label: 'تذكيرات العادات',     icon: Heart,       desc: 'تذكير يومي لتسجيل العادات' },
-  { key: 'financial_alerts', label: 'تنبيهات مالية',       icon: TrendingUp,  desc: 'تجاوز الميزانية أو مصروف غير معتاد' },
-  { key: 'meeting_reminders',label: 'تذكيرات الاجتماعات',  icon: Calendar,    desc: 'قبل 15 دقيقة من كل موعد' },
-  { key: 'portfolio_updates',label: 'تحديثات المحفظة',     icon: TrendingUp,  desc: 'تغيرات كبيرة في أسعار الأسهم' },
-  { key: 'mood_checkins',    label: 'تسجيل المزاج',        icon: Heart,       desc: 'تذكير مسائي لتسجيل كيف أمضيت يومك' },
+// Channel icons only — labels/descs computed inside component via t()
+const CHANNEL_ICONS: { key: keyof NotifPrefs['channels']; icon: React.ElementType }[] = [
+  { key: 'daily_brief',       icon: Zap         },
+  { key: 'prayer_times',      icon: Clock       },
+  { key: 'task_reminders',    icon: CheckSquare },
+  { key: 'habit_reminders',   icon: Heart       },
+  { key: 'financial_alerts',  icon: TrendingUp  },
+  { key: 'meeting_reminders', icon: Calendar    },
+  { key: 'portfolio_updates', icon: TrendingUp  },
+  { key: 'mood_checkins',     icon: Heart       },
 ];
 
 const NotificationPrefs: React.FC = () => {
   const { toast } = useToast();
+  const { t, dir } = useLanguage();
   const [prefs, setPrefs] = useState<NotifPrefs>(() => {
     try { return { ...DEFAULT_PREFS, ...JSON.parse(localStorage.getItem(PREFS_KEY) || '{}') }; }
     catch { return DEFAULT_PREFS; }
@@ -73,6 +76,14 @@ const NotificationPrefs: React.FC = () => {
     if ('Notification' in window) setPushPermission(Notification.permission);
   }, []);
 
+  // Build translated channel config inside component
+  const CHANNEL_CONFIG = CHANNEL_ICONS.map(({ key, icon }) => ({
+    key,
+    icon,
+    label: t(`notif.ch.${key}` as any),
+    desc:  t(`notif.ch.${key}.desc` as any),
+  }));
+
   const save = (next: NotifPrefs) => {
     setPrefs(next);
     localStorage.setItem(PREFS_KEY, JSON.stringify(next));
@@ -80,20 +91,19 @@ const NotificationPrefs: React.FC = () => {
 
   const requestPush = async () => {
     if (!('Notification' in window)) {
-      toast({ title: 'المتصفح لا يدعم الإشعارات', variant: 'destructive' }); return;
+      toast({ title: t('notif.no.support'), variant: 'destructive' }); return;
     }
     const perm = await Notification.requestPermission();
     setPushPermission(perm);
     if (perm === 'granted') {
       save({ ...prefs, pushEnabled: true });
-      toast({ title: '✓ إشعارات الجهاز مفعّلة', description: 'ستصلك تنبيهات جود مباشرة.' });
-      // Show a test notification
+      toast({ title: t('notif.push.success'), description: t('notif.push.success.desc') });
       new Notification('جود AI 🌟', {
-        body: 'الإشعارات تعمل بنجاح! أنا هنا لمساعدتك.',
+        body: t('notif.push.success.desc'),
         icon: '/favicon.ico',
       });
     } else {
-      toast({ title: 'تم رفض الإذن', description: 'فعّل الإشعارات من إعدادات المتصفح.', variant: 'destructive' });
+      toast({ title: t('notif.push.denied.toast'), description: t('notif.push.denied.desc'), variant: 'destructive' });
     }
   };
 
@@ -111,19 +121,21 @@ const NotificationPrefs: React.FC = () => {
   const activeCount = Object.values(prefs.channels).filter(Boolean).length;
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5" dir={dir}>
       {/* Header */}
       <div>
-        <h3 className="font-bold text-foreground font-arabic text-base">تفضيلات الإشعارات</h3>
+        <h3 className="font-bold text-foreground font-arabic text-base">{t('notif.title')}</h3>
         <p className="text-xs text-muted-foreground font-arabic mt-0.5">
-          اختر كيف ومتى تصلك تنبيهات جود
+          {t('notif.subtitle')}
         </p>
       </div>
 
       {/* Delivery channels */}
       <Card className="border-border/40">
         <CardContent className="p-4 space-y-4">
-          <p className="text-xs font-semibold font-arabic text-muted-foreground uppercase tracking-wide">قنوات التوصيل</p>
+          <p className="text-xs font-semibold font-arabic text-muted-foreground uppercase tracking-wide">
+            {t('notif.channels.title')}
+          </p>
 
           {/* Push */}
           <div className="flex items-center justify-between">
@@ -133,9 +145,13 @@ const NotificationPrefs: React.FC = () => {
                 <Smartphone className="w-4 h-4 text-jood-teal-700" />
               </div>
               <div>
-                <p className="text-sm font-arabic font-semibold text-foreground">إشعارات الجهاز</p>
+                <p className="text-sm font-arabic font-semibold text-foreground">{t('notif.push')}</p>
                 <p className="text-[11px] font-arabic text-muted-foreground">
-                  {pushPermission === 'granted' ? 'مفعّلة' : pushPermission === 'denied' ? 'محجوبة من المتصفح' : 'تحتاج إذناً'}
+                  {pushPermission === 'granted'
+                    ? t('notif.push.granted')
+                    : pushPermission === 'denied'
+                    ? t('notif.push.denied')
+                    : t('notif.push.default')}
                 </p>
               </div>
             </div>
@@ -144,7 +160,7 @@ const NotificationPrefs: React.FC = () => {
             ) : (
               <Button size="sm" onClick={requestPush}
                 className="h-8 text-xs font-arabic bg-jood-teal-900 hover:bg-jood-teal-800 text-white">
-                تفعيل
+                {t('notif.push.enable')}
               </Button>
             )}
           </div>
@@ -156,8 +172,8 @@ const NotificationPrefs: React.FC = () => {
                 <Mail className="w-4 h-4 text-muted-foreground" />
               </div>
               <div>
-                <p className="text-sm font-arabic font-semibold text-foreground">البريد الإلكتروني</p>
-                <p className="text-[11px] font-arabic text-muted-foreground">يحتاج ربط Gmail أو Outlook أولاً</p>
+                <p className="text-sm font-arabic font-semibold text-foreground">{t('notif.email')}</p>
+                <p className="text-[11px] font-arabic text-muted-foreground">{t('notif.email.hint')}</p>
               </div>
             </div>
             <Switch checked={prefs.emailEnabled} onCheckedChange={() => toggle('emailEnabled')} />
@@ -170,8 +186,8 @@ const NotificationPrefs: React.FC = () => {
                 <MessageSquare className="w-4 h-4 text-green-600" />
               </div>
               <div>
-                <p className="text-sm font-arabic font-semibold text-foreground">واتساب</p>
-                <p className="text-[11px] font-arabic text-muted-foreground">يحتاج ربط WhatsApp Business أولاً</p>
+                <p className="text-sm font-arabic font-semibold text-foreground">{t('notif.whatsapp')}</p>
+                <p className="text-[11px] font-arabic text-muted-foreground">{t('notif.whatsapp.hint')}</p>
               </div>
             </div>
             <Switch checked={prefs.whatsappEnabled} onCheckedChange={() => toggle('whatsappEnabled')} />
@@ -183,9 +199,11 @@ const NotificationPrefs: React.FC = () => {
       <Card className="border-border/40">
         <CardContent className="p-4 space-y-1">
           <div className="flex items-center justify-between mb-3">
-            <p className="text-xs font-semibold font-arabic text-muted-foreground uppercase tracking-wide">أنواع الإشعارات</p>
+            <p className="text-xs font-semibold font-arabic text-muted-foreground uppercase tracking-wide">
+              {t('notif.types.title')}
+            </p>
             <Badge variant="secondary" className="text-[10px] font-arabic">
-              {activeCount} / {CHANNEL_CONFIG.length} مفعّل
+              {activeCount} / {CHANNEL_CONFIG.length} {t('notif.active.count')}
             </Badge>
           </div>
 
@@ -216,7 +234,7 @@ const NotificationPrefs: React.FC = () => {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <BellOff className="w-4 h-4 text-muted-foreground" />
-              <p className="text-sm font-arabic font-semibold text-foreground">ساعات الهدوء</p>
+              <p className="text-sm font-arabic font-semibold text-foreground">{t('notif.quiet.title')}</p>
             </div>
             <Switch
               checked={prefs.quiet_hours.enabled}
@@ -225,14 +243,14 @@ const NotificationPrefs: React.FC = () => {
           </div>
           {prefs.quiet_hours.enabled && (
             <div className="flex items-center gap-3 text-sm font-arabic text-muted-foreground">
-              <span>من</span>
+              <span>{t('notif.quiet.from')}</span>
               <input
                 type="time"
                 value={prefs.quiet_hours.from}
                 onChange={e => save({ ...prefs, quiet_hours: { ...prefs.quiet_hours, from: e.target.value } })}
                 className="border border-border/40 rounded-lg px-2 py-1 text-sm bg-background text-foreground"
               />
-              <span>إلى</span>
+              <span>{t('notif.quiet.to')}</span>
               <input
                 type="time"
                 value={prefs.quiet_hours.to}
@@ -242,7 +260,7 @@ const NotificationPrefs: React.FC = () => {
             </div>
           )}
           <p className="text-[11px] font-arabic text-muted-foreground">
-            لن تُرسَل إشعارات خلال ساعات الهدوء — تُجمَّع وتُعرض عند انتهائها.
+            {t('notif.quiet.desc')}
           </p>
         </CardContent>
       </Card>

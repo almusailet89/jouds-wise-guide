@@ -9,32 +9,39 @@ import {
   Trash2, Eye, EyeOff, Plus, Sparkles, AlertTriangle, Search,
 } from 'lucide-react';
 import { useMemories, type UserMemory, type MemoryKind } from '@/hooks/useMemories';
+import { useLanguage } from '@/hooks/useLanguage';
 import { cn } from '@/lib/utils';
 import MemoryTaxonomyPanel from './MemoryTaxonomyPanel';
 
-// ─── Kind metadata ─────────────────────────────────────────────────────────
-const KINDS: Array<{
+// ─── Kind icon + color metadata (labels computed inside component) ──────────
+const KIND_ICONS: Array<{
   value: MemoryKind | 'all';
-  label: string;
   icon: React.ComponentType<{ className?: string }>;
   color: string;
 }> = [
-  { value: 'all',          label: 'الكل',        icon: Brain,    color: 'text-jood-gold-600'     },
-  { value: 'fact',         label: 'حقائق',       icon: User,     color: 'text-blue-600'           },
-  { value: 'preference',   label: 'تفضيلات',     icon: Heart,    color: 'text-rose-600'           },
-  { value: 'goal',         label: 'أهداف',       icon: Target,   color: 'text-emerald-600'        },
-  { value: 'pattern',      label: 'أنماط',       icon: Activity, color: 'text-amber-600'          },
-  { value: 'relationship', label: 'علاقات',      icon: Users,    color: 'text-purple-600'         },
-  { value: 'context',      label: 'سياق',        icon: MapPin,   color: 'text-jood-teal-700'      },
+  { value: 'all',          icon: Brain,    color: 'text-jood-gold-600'     },
+  { value: 'fact',         icon: User,     color: 'text-blue-600'           },
+  { value: 'preference',   icon: Heart,    color: 'text-rose-600'           },
+  { value: 'goal',         icon: Target,   color: 'text-emerald-600'        },
+  { value: 'pattern',      icon: Activity, color: 'text-amber-600'          },
+  { value: 'relationship', icon: Users,    color: 'text-purple-600'         },
+  { value: 'context',      icon: MapPin,   color: 'text-jood-teal-700'      },
 ];
-
-const KIND_META = Object.fromEntries(
-  KINDS.filter(k => k.value !== 'all').map(k => [k.value, k]),
-) as Record<MemoryKind, typeof KINDS[number]>;
 
 // ═══════════════════════════════════════════════════════════════════════════
 const MemoryCenter: React.FC = () => {
   const { memories, loading, remove, toggle, add, clearAll } = useMemories();
+  const { t, dir } = useLanguage();
+
+  const KINDS = KIND_ICONS.map(k => ({
+    ...k,
+    label: t(`mem.kind.${k.value}` as any),
+  }));
+
+  const KIND_META = Object.fromEntries(
+    KINDS.filter(k => k.value !== 'all').map(k => [k.value, k]),
+  ) as Record<MemoryKind, typeof KINDS[number]>;
+
   const [filter, setFilter]       = useState<MemoryKind | 'all'>('all');
   const [search, setSearch]       = useState('');
   const [showAdd, setShowAdd]     = useState(false);
@@ -69,17 +76,17 @@ const MemoryCenter: React.FC = () => {
 
   // ───────────────────────────────────────────────────────────────────────
   return (
-    <div className="space-y-5" dir="rtl">
+    <div className="space-y-5" dir={dir}>
 
       {/* ── Header ──────────────────────────────────────────────────────── */}
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
           <h2 className="text-2xl font-bold font-arabic text-foreground flex items-center gap-2">
             <Brain className="w-6 h-6 text-jood-gold-600" />
-            ذاكرة جود
+            {t('mem.title')}
           </h2>
           <p className="text-sm text-muted-foreground font-arabic mt-1">
-            ما تتذكره جود عنكِ — يمكنكِ تعديل أو حذف أيّ ذاكرة في أيّ وقت
+            {t('mem.subtitle')}
           </p>
         </div>
 
@@ -91,7 +98,7 @@ const MemoryCenter: React.FC = () => {
             className="gap-1.5 font-arabic"
           >
             <Plus className="w-3.5 h-3.5" />
-            ذاكرة جديدة
+            {t('mem.add.new')}
           </Button>
           <Button
             variant="ghost"
@@ -101,7 +108,7 @@ const MemoryCenter: React.FC = () => {
             className="gap-1.5 text-destructive hover:text-destructive hover:bg-destructive/10 font-arabic"
           >
             <Trash2 className="w-3.5 h-3.5" />
-            مسح الكل
+            {t('mem.clear.all')}
           </Button>
         </div>
       </div>
@@ -110,8 +117,7 @@ const MemoryCenter: React.FC = () => {
       <div className="flex items-start gap-2 bg-jood-teal-700/5 border border-jood-teal-700/20 rounded-xl p-3">
         <Sparkles className="w-4 h-4 text-jood-gold-600 flex-shrink-0 mt-0.5" />
         <p className="text-xs text-muted-foreground font-arabic leading-relaxed">
-          جود تتعلم منكِ تلقائياً عبر المحادثات لتقديم نصائح أدق وأكثر شخصية.
-          كل الذاكرة محفوظة بشكل آمن، تخصكِ وحدكِ، ويمكنكِ حذفها أو إيقافها كلياً.
+          {t('mem.privacy')}
         </p>
       </div>
 
@@ -146,13 +152,13 @@ const MemoryCenter: React.FC = () => {
               <Input
                 value={newContent}
                 onChange={(e) => setNewContent(e.target.value)}
-                placeholder="مثلاً: أفضّل الاستثمارات الحلال فقط"
+                placeholder={t('mem.add.placeholder')}
                 className="font-arabic text-right"
                 onKeyDown={(e) => { if (e.key === 'Enter') handleAdd(); }}
               />
               <div className="flex gap-2 justify-end">
                 <Button variant="ghost" size="sm" onClick={() => setShowAdd(false)} className="font-arabic">
-                  إلغاء
+                  {t('mem.cancel')}
                 </Button>
                 <Button
                   size="sm"
@@ -160,7 +166,7 @@ const MemoryCenter: React.FC = () => {
                   disabled={!newContent.trim()}
                   className="bg-jood-gold-500 hover:bg-jood-gold-600 text-white font-arabic"
                 >
-                  حفظ
+                  {t('mem.save')}
                 </Button>
               </div>
             </Card>
@@ -205,7 +211,7 @@ const MemoryCenter: React.FC = () => {
           <Input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="بحث في الذاكرة…"
+            placeholder={t('mem.search.placeholder')}
             className="pr-9 font-arabic text-right text-sm"
           />
         </div>
@@ -214,15 +220,13 @@ const MemoryCenter: React.FC = () => {
       {/* ── List ────────────────────────────────────────────────────────── */}
       {loading ? (
         <div className="text-center text-muted-foreground py-12 font-arabic text-sm">
-          جار التحميل…
+          {t('mem.loading')}
         </div>
       ) : filtered.length === 0 ? (
         <Card className="p-12 text-center border-dashed">
           <Brain className="w-12 h-12 mx-auto text-muted-foreground/40 mb-3" />
           <p className="font-arabic text-muted-foreground text-sm">
-            {memories.length === 0
-              ? 'لا توجد ذكريات بعد. تحدثي مع جود وستبدأ في التعلم منكِ تلقائياً.'
-              : 'لا توجد نتائج تطابق البحث.'}
+            {memories.length === 0 ? t('mem.empty.no.memories') : t('mem.empty.no.results')}
           </p>
         </Card>
       ) : (
@@ -260,15 +264,15 @@ const MemoryCenter: React.FC = () => {
                 <div className="flex items-start gap-3 mb-4">
                   <AlertTriangle className="w-6 h-6 text-destructive flex-shrink-0" />
                   <div>
-                    <h3 className="font-arabic font-bold text-base">مسح كل الذاكرة؟</h3>
+                    <h3 className="font-arabic font-bold text-base">{t('mem.confirm.clear.title')}</h3>
                     <p className="font-arabic text-xs text-muted-foreground mt-1">
-                      هذا الإجراء غير قابل للتراجع. ستفقد جود كل ما تعرفه عنكِ.
+                      {t('mem.confirm.clear.desc')}
                     </p>
                   </div>
                 </div>
                 <div className="flex gap-2 justify-end">
                   <Button variant="ghost" size="sm" onClick={() => setConfirmClear(false)} className="font-arabic">
-                    إلغاء
+                    {t('mem.cancel')}
                   </Button>
                   <Button
                     variant="destructive"
@@ -276,7 +280,7 @@ const MemoryCenter: React.FC = () => {
                     onClick={async () => { await clearAll(); setConfirmClear(false); }}
                     className="font-arabic"
                   >
-                    مسح الكل
+                    {t('mem.confirm.clear.btn')}
                   </Button>
                 </div>
               </Card>
@@ -294,8 +298,18 @@ const MemoryCard: React.FC<{
   onRemove: () => void;
   onToggle: () => void;
 }> = ({ memory, onRemove, onToggle }) => {
-  const meta = KIND_META[memory.kind];
+  const { t } = useLanguage();
+  const KIND_ICONS_MAP: Record<string, { icon: React.ComponentType<{ className?: string }>; color: string }> = {
+    fact:         { icon: User,     color: 'text-blue-600' },
+    preference:   { icon: Heart,    color: 'text-rose-600' },
+    goal:         { icon: Target,   color: 'text-emerald-600' },
+    pattern:      { icon: Activity, color: 'text-amber-600' },
+    relationship: { icon: Users,    color: 'text-purple-600' },
+    context:      { icon: MapPin,   color: 'text-jood-teal-700' },
+  };
+  const meta = KIND_ICONS_MAP[memory.kind];
   const Icon = meta?.icon ?? Brain;
+  const kindLabel = t(`mem.kind.${memory.kind}` as any);
 
   return (
     <motion.div
@@ -319,16 +333,16 @@ const MemoryCard: React.FC<{
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1">
               <Badge variant="secondary" className="text-[10px] font-arabic">
-                {meta?.label ?? memory.kind}
+                {kindLabel}
               </Badge>
               {memory.importance >= 0.8 && (
                 <Badge className="text-[10px] bg-jood-gold-500/15 text-jood-gold-700 border-jood-gold-300/30 font-arabic">
-                  مهم
+                  {t('mem.important')}
                 </Badge>
               )}
               {memory.use_count > 0 && (
                 <span className="text-[10px] text-muted-foreground font-arabic">
-                  استُخدم {memory.use_count}×
+                  {t('mem.used')} {memory.use_count}×
                 </span>
               )}
             </div>
@@ -343,7 +357,7 @@ const MemoryCard: React.FC<{
               size="icon"
               onClick={onToggle}
               className="h-7 w-7 text-muted-foreground hover:text-foreground"
-              title={memory.active ? 'إيقاف' : 'تفعيل'}
+              title={memory.active ? t('mem.toggle.off') : t('mem.toggle.on')}
             >
               {memory.active ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
             </Button>
@@ -352,7 +366,7 @@ const MemoryCard: React.FC<{
               size="icon"
               onClick={onRemove}
               className="h-7 w-7 text-muted-foreground hover:text-destructive"
-              title="حذف"
+              title={t('mem.delete')}
             >
               <Trash2 className="w-3.5 h-3.5" />
             </Button>
