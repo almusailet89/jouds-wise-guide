@@ -21,6 +21,7 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
+import { useLanguage } from '@/hooks/useLanguage';
 import { useTasks, Task } from '@/hooks/useDatabase';
 import { cn } from '@/lib/utils';
 
@@ -55,23 +56,17 @@ interface HabitLog {
 type ViewMode = 'month' | 'week' | 'day';
 type AddType = 'event' | 'task' | 'habit';
 
-// ─── Constants ────────────────────────────────────────────────────────────────
-const AR_MONTHS = [
-  'يناير','فبراير','مارس','أبريل','مايو','يونيو',
-  'يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر',
-];
-const AR_WEEKDAYS_SHORT = ['أحد','إثن','ثلا','أرب','خمي','جمع','سبت'];
-const AR_WEEKDAYS = ['أحد','إثنين','ثلاثاء','أربعاء','خميس','جمعة','سبت'];
-
-const CATEGORIES = [
-  { value: 'personal', label: 'شخصي',  color: 'bg-jood-teal-700 text-white' },
-  { value: 'finance',  label: 'مالي',   color: 'bg-jood-gold-500 text-white' },
-  { value: 'health',   label: 'صحة',    color: 'bg-emerald-600 text-white' },
-  { value: 'prayer',   label: 'ديني',   color: 'bg-indigo-600 text-white' },
-  { value: 'family',   label: 'عائلة',  color: 'bg-rose-500 text-white' },
-  { value: 'work',     label: 'عمل',    color: 'bg-slate-700 text-white' },
-];
-const cat = (v: string) => CATEGORIES.find(c => c.value === v) ?? CATEGORIES[0];
+// ─── Constants (static — no labels here; labels computed via t() inside component) ─
+const CATEGORY_COLORS: Record<string, string> = {
+  personal: 'bg-jood-teal-700 text-white',
+  finance:  'bg-jood-gold-500 text-white',
+  health:   'bg-emerald-600 text-white',
+  prayer:   'bg-indigo-600 text-white',
+  family:   'bg-rose-500 text-white',
+  work:     'bg-slate-700 text-white',
+};
+const CATEGORY_KEYS = ['personal', 'finance', 'health', 'prayer', 'family', 'work'] as const;
+type CategoryKey = typeof CATEGORY_KEYS[number];
 
 const PRIORITY_COLORS: Record<string, string> = {
   high: 'text-red-500', medium: 'text-amber-500', low: 'text-emerald-500',
@@ -101,9 +96,7 @@ const parseRecurrence = (text: string): { recurrence: string | null; hijri: bool
   return { recurrence: null, hijri };
 };
 
-const RECURRENCE_LABELS: Record<string, string> = {
-  daily: 'يومي', weekly: 'أسبوعي', monthly: 'شهري', yearly: 'سنوي',
-};
+// Recurrence labels computed inside component via t()
 
 const isSameDay = (a: Date, b: Date) =>
   a.getFullYear() === b.getFullYear() &&
@@ -190,7 +183,26 @@ const defaultEventForm = (d: Date): EventForm => ({
 const SmartCalendar: React.FC = () => {
   const { user } = useAuth();
   const { toast } = useToast();
+  const { t, dir } = useLanguage();
   const { tasks, updateTask, addTask } = useTasks();
+
+  // ── i18n-computed arrays (inside component so t() is available) ──────────────
+  const MONTHS = Array.from({ length: 12 }, (_, i) => t(`cal.month.${i}` as any));
+  const MONTHS_SHORT = Array.from({ length: 12 }, (_, i) => t(`cal.month.short.${i}` as any));
+  const WEEKDAYS_SHORT = Array.from({ length: 7 }, (_, i) => t(`cal.day.short.${i}` as any));
+  const WEEKDAYS = Array.from({ length: 7 }, (_, i) => t(`cal.day.full.${i}` as any));
+  const CATEGORIES = CATEGORY_KEYS.map(k => ({
+    value: k,
+    label: t(`cal.cat.${k}` as any),
+    color: CATEGORY_COLORS[k],
+  }));
+  const RECURRENCE_LABELS: Record<string, string> = {
+    daily:   t('cal.recur.daily'),
+    weekly:  t('cal.recur.weekly'),
+    monthly: t('cal.recur.monthly'),
+    yearly:  t('cal.recur.yearly'),
+  };
+  const cat = (v: string) => CATEGORIES.find(c => c.value === v) ?? CATEGORIES[0];
 
   const now = new Date();
   const [viewY, setViewY]       = useState(now.getFullYear());
@@ -321,7 +333,7 @@ const SmartCalendar: React.FC = () => {
   // ── Save event ────────────────────────────────────────────────────────────────
   const saveEvent = async () => {
     if (!user || !eventForm.title.trim() || !eventForm.date) {
-      toast({ title: 'أكملي البيانات', variant: 'destructive' }); return;
+      toast({ title: t('cal.toast.fill'), variant: 'destructive' }); return;
     }
     setSaving(true);
     const parsed = parseRecurrence(eventForm.nlPhrase || eventForm.title);
@@ -355,8 +367,8 @@ const SmartCalendar: React.FC = () => {
     });
 
     setSaving(false);
-    if (error) { toast({ title: 'تعذر الحفظ', description: error.message, variant: 'destructive' }); return; }
-    toast({ title: recurrence ? `حدث متكرر — ${RECURRENCE_LABELS[recurrence] ?? recurrence}` : 'تم الحفظ ✓' });
+    if (error) { toast({ title: t('cal.toast.save.fail'), description: error.message, variant: 'destructive' }); return; }
+    toast({ title: recurrence ? `${t('cal.toast.recur')} ${RECURRENCE_LABELS[recurrence] ?? recurrence}` : t('cal.toast.saved') });
     setAddDialog({ open: false, type: 'event' });
     load();
   };
@@ -396,8 +408,8 @@ const SmartCalendar: React.FC = () => {
       is_active:   true,
     });
     setSaving(false);
-    if (error) { toast({ title: 'خطأ', description: error.message, variant: 'destructive' }); return; }
-    toast({ title: 'تمت إضافة العادة' });
+    if (error) { toast({ title: t('cal.toast.error'), description: error.message, variant: 'destructive' }); return; }
+    toast({ title: t('cal.toast.habit.added') });
     setAddDialog({ open: false, type: 'habit' });
     setQuickHabit('');
     setQuickHabitRecurrence('none');
@@ -438,12 +450,12 @@ const SmartCalendar: React.FC = () => {
 
   // ── Period label ─────────────────────────────────────────────────────────────
   const periodLabel = () => {
-    if (viewMode === 'month') return `${AR_MONTHS[viewM]} ${viewY}`;
+    if (viewMode === 'month') return `${MONTHS[viewM]} ${viewY}`;
     if (viewMode === 'week') {
       const wg = buildWeekGrid(selected);
-      return `${wg[0].getDate()} - ${wg[6].getDate()} ${AR_MONTHS[wg[3].getMonth()]} ${wg[3].getFullYear()}`;
+      return `${wg[0].getDate()} - ${wg[6].getDate()} ${MONTHS[wg[3].getMonth()]} ${wg[3].getFullYear()}`;
     }
-    return `${selected.getDate()} ${AR_MONTHS[selected.getMonth()]} ${selected.getFullYear()}`;
+    return `${selected.getDate()} ${MONTHS[selected.getMonth()]} ${selected.getFullYear()}`;
   };
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -465,8 +477,8 @@ const SmartCalendar: React.FC = () => {
         <div className="flex items-center justify-between">
           <div>
             <h3 className={cn('font-bold font-arabic', compact ? 'text-sm' : 'text-base')}>
-              {AR_WEEKDAYS[day.getDay()]}، {day.getDate()} {AR_MONTHS[day.getMonth()]}
-              {isToday_ && <span className="mr-2 text-xs text-jood-gold-500 font-normal">اليوم</span>}
+              {WEEKDAYS[day.getDay()]}، {day.getDate()} {MONTHS[day.getMonth()]}
+              {isToday_ && <span className="mr-2 text-xs text-jood-gold-500 font-normal">{t('cal.today.label')}</span>}
             </h3>
             {showHijri && (
               <p className="text-[10px] text-muted-foreground font-arabic flex items-center gap-1 mt-0.5">
@@ -487,15 +499,15 @@ const SmartCalendar: React.FC = () => {
         {/* Events */}
         {items.events.length > 0 && (
           <div className="space-y-1">
-            <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide font-arabic">أحداث</p>
+            <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide font-arabic">{t('cal.section.events')}</p>
             {items.events.map(e => (
               <div key={e.id} className="flex items-center gap-2 p-2 rounded-xl border border-border/30 bg-card group">
                 <span className={cn('w-2 h-2 rounded-full flex-shrink-0', cat(e.category).color.replace('text-white', ''))} />
                 <div className="flex-1 min-w-0">
                   <p className="text-xs font-arabic font-medium truncate">{e.title}</p>
                   <div className="flex items-center gap-2 text-[10px] text-muted-foreground font-arabic">
-                    {!e.all_day && (e.starts_at || e.start_at) && <span>⏰ {new Date((e.starts_at ?? e.start_at)!).toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' })}</span>}
-                    {e.all_day && <span>طوال اليوم</span>}
+                    {!e.all_day && (e.starts_at || e.start_at) && <span>⏰ {new Date((e.starts_at ?? e.start_at)!).toLocaleTimeString('en', { hour: '2-digit', minute: '2-digit' })}</span>}
+                    {e.all_day && <span>{t('cal.allday.label')}</span>}
                     {e.location && <span className="flex items-center gap-0.5"><MapPin className="w-2.5 h-2.5" />{e.location}</span>}
                     {e.recurrence && <Repeat className="w-3 h-3 text-jood-teal-400" />}
                   </div>
@@ -512,7 +524,7 @@ const SmartCalendar: React.FC = () => {
         {items.events.some(e => e.reminder_min) && (
           <div className="space-y-1">
             <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide font-arabic flex items-center gap-1">
-              <Bell className="w-3 h-3" /> تذكيرات
+              <Bell className="w-3 h-3" /> {t('cal.section.reminders')}
             </p>
             {items.events.filter(e => e.reminder_min).map(e => {
               const rawStart = e.starts_at ?? e.start_at ?? new Date().toISOString();
@@ -522,11 +534,11 @@ const SmartCalendar: React.FC = () => {
                   <Bell className="w-3 h-3 text-jood-gold-500 flex-shrink-0" />
                   <div className="flex-1 min-w-0">
                     <p className="text-xs font-arabic truncate">
-                      {e.reminder_min} دقيقة قبل <span className="font-semibold">{e.title}</span>
+                      {e.reminder_min} {t('cal.reminder.label')} <span className="font-semibold">{e.title}</span>
                     </p>
                     {!e.all_day && (
                       <p className="text-[10px] text-muted-foreground font-arabic">
-                        ⏰ {reminderTime.toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' })}
+                        ⏰ {reminderTime.toLocaleTimeString('en', { hour: '2-digit', minute: '2-digit' })}
                       </p>
                     )}
                   </div>
@@ -539,7 +551,7 @@ const SmartCalendar: React.FC = () => {
         {/* Tasks */}
         {items.tasks.length > 0 && (
           <div className="space-y-1">
-            <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide font-arabic">مهام</p>
+            <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide font-arabic">{t('cal.section.tasks')}</p>
             {items.tasks.map(t => (
               <button
                 key={t.id}
@@ -567,7 +579,7 @@ const SmartCalendar: React.FC = () => {
         {/* Habits */}
         {items.habits.length > 0 && (
           <div className="space-y-1">
-            <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide font-arabic">عادات</p>
+            <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide font-arabic">{t('cal.section.habits')}</p>
             {items.habits.map(h => {
               const done = habitDone(h.id);
               // Compute streak
@@ -610,20 +622,20 @@ const SmartCalendar: React.FC = () => {
         {totalItems === 0 && (
           <div className="text-center py-6 text-muted-foreground">
             <CalIcon className="w-8 h-8 mx-auto mb-2 opacity-30" />
-            <p className="text-xs font-arabic">لا عناصر في هذا اليوم</p>
+            <p className="text-xs font-arabic">{t('cal.empty.day')}</p>
           </div>
         )}
 
         {/* Quick add row */}
         <div className="flex gap-1.5 pt-1 border-t border-border/30 flex-wrap">
           <Button size="sm" variant="outline" onClick={() => openAdd('event')} className="h-7 text-xs gap-1 font-arabic">
-            <Plus className="w-3 h-3" />حدث
+            <Plus className="w-3 h-3" />{t('cal.add.event')}
           </Button>
           <Button size="sm" variant="outline" onClick={() => openAdd('task')} className="h-7 text-xs gap-1 font-arabic">
-            <CheckSquare className="w-3 h-3" />مهمة
+            <CheckSquare className="w-3 h-3" />{t('cal.add.task')}
           </Button>
           <Button size="sm" variant="outline" onClick={() => openAdd('habit')} className="h-7 text-xs gap-1 font-arabic">
-            <Star className="w-3 h-3" />عادة
+            <Star className="w-3 h-3" />{t('cal.add.habit')}
           </Button>
         </div>
       </div>
@@ -634,7 +646,7 @@ const SmartCalendar: React.FC = () => {
   // ─── Render ────────────────────────────────────────────────────────────────
   // ═══════════════════════════════════════════════════════════════════════════
   return (
-    <div className="space-y-3">
+    <div className="space-y-3" dir={dir}>
       {/* ── Toolbar row 1: nav + title + actions ─────────────────────────────── */}
       <div className="flex items-center gap-1.5 flex-wrap">
         {/* Navigation */}
@@ -648,7 +660,7 @@ const SmartCalendar: React.FC = () => {
           <ChevronLeft className="w-4 h-4" />
         </Button>
 
-        <Button variant="outline" size="sm" onClick={jumpToday} className="h-8 font-arabic text-xs px-2.5 flex-shrink-0">اليوم</Button>
+        <Button variant="outline" size="sm" onClick={jumpToday} className="h-8 font-arabic text-xs px-2.5 flex-shrink-0">{t('cal.today.btn')}</Button>
 
         {/* Year picker */}
         <Select value={String(viewY)} onValueChange={v => setViewY(Number(v))}>
@@ -664,7 +676,7 @@ const SmartCalendar: React.FC = () => {
 
         {/* Hijri toggle */}
         <label className="hidden sm:flex items-center gap-1 text-xs text-muted-foreground font-arabic flex-shrink-0">
-          <Moon className="w-3.5 h-3.5" /> هجري
+          <Moon className="w-3.5 h-3.5" /> {t('cal.hijri.label')}
           <Switch checked={showHijri} onCheckedChange={setShowHijri} />
         </label>
 
@@ -686,13 +698,13 @@ const SmartCalendar: React.FC = () => {
 
         <Button onClick={() => openAdd('event')} size="sm" className="bg-jood-teal-900 hover:bg-jood-teal-700 text-white gap-1 font-arabic h-8 px-2.5 flex-shrink-0">
           <Plus className="w-4 h-4" />
-          <span className="hidden sm:inline">إضافة</span>
+          <span className="hidden sm:inline">{t('cal.add.btn')}</span>
         </Button>
       </div>
 
       {/* ── Toolbar row 2: month pills (scrollable on mobile) ────────────────── */}
       <div className="flex items-center gap-1 overflow-x-auto pb-1 scrollbar-hide">
-        {AR_MONTHS.map((m, i) => (
+        {MONTHS_SHORT.map((m, i) => (
           <button
             key={i}
             onClick={() => { setViewM(i); if (viewMode !== 'month') setViewMode('month'); }}
@@ -703,12 +715,12 @@ const SmartCalendar: React.FC = () => {
                 : 'text-muted-foreground hover:bg-muted bg-muted/30',
             )}
           >
-            {m.slice(0, 3)}
+            {m}
           </button>
         ))}
         {/* Mobile hijri toggle */}
         <label className="sm:hidden flex items-center gap-1 text-[10px] text-muted-foreground font-arabic flex-shrink-0 mr-2">
-          <Moon className="w-3 h-3" /> هجري
+          <Moon className="w-3 h-3" /> {t('cal.hijri.label')}
           <Switch checked={showHijri} onCheckedChange={setShowHijri} className="scale-75" />
         </label>
       </div>
@@ -720,7 +732,7 @@ const SmartCalendar: React.FC = () => {
           <Card className="overflow-hidden">
             <CardContent className="p-0">
               <div className="grid grid-cols-7 bg-muted/30 border-b border-border/40">
-                {AR_WEEKDAYS_SHORT.map(d => (
+                {WEEKDAYS_SHORT.map(d => (
                   <div key={d} className="p-2 text-center text-[11px] font-arabic font-semibold text-muted-foreground">{d}</div>
                 ))}
               </div>
@@ -828,7 +840,7 @@ const SmartCalendar: React.FC = () => {
                       'text-[11px] font-arabic font-semibold leading-none',
                       isToday_ ? 'text-jood-gold-500' : 'text-muted-foreground',
                     )}>
-                      {AR_WEEKDAYS_SHORT[day.getDay()]}
+                      {WEEKDAYS_SHORT[day.getDay()]}
                     </span>
                     <span className={cn(
                       'text-sm font-bold w-6 h-6 rounded-full flex items-center justify-center',
@@ -893,12 +905,12 @@ const SmartCalendar: React.FC = () => {
 
       {/* ─── Add Dialog ──────────────────────────────────────────────────────── */}
       <Dialog open={addDialog.open} onOpenChange={o => setAddDialog(s => ({ ...s, open: o }))}>
-        <DialogContent className="max-w-sm" dir="rtl">
+        <DialogContent className="max-w-sm" dir={dir}>
           <DialogHeader>
             <DialogTitle className="font-arabic flex items-center gap-2 text-base">
-              {addDialog.type === 'event' && <><Sparkles className="w-4 h-4 text-jood-gold-500" /> حدث جديد</>}
-              {addDialog.type === 'task'  && <><CheckSquare className="w-4 h-4 text-amber-500" /> مهمة جديدة</>}
-              {addDialog.type === 'habit' && <><Star className="w-4 h-4 text-jood-teal-500" /> عادة جديدة</>}
+              {addDialog.type === 'event' && <><Sparkles className="w-4 h-4 text-jood-gold-500" /> {t('cal.dialog.event.title')}</>}
+              {addDialog.type === 'task'  && <><CheckSquare className="w-4 h-4 text-amber-500" /> {t('cal.dialog.task.title')}</>}
+              {addDialog.type === 'habit' && <><Star className="w-4 h-4 text-jood-teal-500" /> {t('cal.dialog.habit.title')}</>}
             </DialogTitle>
           </DialogHeader>
 
@@ -906,8 +918,8 @@ const SmartCalendar: React.FC = () => {
           {addDialog.type === 'event' && (
             <div className="space-y-3">
               <div>
-                <Label className="font-arabic text-xs">عبارة ذكية (اختياري)</Label>
-                <Input placeholder='"كل جمعة أدفع الزكاة"' value={eventForm.nlPhrase}
+                <Label className="font-arabic text-xs">{t('cal.field.nlphrase')}</Label>
+                <Input placeholder={t('cal.field.nlphrase.placeholder')} value={eventForm.nlPhrase}
                   onChange={e => setEventForm(f => ({ ...f, nlPhrase: e.target.value, title: f.title || e.target.value }))}
                   className="font-arabic text-sm mt-1" />
                 {eventForm.nlPhrase && (() => {
@@ -918,47 +930,47 @@ const SmartCalendar: React.FC = () => {
                 })()}
               </div>
               <div>
-                <Label className="font-arabic text-xs">العنوان *</Label>
+                <Label className="font-arabic text-xs">{t('cal.field.title')}</Label>
                 <Input value={eventForm.title} onChange={e => setEventForm(f => ({ ...f, title: e.target.value }))} className="font-arabic text-sm mt-1" />
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <Label className="font-arabic text-xs">التاريخ</Label>
+                  <Label className="font-arabic text-xs">{t('cal.field.date')}</Label>
                   <Input type="date" value={eventForm.date} onChange={e => setEventForm(f => ({ ...f, date: e.target.value }))} className="text-sm mt-1" />
                 </div>
                 <div>
-                  <Label className="font-arabic text-xs">الوقت</Label>
+                  <Label className="font-arabic text-xs">{t('cal.field.time')}</Label>
                   <Input type="time" disabled={eventForm.all_day} value={eventForm.time} onChange={e => setEventForm(f => ({ ...f, time: e.target.value }))} className="text-sm mt-1" />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <Label className="font-arabic text-xs">الفئة</Label>
+                  <Label className="font-arabic text-xs">{t('cal.field.category')}</Label>
                   <Select value={eventForm.category} onValueChange={v => setEventForm(f => ({ ...f, category: v }))}>
                     <SelectTrigger className="mt-1 font-arabic text-sm h-9"><SelectValue /></SelectTrigger>
                     <SelectContent>{CATEGORIES.map(c => <SelectItem key={c.value} value={c.value} className="font-arabic">{c.label}</SelectItem>)}</SelectContent>
                   </Select>
                 </div>
                 <div>
-                  <Label className="font-arabic text-xs">التكرار</Label>
+                  <Label className="font-arabic text-xs">{t('cal.field.recurrence')}</Label>
                   <Select value={eventForm.recurrence} onValueChange={v => setEventForm(f => ({ ...f, recurrence: v }))}>
-                    <SelectTrigger className="mt-1 font-arabic text-sm h-9"><SelectValue placeholder="لا يتكرر" /></SelectTrigger>
+                    <SelectTrigger className="mt-1 font-arabic text-sm h-9"><SelectValue placeholder={t('cal.recur.none')} /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="none" className="font-arabic">لا يتكرر</SelectItem>
-                      <SelectItem value="daily" className="font-arabic">يومي</SelectItem>
-                      <SelectItem value="weekly" className="font-arabic">أسبوعي</SelectItem>
-                      <SelectItem value="monthly" className="font-arabic">شهري</SelectItem>
-                      <SelectItem value="yearly" className="font-arabic">سنوي</SelectItem>
+                      <SelectItem value="none" className="font-arabic">{t('cal.recur.none')}</SelectItem>
+                      <SelectItem value="daily" className="font-arabic">{t('cal.recur.daily')}</SelectItem>
+                      <SelectItem value="weekly" className="font-arabic">{t('cal.recur.weekly')}</SelectItem>
+                      <SelectItem value="monthly" className="font-arabic">{t('cal.recur.monthly')}</SelectItem>
+                      <SelectItem value="yearly" className="font-arabic">{t('cal.recur.yearly')}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
               </div>
               <div>
-                <Label className="font-arabic text-xs">المكان (اختياري)</Label>
+                <Label className="font-arabic text-xs">{t('cal.field.location')}</Label>
                 <Input value={eventForm.location} onChange={e => setEventForm(f => ({ ...f, location: e.target.value }))} className="font-arabic text-sm mt-1" />
               </div>
               <label className="flex items-center justify-between text-xs font-arabic">
-                طوال اليوم
+                {t('cal.field.allday')}
                 <Switch checked={eventForm.all_day} onCheckedChange={v => setEventForm(f => ({ ...f, all_day: v }))} />
               </label>
             </div>
@@ -968,36 +980,36 @@ const SmartCalendar: React.FC = () => {
           {addDialog.type === 'task' && (
             <div className="space-y-3">
               <div>
-                <Label className="font-arabic text-xs">عنوان المهمة *</Label>
-                <Input value={quickTask} onChange={e => setQuickTask(e.target.value)} placeholder="مثل: مراجعة الميزانية" className="font-arabic text-sm mt-1" />
+                <Label className="font-arabic text-xs">{t('cal.field.task.title')}</Label>
+                <Input value={quickTask} onChange={e => setQuickTask(e.target.value)} placeholder={t('cal.field.task.placeholder')} className="font-arabic text-sm mt-1" />
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <Label className="font-arabic text-xs">الأولوية</Label>
+                  <Label className="font-arabic text-xs">{t('cal.field.task.priority')}</Label>
                   <Select value={quickTaskPriority} onValueChange={v => setQuickTaskPriority(v as any)}>
                     <SelectTrigger className="mt-1 font-arabic text-sm h-9"><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="high" className="font-arabic">عالية 🔴</SelectItem>
-                      <SelectItem value="medium" className="font-arabic">متوسطة 🟡</SelectItem>
-                      <SelectItem value="low" className="font-arabic">منخفضة 🟢</SelectItem>
+                      <SelectItem value="high" className="font-arabic">{t('cal.priority.high')}</SelectItem>
+                      <SelectItem value="medium" className="font-arabic">{t('cal.priority.medium')}</SelectItem>
+                      <SelectItem value="low" className="font-arabic">{t('cal.priority.low')}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 <div>
-                  <Label className="font-arabic text-xs">التكرار</Label>
+                  <Label className="font-arabic text-xs">{t('cal.field.recurrence')}</Label>
                   <Select value={quickTaskRecurrence} onValueChange={setQuickTaskRecurrence}>
-                    <SelectTrigger className="mt-1 font-arabic text-sm h-9"><SelectValue placeholder="مرة واحدة" /></SelectTrigger>
+                    <SelectTrigger className="mt-1 font-arabic text-sm h-9"><SelectValue placeholder={t('cal.field.one.time')} /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="none" className="font-arabic">مرة واحدة</SelectItem>
-                      <SelectItem value="يومي" className="font-arabic">يومي</SelectItem>
-                      <SelectItem value="أسبوعي" className="font-arabic">أسبوعي</SelectItem>
-                      <SelectItem value="شهري" className="font-arabic">شهري</SelectItem>
+                      <SelectItem value="none" className="font-arabic">{t('cal.field.one.time')}</SelectItem>
+                      <SelectItem value="daily" className="font-arabic">{t('cal.recur.daily')}</SelectItem>
+                      <SelectItem value="weekly" className="font-arabic">{t('cal.recur.weekly')}</SelectItem>
+                      <SelectItem value="monthly" className="font-arabic">{t('cal.recur.monthly')}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
               </div>
               <div>
-                <Label className="font-arabic text-xs">التاريخ</Label>
+                <Label className="font-arabic text-xs">{t('cal.field.date')}</Label>
                 <Input type="date" value={dateStr(selected)} onChange={() => {}} className="text-sm mt-1" readOnly />
               </div>
             </div>
@@ -1007,31 +1019,31 @@ const SmartCalendar: React.FC = () => {
           {addDialog.type === 'habit' && (
             <div className="space-y-3">
               <div>
-                <Label className="font-arabic text-xs">اسم العادة *</Label>
-                <Input value={quickHabit} onChange={e => setQuickHabit(e.target.value)} placeholder="مثل: قرأت القرآن" className="font-arabic text-sm mt-1" />
+                <Label className="font-arabic text-xs">{t('cal.field.habit.name')}</Label>
+                <Input value={quickHabit} onChange={e => setQuickHabit(e.target.value)} placeholder={t('cal.field.habit.placeholder')} className="font-arabic text-sm mt-1" />
               </div>
               <div>
-                <Label className="font-arabic text-xs">التكرار</Label>
+                <Label className="font-arabic text-xs">{t('cal.field.recurrence')}</Label>
                 <Select value={quickHabitRecurrence} onValueChange={setQuickHabitRecurrence}>
-                  <SelectTrigger className="mt-1 font-arabic text-sm h-9"><SelectValue placeholder="يومي" /></SelectTrigger>
+                  <SelectTrigger className="mt-1 font-arabic text-sm h-9"><SelectValue placeholder={t('cal.recur.daily')} /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="daily" className="font-arabic">يومي</SelectItem>
-                    <SelectItem value="weekly" className="font-arabic">أسبوعي</SelectItem>
+                    <SelectItem value="daily" className="font-arabic">{t('cal.recur.daily')}</SelectItem>
+                    <SelectItem value="weekly" className="font-arabic">{t('cal.recur.weekly')}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
-              <p className="text-[11px] text-muted-foreground font-arabic">ستظهر العادة على التقويم كل يوم لتتابعيها ✓</p>
+              <p className="text-[11px] text-muted-foreground font-arabic">{t('cal.habit.tip')}</p>
             </div>
           )}
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setAddDialog(s => ({ ...s, open: false }))} className="font-arabic" disabled={saving}>إلغاء</Button>
+            <Button variant="outline" onClick={() => setAddDialog(s => ({ ...s, open: false }))} className="font-arabic" disabled={saving}>{t('cal.dialog.cancel')}</Button>
             <Button
               onClick={addDialog.type === 'event' ? saveEvent : addDialog.type === 'task' ? saveTask : saveHabit}
               className="bg-jood-teal-900 hover:bg-jood-teal-700 text-white font-arabic"
               disabled={saving}
             >
-              {saving ? 'جارٍ الحفظ…' : 'حفظ'}
+              {saving ? t('cal.dialog.saving') : t('cal.dialog.save')}
             </Button>
           </DialogFooter>
         </DialogContent>

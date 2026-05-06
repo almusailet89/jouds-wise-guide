@@ -274,13 +274,13 @@ const Dashboard = () => {
       {hasPaymentIssue && (
         <div className="bg-destructive/10 border-b border-destructive/20 px-4 py-2 flex items-center justify-between gap-3">
           <p className="text-xs font-arabic text-destructive">
-            ⚠️ فشل تجديد اشتراكك — يرجى تحديث بيانات الدفع للاستمرار في الوصول.
+            {t('pay.issue')}
           </p>
           <button
             onClick={() => openCustomerPortal().catch(() => {})}
             className="text-xs font-arabic font-semibold text-destructive underline underline-offset-2 flex-shrink-0"
           >
-            تحديث الدفع
+            {t('pay.update')}
           </button>
         </div>
       )}
@@ -429,21 +429,21 @@ const Dashboard = () => {
 
           {/* ── Home ──────────────────────────────────────────────────────── */}
           <TabsContent value="home" className="p-4 mt-0">
-            <ErrorBoundary fallbackLabel="تعذّر تحميل الرئيسية">
+            <ErrorBoundary fallbackLabel={t('error.load.home')}>
               <Fade><HomeOverview onNavigate={setActiveTab} /></Fade>
             </ErrorBoundary>
           </TabsContent>
 
           {/* ── Chat + Voice ──────────────────────────────────────────────── */}
           <TabsContent value="chat" className="flex-1 p-4 mt-0">
-            <ErrorBoundary fallbackLabel="تعذّر تحميل المحادثة">
+            <ErrorBoundary fallbackLabel={t('error.load.chat')}>
               <ChatVoiceTab onMajlis={() => setMajlisOpen(true)} />
             </ErrorBoundary>
           </TabsContent>
 
           {/* ── Finance ──────────────────────────────────────────────────── */}
           <TabsContent value="financial" className="p-4 mt-0">
-            <ErrorBoundary fallbackLabel="تعذّر تحميل لوحة المالية">
+            <ErrorBoundary fallbackLabel={t('error.load.finance')}>
               <Suspense fallback={<TabSkeleton />}>
                 <Fade><FinancialDashboard /></Fade>
               </Suspense>
@@ -452,7 +452,7 @@ const Dashboard = () => {
 
           {/* ── Planning (Calendar + Tasks + Habits) ─────────────────────── */}
           <TabsContent value="planning" className="p-4 mt-0">
-            <ErrorBoundary fallbackLabel="تعذّر تحميل التخطيط">
+            <ErrorBoundary fallbackLabel={t('error.load.planning')}>
               <Suspense fallback={<TabSkeleton />}>
                 <Fade>
                   <h2 className="text-xl font-bold font-arabic mb-4 text-foreground">{t('tab.planning')}</h2>
@@ -464,7 +464,7 @@ const Dashboard = () => {
 
           {/* ── Mood ─────────────────────────────────────────────────────── */}
           <TabsContent value="mood" className="p-4 mt-0">
-            <ErrorBoundary fallbackLabel="تعذّر تحميل المزاج">
+            <ErrorBoundary fallbackLabel={t('error.load.mood')}>
               <Suspense fallback={<TabSkeleton />}>
                 <Fade>
                   <h2 className="text-xl font-bold font-arabic mb-4 text-foreground">{t('tab.mood')}</h2>
@@ -476,7 +476,7 @@ const Dashboard = () => {
 
           {/* ── Settings (Insights + Memory + Security) ───────────────────── */}
           <TabsContent value="settings" className="p-4 mt-0">
-            <ErrorBoundary fallbackLabel="تعذّر تحميل الإعدادات">
+            <ErrorBoundary fallbackLabel={t('error.load.settings')}>
               <Suspense fallback={<TabSkeleton />}>
                 <Fade>
                   <h2 className="text-xl font-bold font-arabic mb-4 text-foreground">{t('tab.settings')}</h2>

@@ -53,7 +53,7 @@ export const HomeOverview: React.FC<HomeOverviewProps> = ({ onNavigate }) => {
 
   const displayName = profile?.display_name?.split(' ')[0]
     ?? user?.email?.split('@')[0]
-    ?? (lang === 'ar' ? 'صديقتي' : 'friend');
+    ?? t('home.greeting.default');
 
   // ── Weather (Riyadh) ─────────────────────────────────────────────────────
   useEffect(() => {
@@ -250,7 +250,7 @@ export const HomeOverview: React.FC<HomeOverviewProps> = ({ onNavigate }) => {
               <div className="flex-1 min-w-0">
                 <p className="text-xs text-jood-gold-300/90 font-arabic mb-0.5">{(() => { const h = new Date().getHours(); return h < 5 || h >= 20 ? t('home.greeting.evening') : h < 12 ? t('home.greeting.morning') : h < 17 ? t('home.greeting.afternoon') : t('home.greeting.evening'); })()}</p>
                 <h2 className="text-xl md:text-2xl font-bold font-arabic leading-tight">
-                  {lang === 'ar' ? `أهلاً ${displayName}!` : `Hello ${displayName}!`}
+                  {t('home.greeting')} {displayName}!
                 </h2>
                 <p className="text-xs text-white/70 font-arabic mt-1">{t('home.daily.summary')}</p>
               </div>
@@ -290,7 +290,7 @@ export const HomeOverview: React.FC<HomeOverviewProps> = ({ onNavigate }) => {
               <p className="text-[10px] text-muted-foreground font-arabic">{t('home.prayer.next')}</p>
               <p className="text-lg font-bold font-arabic">{prayer ? t(prayer.key) : '—'}</p>
               <p className="text-[11px] text-muted-foreground font-mono">
-                {prayer ? `${prayer.time} · ${lang === 'ar' ? `بعد ${Math.floor(prayer.minutesTo / 60)}س ${prayer.minutesTo % 60}د` : `in ${Math.floor(prayer.minutesTo / 60)}h ${prayer.minutesTo % 60}m`}` : ''}
+                {prayer ? `${prayer.time} · ${t('home.prayer.in')} ${Math.floor(prayer.minutesTo / 60)}${t('home.prayer.h')} ${prayer.minutesTo % 60}${t('home.prayer.m')}` : ''}
               </p>
             </div>
           </CardContent>
@@ -325,14 +325,14 @@ export const HomeOverview: React.FC<HomeOverviewProps> = ({ onNavigate }) => {
               <div className="flex items-center justify-between">
                 <h3 className="text-sm font-bold font-arabic flex items-center gap-2">
                   <CheckCircle2 className="w-4 h-4 text-jood-teal-500" />
-                  مهام اليوم
+                  {t('home.tasks.title')}
                 </h3>
                 <Button
                   variant="ghost" size="sm"
                   onClick={() => onNavigate('planning')}
                   className="h-7 text-[11px] font-arabic text-muted-foreground hover:text-foreground"
                 >
-                  عرض الكل <ChevronRight className="w-3 h-3 mr-0.5 rotate-180" />
+                  {t('home.tasks.view.all')} <ChevronRight className="w-3 h-3 mr-0.5 rotate-180" />
                 </Button>
               </div>
 
@@ -342,7 +342,7 @@ export const HomeOverview: React.FC<HomeOverviewProps> = ({ onNavigate }) => {
                 </div>
               ) : todayTasks.length === 0 ? (
                 <div className="text-center py-6">
-                  <p className="text-xs text-muted-foreground font-arabic">لا مهام معلّقة — استمتعي بيومك!</p>
+                  <p className="text-xs text-muted-foreground font-arabic">{t('home.tasks.empty')}</p>
                 </div>
               ) : (
                 <div className="space-y-1.5">
@@ -359,7 +359,7 @@ export const HomeOverview: React.FC<HomeOverviewProps> = ({ onNavigate }) => {
                         {t.due_date && (
                           <p className="text-[10px] text-muted-foreground font-mono flex items-center gap-1">
                             <Clock className="w-2.5 h-2.5" />
-                            {new Date(t.due_date).toLocaleDateString('ar-SA', { weekday: 'short', hour: '2-digit', minute: '2-digit' })}
+                            {new Date(t.due_date).toLocaleDateString(lang === 'ar' ? 'ar-SA' : 'en-US', { weekday: 'short', hour: '2-digit', minute: '2-digit' })}
                           </p>
                         )}
                       </div>
@@ -382,14 +382,14 @@ export const HomeOverview: React.FC<HomeOverviewProps> = ({ onNavigate }) => {
               <div className="flex items-center justify-between">
                 <h3 className="text-sm font-bold font-arabic flex items-center gap-2">
                   <Wallet className="w-4 h-4 text-jood-gold-500" />
-                  محفظتي
+                  {t('home.wallet.title')}
                 </h3>
                 <Button
                   variant="ghost" size="sm"
                   onClick={() => onNavigate('financial')}
                   className="h-7 text-[11px] font-arabic text-muted-foreground hover:text-foreground"
                 >
-                  التفاصيل <ChevronRight className="w-3 h-3 mr-0.5 rotate-180" />
+                  {t('home.wallet.details')} <ChevronRight className="w-3 h-3 mr-0.5 rotate-180" />
                 </Button>
               </div>
 
@@ -405,7 +405,7 @@ export const HomeOverview: React.FC<HomeOverviewProps> = ({ onNavigate }) => {
               ) : (
               <>
               <div>
-                <p className="text-[10px] text-muted-foreground font-arabic">الرصيد الصافي هذا الشهر</p>
+                <p className="text-[10px] text-muted-foreground font-arabic">{t('home.wallet.balance')}</p>
                 <p className={cn(
                   'text-2xl font-bold font-mono mt-0.5',
                   walletSummary.balance >= 0 ? 'text-jood-ok' : 'text-destructive',
@@ -416,11 +416,11 @@ export const HomeOverview: React.FC<HomeOverviewProps> = ({ onNavigate }) => {
 
               <div className="grid grid-cols-2 gap-2 pt-2 border-t border-border/30">
                 <div>
-                  <p className="text-[10px] text-muted-foreground font-arabic">الدخل</p>
+                  <p className="text-[10px] text-muted-foreground font-arabic">{t('home.wallet.income')}</p>
                   <p className="text-sm font-bold font-mono text-jood-teal-500">{fmt(walletSummary.income)}</p>
                 </div>
                 <div>
-                  <p className="text-[10px] text-muted-foreground font-arabic">المصروفات</p>
+                  <p className="text-[10px] text-muted-foreground font-arabic">{t('home.wallet.expenses')}</p>
                   <p className="text-sm font-bold font-mono text-jood-gold-500">{fmt(walletSummary.expenses)}</p>
                 </div>
               </div>
@@ -429,7 +429,7 @@ export const HomeOverview: React.FC<HomeOverviewProps> = ({ onNavigate }) => {
                 <div className="p-2 rounded-xl bg-muted/30 flex items-center gap-2">
                   <TrendingUp className="w-3.5 h-3.5 text-muted-foreground" />
                   <div className="flex-1 min-w-0">
-                    <p className="text-[11px] text-muted-foreground font-arabic">آخر مصروف</p>
+                    <p className="text-[11px] text-muted-foreground font-arabic">{t('home.wallet.last')}</p>
                     <p className="text-xs font-arabic truncate">{walletSummary.recent.label} · {fmt(walletSummary.recent.amount)}</p>
                   </div>
                 </div>
@@ -452,13 +452,13 @@ export const HomeOverview: React.FC<HomeOverviewProps> = ({ onNavigate }) => {
             <CardContent className="p-4 space-y-3">
               <h3 className="text-sm font-bold font-arabic flex items-center gap-2">
                 <Flame className="w-4 h-4 text-jood-gold-500" />
-                اليوم دفعة واحدة
+                {t('home.today.title')}
               </h3>
 
               {/* Events */}
               {todayEvents.length > 0 && (
                 <div className="space-y-1.5">
-                  <p className="text-[10px] text-muted-foreground font-arabic uppercase tracking-wide">المواعيد</p>
+                  <p className="text-[10px] text-muted-foreground font-arabic uppercase tracking-wide">{t('home.events.label')}</p>
                   {todayEvents.map(ev => {
                     const startRaw = ev.starts_at || ev.start_at || '';
                     const timeStr = startRaw
@@ -471,7 +471,9 @@ export const HomeOverview: React.FC<HomeOverviewProps> = ({ onNavigate }) => {
                           <p className="text-xs font-arabic truncate">{ev.title}</p>
                         </div>
                         {timeStr && (
-                          <span className="text-[10px] text-muted-foreground font-mono flex-shrink-0">{timeStr}</span>
+                          <span className="text-[10px] text-muted-foreground font-mono flex-shrink-0">
+                            {new Date(ev.starts_at || ev.start_at || '').toLocaleTimeString(lang === 'ar' ? 'ar-SA' : 'en', { hour: '2-digit', minute: '2-digit' })}
+                          </span>
                         )}
                       </div>
                     );
@@ -482,7 +484,7 @@ export const HomeOverview: React.FC<HomeOverviewProps> = ({ onNavigate }) => {
               {/* Habits */}
               {todayHabits.length > 0 && (
                 <div className="space-y-1.5">
-                  <p className="text-[10px] text-muted-foreground font-arabic uppercase tracking-wide">العادات</p>
+                  <p className="text-[10px] text-muted-foreground font-arabic uppercase tracking-wide">{t('home.habits.label')}</p>
                   {todayHabits.map(h => {
                     const done = completedHabitIds.has(h.id);
                     return (
@@ -523,7 +525,7 @@ export const HomeOverview: React.FC<HomeOverviewProps> = ({ onNavigate }) => {
         >
           <h3 className="text-sm font-bold font-arabic flex items-center gap-2 px-1">
             <Brain className="w-4 h-4 text-jood-gold-500" />
-            نصائح جود
+            {t('home.tips.title')}
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             {recommendations.map((rec, i) => (
@@ -559,14 +561,14 @@ export const HomeOverview: React.FC<HomeOverviewProps> = ({ onNavigate }) => {
                         className="h-7 text-[11px] jood-btn-primary flex-1"
                         onClick={() => onNavigate('chat')}
                       >
-                        {rec.cta_label ?? 'اتخذ إجراء'}
+                        {rec.cta_label ?? t('home.tips.action')}
                       </Button>
                       <Button
                         size="sm" variant="ghost"
                         className="h-7 text-[11px] font-arabic text-muted-foreground hover:text-destructive"
                         onClick={() => dismissRecommendation(rec.id)}
                       >
-                        تجاهل
+                        {t('home.tips.dismiss')}
                       </Button>
                     </div>
                   </CardContent>
@@ -583,14 +585,14 @@ export const HomeOverview: React.FC<HomeOverviewProps> = ({ onNavigate }) => {
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.32, duration: 0.4 }}
       >
-        <h3 className="text-sm font-bold font-arabic mb-2 px-1">اختصارات سريعة</h3>
+        <h3 className="text-sm font-bold font-arabic mb-2 px-1">{t('home.shortcuts.title')}</h3>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {[
-            { icon: Mic,       label: 'جلسة صوتية',     hint: 'المجلس',     tab: 'chat',       gold: true  },
-            { icon: Flame,     label: 'تسجيل عادة',     hint: 'اليوم',      tab: 'planning',   gold: false },
-            { icon: Target,    label: 'تتبع الميزانية', hint: 'الشهر',      tab: 'financial',  gold: true  },
-            { icon: Sparkles,  label: 'محادثة جديدة',   hint: 'مع جود',     tab: 'chat',       gold: false },
-          ].map(({ icon: Icon, label, hint, tab, gold }, i) => (
+            { icon: Mic,      labelKey: 'home.shortcut.voice.label',  hintKey: 'home.shortcut.voice.hint',  tab: 'chat',      gold: true  },
+            { icon: Flame,    labelKey: 'home.shortcut.habit.label',  hintKey: 'home.shortcut.habit.hint',  tab: 'planning',  gold: false },
+            { icon: Target,   labelKey: 'home.shortcut.budget.label', hintKey: 'home.shortcut.budget.hint', tab: 'financial', gold: true  },
+            { icon: Sparkles, labelKey: 'home.shortcut.chat.label',   hintKey: 'home.shortcut.chat.hint',   tab: 'chat',      gold: false },
+          ].map(({ icon: Icon, labelKey, hintKey, tab, gold }, i) => (
             <button
               key={i}
               onClick={() => onNavigate(tab)}
@@ -606,8 +608,8 @@ export const HomeOverview: React.FC<HomeOverviewProps> = ({ onNavigate }) => {
               )}>
                 <Icon className="w-4 h-4" />
               </div>
-              <p className="text-sm font-bold font-arabic">{label}</p>
-              <p className="text-[10px] text-muted-foreground font-arabic">{hint}</p>
+              <p className="text-sm font-bold font-arabic">{t(labelKey as any)}</p>
+              <p className="text-[10px] text-muted-foreground font-arabic">{t(hintKey as any)}</p>
             </button>
           ))}
         </div>

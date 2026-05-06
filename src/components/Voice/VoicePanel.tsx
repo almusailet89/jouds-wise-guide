@@ -124,7 +124,7 @@ export const VoicePanel: React.FC = () => {
 
       isProcessingRef.current = true;
       setMode('processing');
-      setTranscript(lang === 'ar' ? 'جار التعرف على صوتك…' : 'Recognizing your voice…');
+      setTranscript(MODE_CONFIG.processing[lang === 'ar' ? 'ar' : 'en']);
 
       try {
         const ext = mimeTypeRef.current.includes('mp4') ? 'mp4'
@@ -285,7 +285,7 @@ export const VoicePanel: React.FC = () => {
           onClick={replay}
           disabled={!messages.some(m => m.role === 'assistant') || mode !== 'idle'}
           className="rounded-full h-10 w-10"
-          title="إعادة الاستماع"
+          title={lang === 'ar' ? 'إعادة الاستماع' : 'Replay'}
         >
           <Volume2 className="w-4 h-4" />
         </Button>
@@ -295,7 +295,7 @@ export const VoicePanel: React.FC = () => {
           onClick={() => { stopSpeaking(); stopRecording(); setMode('idle'); setTranscript(''); }}
           disabled={mode === 'idle'}
           className="rounded-full h-10 w-10"
-          title="إعادة التعيين"
+          title={lang === 'ar' ? 'إعادة التعيين' : 'Reset'}
         >
           <RefreshCw className="w-4 h-4" />
         </Button>
@@ -304,11 +304,11 @@ export const VoicePanel: React.FC = () => {
       {/* Hint */}
       <p className="text-[10px] text-muted-foreground text-center font-arabic">
         {mode === 'idle'
-          ? 'اضغطي المايك للتحدث · للمجلس الكامل استخدمي الزر أعلاه'
+          ? (lang === 'ar' ? 'اضغطي المايك للتحدث · للمجلس الكامل استخدمي الزر أعلاه' : 'Tap the mic to talk · For full session use the button above')
           : mode === 'listening'
-          ? 'اضغطي مجدداً عند الانتهاء'
+          ? (lang === 'ar' ? 'اضغطي مجدداً عند الانتهاء' : 'Tap again when done')
           : mode === 'speaking'
-          ? 'اضغطي المايك لمقاطعة جود'
+          ? (lang === 'ar' ? 'اضغطي المايك لمقاطعة جود' : 'Tap the mic to interrupt Jood')
           : ''}
       </p>
 
