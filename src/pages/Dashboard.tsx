@@ -236,7 +236,7 @@ const Dashboard = () => {
   const { user, signOut } = useAuth();
   const { profile } = useProfile();
   const { theme, setTheme } = useTheme();
-  const { t, dir } = useLanguage();
+  const { t, lang, dir } = useLanguage();
   const { hasPaymentIssue, openCustomerPortal } = useSubscription();
   const NAV = buildNav(t);
   const [activeTab, setActiveTab] = useState('home');
@@ -429,21 +429,21 @@ const Dashboard = () => {
 
           {/* ── Home ──────────────────────────────────────────────────────── */}
           <TabsContent value="home" className="p-4 mt-0">
-            <ErrorBoundary fallbackLabel={t('error.load.home')}>
+            <ErrorBoundary fallbackLabel={t('error.load.home')} lang={lang}>
               <Fade><HomeOverview onNavigate={setActiveTab} /></Fade>
             </ErrorBoundary>
           </TabsContent>
 
           {/* ── Chat + Voice ──────────────────────────────────────────────── */}
           <TabsContent value="chat" className="flex-1 p-4 mt-0">
-            <ErrorBoundary fallbackLabel={t('error.load.chat')}>
+            <ErrorBoundary fallbackLabel={t('error.load.chat')} lang={lang}>
               <ChatVoiceTab onMajlis={() => setMajlisOpen(true)} />
             </ErrorBoundary>
           </TabsContent>
 
           {/* ── Finance ──────────────────────────────────────────────────── */}
           <TabsContent value="financial" className="p-4 mt-0">
-            <ErrorBoundary fallbackLabel={t('error.load.finance')}>
+            <ErrorBoundary fallbackLabel={t('error.load.finance')} lang={lang}>
               <Suspense fallback={<TabSkeleton />}>
                 <Fade><FinancialDashboard /></Fade>
               </Suspense>
@@ -452,7 +452,7 @@ const Dashboard = () => {
 
           {/* ── Planning (Calendar + Tasks + Habits) ─────────────────────── */}
           <TabsContent value="planning" className="p-4 mt-0">
-            <ErrorBoundary fallbackLabel={t('error.load.planning')}>
+            <ErrorBoundary fallbackLabel={t('error.load.planning')} lang={lang}>
               <Suspense fallback={<TabSkeleton />}>
                 <Fade>
                   <h2 className="text-xl font-bold font-arabic mb-4 text-foreground">{t('tab.planning')}</h2>
@@ -464,7 +464,7 @@ const Dashboard = () => {
 
           {/* ── Mood ─────────────────────────────────────────────────────── */}
           <TabsContent value="mood" className="p-4 mt-0">
-            <ErrorBoundary fallbackLabel={t('error.load.mood')}>
+            <ErrorBoundary fallbackLabel={t('error.load.mood')} lang={lang}>
               <Suspense fallback={<TabSkeleton />}>
                 <Fade>
                   <h2 className="text-xl font-bold font-arabic mb-4 text-foreground">{t('tab.mood')}</h2>
@@ -476,7 +476,7 @@ const Dashboard = () => {
 
           {/* ── Settings (Insights + Memory + Security) ───────────────────── */}
           <TabsContent value="settings" className="p-4 mt-0">
-            <ErrorBoundary fallbackLabel={t('error.load.settings')}>
+            <ErrorBoundary fallbackLabel={t('error.load.settings')} lang={lang}>
               <Suspense fallback={<TabSkeleton />}>
                 <Fade>
                   <h2 className="text-xl font-bold font-arabic mb-4 text-foreground">{t('tab.settings')}</h2>

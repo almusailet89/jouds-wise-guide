@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useProfile } from '@/hooks/useDatabase';
+import { useLanguage } from '@/hooks/useLanguage';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
@@ -37,42 +38,31 @@ const DEFAULT: FormState = {
   avatar_seed: 0,
 };
 
-// ─── Step config ──────────────────────────────────────────────────────────────
-const STEPS = [
-  { id: 'profile',  icon: User2,    title: 'مرحباً بك',       desc: 'تعارف سريع' },
-  { id: 'goals',    icon: Target,   title: 'أهدافك',          desc: 'ماذا تريدين تحقيقه؟' },
-  { id: 'prefs',    icon: Sliders,  title: 'تفضيلاتك',        desc: 'كيف نتواصل؟' },
-  { id: 'avatar',   icon: Sparkles, title: 'اختاري شخصيتها',  desc: 'وجه جود' },
-  { id: 'home',     icon: Heart,    title: 'كل شيء جاهز',     desc: 'هيا نبدأ' },
+// ─── Static icon/color catalogues (no text) ───────────────────────────────────
+const STEP_ICONS = [User2, Target, Sliders, Sparkles, Heart] as const;
+const STEP_IDS   = ['profile', 'goals', 'prefs', 'avatar', 'home'] as const;
+
+const GOAL_META = [
+  { id: 'save',        icon: Wallet,        color: 'from-emerald-500 to-emerald-700' },
+  { id: 'invest',      icon: TrendingUp,    color: 'from-jood-gold-500 to-amber-700' },
+  { id: 'debt',        icon: Shield,        color: 'from-rose-500 to-rose-700' },
+  { id: 'house',       icon: Briefcase,     color: 'from-jood-teal-700 to-jood-teal-900' },
+  { id: 'travel',      icon: Plane,         color: 'from-indigo-500 to-indigo-700' },
+  { id: 'study',       icon: GraduationCap, color: 'from-violet-500 to-purple-700' },
+  { id: 'wellness',    icon: Smile,         color: 'from-pink-500 to-rose-700' },
+  { id: 'productivity',icon: Zap,           color: 'from-cyan-500 to-blue-700' },
 ] as const;
 
-// ─── Goals catalogue ──────────────────────────────────────────────────────────
-const GOALS = [
-  { id: 'save',     label: 'ادخار شهري',       icon: Wallet,        color: 'from-emerald-500 to-emerald-700' },
-  { id: 'invest',   label: 'استثمار وتنمية',    icon: TrendingUp,    color: 'from-jood-gold-500 to-amber-700' },
-  { id: 'debt',     label: 'سداد الديون',      icon: Shield,        color: 'from-rose-500 to-rose-700' },
-  { id: 'house',    label: 'تملّك منزل',       icon: Briefcase,     color: 'from-jood-teal-700 to-jood-teal-900' },
-  { id: 'travel',   label: 'سفر/عمرة',         icon: Plane,         color: 'from-indigo-500 to-indigo-700' },
-  { id: 'study',    label: 'تعليم وتطوير',     icon: GraduationCap, color: 'from-violet-500 to-purple-700' },
-  { id: 'wellness', label: 'صحة ومزاج',        icon: Smile,         color: 'from-pink-500 to-rose-700' },
-  { id: 'productivity', label: 'إنتاجية',     icon: Zap,           color: 'from-cyan-500 to-blue-700' },
-];
+const RISK_VALUES = ['conservative', 'balanced', 'aggressive'] as const;
+const RISK_EMOJIS = { conservative: '🛡️', balanced: '⚖️', aggressive: '🚀' } as const;
 
-// ─── Risk profile ─────────────────────────────────────────────────────────────
-const RISKS = [
-  { value: 'conservative', label: 'حذرة',    desc: 'صكوك وودائع', emoji: '🛡️' },
-  { value: 'balanced',     label: 'متوازنة', desc: 'مزيج معقول',  emoji: '⚖️' },
-  { value: 'aggressive',   label: 'نشطة',    desc: 'فرص للنمو',   emoji: '🚀' },
-] as const;
-
-// ─── Avatar palette (just gradients/seeds) ────────────────────────────────────
-const AVATARS = [
-  { seed: 0, name: 'أصيل',   gradient: 'from-jood-teal-900 to-jood-teal-700' },
-  { seed: 1, name: 'ذهبي',   gradient: 'from-jood-gold-500 to-amber-700' },
-  { seed: 2, name: 'هادئ',   gradient: 'from-indigo-600 to-indigo-900' },
-  { seed: 3, name: 'وردي',   gradient: 'from-rose-400 to-pink-700' },
-  { seed: 4, name: 'أخضر',   gradient: 'from-emerald-500 to-emerald-800' },
-  { seed: 5, name: 'بنفسجي', gradient: 'from-violet-500 to-purple-800' },
+const AVATAR_GRADIENTS = [
+  'from-jood-teal-900 to-jood-teal-700',
+  'from-jood-gold-500 to-amber-700',
+  'from-indigo-600 to-indigo-900',
+  'from-rose-400 to-pink-700',
+  'from-emerald-500 to-emerald-800',
+  'from-violet-500 to-purple-800',
 ];
 
 interface OnboardingProps {
@@ -84,10 +74,37 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
   const { user } = useAuth();
   const { profile } = useProfile();
   const { toast } = useToast();
+  const { t, lang, dir } = useLanguage();
 
   const [step, setStep] = useState(0);
   const [form, setForm] = useState<FormState>(DEFAULT);
   const [saving, setSaving] = useState(false);
+
+  // ── Computed i18n arrays (inside component so t() is accessible) ─────────────
+  const STEPS = STEP_IDS.map((id, i) => ({
+    id,
+    icon: STEP_ICONS[i],
+    title: t(`ob.step.${id}.title` as any),
+    desc:  t(`ob.step.${id}.desc` as any),
+  }));
+
+  const GOALS = GOAL_META.map(g => ({
+    ...g,
+    label: t(`ob.goal.${g.id}` as any),
+  }));
+
+  const RISKS = RISK_VALUES.map(v => ({
+    value: v,
+    label: t(`ob.risk.${v}` as any),
+    desc:  t(`ob.risk.${v}.desc` as any),
+    emoji: RISK_EMOJIS[v],
+  }));
+
+  const AVATARS = AVATAR_GRADIENTS.map((gradient, seed) => ({
+    seed,
+    gradient,
+    name: t(`ob.avatar.${seed}` as any),
+  }));
 
   // Pre-fill name from profile/auth
   useEffect(() => {
@@ -98,8 +115,8 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
   // Auto-advance: step 4 ("home") finishes after 1.8s
   useEffect(() => {
     if (step === 4) {
-      const t = setTimeout(() => onComplete(), 1800);
-      return () => clearTimeout(t);
+      const timer = setTimeout(() => onComplete(), 1800);
+      return () => clearTimeout(timer);
     }
   }, [step, onComplete]);
 
@@ -115,17 +132,15 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
     if (!user) return;
     setSaving(true);
     try {
-      // Upsert profile
       await (supabase as any).from('profiles').upsert({
         user_id: user.id,
         display_name: form.display_name.trim(),
         income: form.income,
         risk_profile: form.risk_profile,
         interests: form.goals,
-        onboarding_done: true,   // persisted to DB so it survives new devices
+        onboarding_done: true,
       }, { onConflict: 'user_id' });
 
-      // Also persist locally for instant reads (avoids async DB round-trip on next load)
       localStorage.setItem('jood.onboarding.done', '1');
       localStorage.setItem('jood.prefs', JSON.stringify({
         voice_first: form.voice_first,
@@ -133,10 +148,9 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
         avatar_seed: form.avatar_seed,
       }));
 
-      // Move to celebration screen
       setStep(4);
     } catch (err: any) {
-      toast({ title: 'تعذر الحفظ', description: err.message, variant: 'destructive' });
+      toast({ title: t('ob.toast.fail'), description: err.message, variant: 'destructive' });
       setSaving(false);
     }
   };
@@ -144,7 +158,7 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
   // ── Go forward ───────────────────────────────────────────────────────────────
   const next = () => {
     if (!canAdvance()) {
-      toast({ title: 'أكملي البيانات', description: 'الحقول المطلوبة فارغة', variant: 'destructive' });
+      toast({ title: t('ob.toast.req.title'), description: t('ob.toast.req.desc'), variant: 'destructive' });
       return;
     }
     if (step === 3) finish();
@@ -165,7 +179,10 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
 
   // ─── Render ────────────────────────────────────────────────────────────────
   return (
-    <div className="fixed inset-0 z-50 bg-gradient-to-br from-jood-teal-900 via-jood-teal-700 to-jood-teal-900 flex items-center justify-center p-4 overflow-y-auto" dir="rtl">
+    <div
+      className="fixed inset-0 z-50 bg-gradient-to-br from-jood-teal-900 via-jood-teal-700 to-jood-teal-900 flex items-center justify-center p-4 overflow-y-auto"
+      dir={dir}
+    >
       {/* Backdrop ambient particles */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         {Array.from({ length: 20 }).map((_, i) => (
@@ -177,15 +194,8 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
               y: Math.random() * window.innerHeight,
               opacity: 0,
             }}
-            animate={{
-              y: [null, -40],
-              opacity: [0, 0.6, 0],
-            }}
-            transition={{
-              duration: 4 + Math.random() * 3,
-              repeat: Infinity,
-              delay: Math.random() * 4,
-            }}
+            animate={{ y: [null, -40], opacity: [0, 0.6, 0] }}
+            transition={{ duration: 4 + Math.random() * 3, repeat: Infinity, delay: Math.random() * 4 }}
           />
         ))}
       </div>
@@ -225,9 +235,9 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
                   <div key={s.id} className="flex flex-col items-center gap-1">
                     <div className={cn(
                       'w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold transition-all',
-                      i < step && 'bg-jood-teal-700 text-white',
+                      i < step  && 'bg-jood-teal-700 text-white',
                       i === step && 'bg-jood-gold-500 text-white scale-110 shadow-elegant',
-                      i > step && 'bg-muted text-muted-foreground',
+                      i > step  && 'bg-muted text-muted-foreground',
                     )}>
                       {i < step ? <Check className="w-3 h-3" /> : <Icon className="w-3 h-3" />}
                     </div>
@@ -245,32 +255,28 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
               {step === 0 && (
                 <motion.div
                   key="step0"
-                  initial={{ opacity: 0, x: 30 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -30 }}
+                  initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }}
                   transition={{ duration: 0.3 }}
                   className="space-y-4"
                 >
                   <div className="text-center mb-4">
-                    <h2 className="text-2xl font-bold font-arabic mb-1">أهلاً بك في جود ✨</h2>
-                    <p className="text-xs text-muted-foreground font-arabic">
-                      دعينا نتعرف عليكِ في أقل من ٩٠ ثانية.
-                    </p>
+                    <h2 className="text-2xl font-bold font-arabic mb-1">{t('ob.welcome')}</h2>
+                    <p className="text-xs text-muted-foreground font-arabic">{t('ob.welcome.sub')}</p>
                   </div>
 
                   <div>
-                    <Label className="font-arabic text-xs">اسمك (للترحيب)</Label>
+                    <Label className="font-arabic text-xs">{t('ob.name.label')}</Label>
                     <Input
                       value={form.display_name}
                       onChange={e => setForm(f => ({ ...f, display_name: e.target.value }))}
-                      placeholder="سارة"
+                      placeholder={t('ob.name.placeholder')}
                       className="font-arabic text-base mt-1.5"
                       autoFocus
                     />
                   </div>
 
                   <div>
-                    <Label className="font-arabic text-xs">الدخل الشهري التقريبي (ر.س)</Label>
+                    <Label className="font-arabic text-xs">{t('ob.income.label')}</Label>
                     <Input
                       type="number"
                       value={form.income || ''}
@@ -278,9 +284,7 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
                       placeholder="15000"
                       className="font-mono text-base mt-1.5"
                     />
-                    <p className="text-[10px] text-muted-foreground font-arabic mt-1">
-                      نستخدمها لتقديم نصائح دقيقة — تبقى خاصة بك تماماً.
-                    </p>
+                    <p className="text-[10px] text-muted-foreground font-arabic mt-1">{t('ob.income.hint')}</p>
                   </div>
                 </motion.div>
               )}
@@ -289,16 +293,12 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
               {step === 1 && (
                 <motion.div
                   key="step1"
-                  initial={{ opacity: 0, x: 30 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -30 }}
+                  initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }}
                   transition={{ duration: 0.3 }}
                 >
                   <div className="text-center mb-4">
-                    <h2 className="text-xl font-bold font-arabic mb-1">ما الذي يهمك؟</h2>
-                    <p className="text-xs text-muted-foreground font-arabic">
-                      اختاري واحداً أو أكثر — يمكنك تعديلها لاحقاً.
-                    </p>
+                    <h2 className="text-xl font-bold font-arabic mb-1">{t('ob.goals.title')}</h2>
+                    <p className="text-xs text-muted-foreground font-arabic">{t('ob.goals.sub')}</p>
                   </div>
 
                   <div className="grid grid-cols-2 gap-2">
@@ -311,15 +311,11 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
                           onClick={() => toggleGoal(g.id)}
                           className={cn(
                             'p-3 rounded-xl border-2 transition-all flex flex-col items-center gap-1.5 text-center',
-                            on
-                              ? 'border-jood-teal-700 bg-jood-teal-900/5 scale-105'
-                              : 'border-border/40 hover:border-jood-teal-500/50',
+                            on ? 'border-jood-teal-700 bg-jood-teal-900/5 scale-105'
+                               : 'border-border/40 hover:border-jood-teal-500/50',
                           )}
                         >
-                          <div className={cn(
-                            'w-9 h-9 rounded-lg bg-gradient-to-br flex items-center justify-center',
-                            g.color,
-                          )}>
+                          <div className={cn('w-9 h-9 rounded-lg bg-gradient-to-br flex items-center justify-center', g.color)}>
                             <Icon className="w-4 h-4 text-white" />
                           </div>
                           <span className="text-xs font-arabic font-semibold">{g.label}</span>
@@ -329,7 +325,7 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
                     })}
                   </div>
                   <p className="text-[10px] text-center text-muted-foreground font-arabic mt-3">
-                    اختاري على الأقل هدفاً واحداً
+                    {t('ob.goals.min')}
                   </p>
                 </motion.div>
               )}
@@ -338,22 +334,18 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
               {step === 2 && (
                 <motion.div
                   key="step2"
-                  initial={{ opacity: 0, x: 30 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -30 }}
+                  initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }}
                   transition={{ duration: 0.3 }}
                   className="space-y-5"
                 >
                   <div className="text-center mb-2">
-                    <h2 className="text-xl font-bold font-arabic mb-1">كيف نتواصل؟</h2>
-                    <p className="text-xs text-muted-foreground font-arabic">
-                      ضبط بسيط لتجربة مريحة — قابل للتعديل دائماً.
-                    </p>
+                    <h2 className="text-xl font-bold font-arabic mb-1">{t('ob.prefs.title')}</h2>
+                    <p className="text-xs text-muted-foreground font-arabic">{t('ob.prefs.sub')}</p>
                   </div>
 
                   {/* Risk profile */}
                   <div>
-                    <Label className="font-arabic text-xs mb-2 block">نمط الاستثمار المفضّل</Label>
+                    <Label className="font-arabic text-xs mb-2 block">{t('ob.risk.label')}</Label>
                     <div className="grid grid-cols-3 gap-2">
                       {RISKS.map(r => (
                         <button
@@ -376,38 +368,34 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
 
                   {/* Voice-first */}
                   <div>
-                    <Label className="font-arabic text-xs mb-2 block">طريقة التواصل المفضّلة</Label>
+                    <Label className="font-arabic text-xs mb-2 block">{t('ob.voice.label')}</Label>
                     <div className="grid grid-cols-2 gap-2">
                       <button
                         onClick={() => setForm(f => ({ ...f, voice_first: true }))}
                         className={cn(
                           'p-3 rounded-xl border-2 transition-all',
-                          form.voice_first
-                            ? 'border-jood-teal-700 bg-jood-teal-900/5'
-                            : 'border-border/40',
+                          form.voice_first ? 'border-jood-teal-700 bg-jood-teal-900/5' : 'border-border/40',
                         )}
                       >
                         <div className="text-xl mb-1">🎙️</div>
-                        <div className="text-xs font-arabic font-bold">صوتية أولاً</div>
+                        <div className="text-xs font-arabic font-bold">{t('ob.voice.first')}</div>
                       </button>
                       <button
                         onClick={() => setForm(f => ({ ...f, voice_first: false }))}
                         className={cn(
                           'p-3 rounded-xl border-2 transition-all',
-                          !form.voice_first
-                            ? 'border-jood-teal-700 bg-jood-teal-900/5'
-                            : 'border-border/40',
+                          !form.voice_first ? 'border-jood-teal-700 bg-jood-teal-900/5' : 'border-border/40',
                         )}
                       >
                         <div className="text-xl mb-1">⌨️</div>
-                        <div className="text-xs font-arabic font-bold">كتابية</div>
+                        <div className="text-xs font-arabic font-bold">{t('ob.voice.text')}</div>
                       </button>
                     </div>
                   </div>
 
                   {/* Language */}
                   <div>
-                    <Label className="font-arabic text-xs mb-2 block">اللغة</Label>
+                    <Label className="font-arabic text-xs mb-2 block">{t('ob.lang.label')}</Label>
                     <div className="grid grid-cols-2 gap-2">
                       <button
                         onClick={() => setForm(f => ({ ...f, language: 'ar' }))}
@@ -416,7 +404,7 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
                           form.language === 'ar' ? 'border-jood-teal-700 bg-jood-teal-900/5' : 'border-border/40',
                         )}
                       >
-                        🇸🇦 عربية فقط
+                        {t('ob.lang.ar')}
                       </button>
                       <button
                         onClick={() => setForm(f => ({ ...f, language: 'ar-en' }))}
@@ -425,7 +413,7 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
                           form.language === 'ar-en' ? 'border-jood-teal-700 bg-jood-teal-900/5' : 'border-border/40',
                         )}
                       >
-                        🌍 عربية + إنجليزية
+                        {t('ob.lang.mixed')}
                       </button>
                     </div>
                   </div>
@@ -436,16 +424,12 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
               {step === 3 && (
                 <motion.div
                   key="step3"
-                  initial={{ opacity: 0, x: 30 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -30 }}
+                  initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }}
                   transition={{ duration: 0.3 }}
                 >
                   <div className="text-center mb-4">
-                    <h2 className="text-xl font-bold font-arabic mb-1">اختاري لون جود</h2>
-                    <p className="text-xs text-muted-foreground font-arabic">
-                      الشخصية البصرية لمساعدتك — لكِ وحدك.
-                    </p>
+                    <h2 className="text-xl font-bold font-arabic mb-1">{t('ob.avatar.title')}</h2>
+                    <p className="text-xs text-muted-foreground font-arabic">{t('ob.avatar.sub')}</p>
                   </div>
 
                   {/* Live preview */}
@@ -476,10 +460,7 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
                             : 'border-border/40 hover:border-jood-gold-500/40',
                         )}
                       >
-                        <div className={cn(
-                          'w-10 h-10 rounded-full bg-gradient-to-br flex items-center justify-center',
-                          a.gradient,
-                        )}>
+                        <div className={cn('w-10 h-10 rounded-full bg-gradient-to-br flex items-center justify-center', a.gradient)}>
                           <span className="text-base font-display text-white">ج</span>
                         </div>
                         <span className="text-[10px] font-arabic">{a.name}</span>
@@ -510,10 +491,10 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
                     <Check className="w-10 h-10 text-jood-gold-300" />
                   </motion.div>
                   <h2 className="text-2xl font-bold font-arabic mb-2">
-                    أهلاً يا {form.display_name.split(' ')[0]} 🌟
+                    {t('ob.done.greeting')} {form.display_name.split(' ')[0]} 🌟
                   </h2>
                   <p className="text-sm text-muted-foreground font-arabic max-w-xs leading-relaxed">
-                    جود جاهزة لمرافقتك. دعينا نبدأ رحلتك الذكية.
+                    {t('ob.done.sub')}
                   </p>
                 </motion.div>
               )}
@@ -530,15 +511,18 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
                 disabled={step === 0}
                 className="font-arabic gap-1 text-muted-foreground"
               >
-                <ChevronRight className="w-4 h-4" /> رجوع
+                {lang === 'ar' ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
+                {t('ob.nav.back')}
               </Button>
               <Button
                 onClick={next}
                 disabled={!canAdvance() || saving}
                 className="bg-gradient-to-r from-jood-teal-900 to-jood-teal-700 hover:from-jood-teal-700 hover:to-jood-teal-900 text-white font-arabic gap-1"
               >
-                {step === 3 ? (saving ? 'جارٍ الحفظ…' : 'إنهاء') : 'التالي'}
-                <ChevronLeft className="w-4 h-4" />
+                {step === 3
+                  ? (saving ? t('ob.nav.saving') : t('ob.nav.finish'))
+                  : t('ob.nav.next')}
+                {lang === 'ar' ? <ChevronLeft className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
               </Button>
             </div>
           )}

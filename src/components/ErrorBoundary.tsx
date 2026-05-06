@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 interface Props {
   children: ReactNode;
   fallbackLabel?: string;
+  lang?: 'ar' | 'en';
 }
 
 interface State {
@@ -35,17 +36,24 @@ export class ErrorBoundary extends Component<Props, State> {
   render() {
     if (!this.state.hasError) return this.props.children;
 
+    const isEn = this.props.lang === 'en';
+    const subtitle = isEn
+      ? 'Try refreshing the page or contact us if the problem persists'
+      : 'جرّب تحديث الصفحة أو تواصل معنا إذا استمر المشكلة';
+    const retryLabel = isEn ? 'Try again' : 'حاول مرة أخرى';
+    const fallback = this.props.fallbackLabel ?? (isEn ? 'An unexpected error occurred' : 'حدث خطأ غير متوقع');
+
     return (
-      <div className="flex flex-col items-center justify-center min-h-[300px] gap-4 p-8 text-center" dir="rtl">
+      <div className="flex flex-col items-center justify-center min-h-[300px] gap-4 p-8 text-center" dir={isEn ? 'ltr' : 'rtl'}>
         <div className="w-14 h-14 rounded-2xl bg-red-50 flex items-center justify-center">
           <AlertTriangle className="w-7 h-7 text-red-400" />
         </div>
         <div>
           <p className="font-bold font-arabic text-sm text-foreground">
-            {this.props.fallbackLabel ?? 'حدث خطأ غير متوقع'}
+            {fallback}
           </p>
           <p className="text-xs text-muted-foreground font-arabic mt-1">
-            جرّب تحديث الصفحة أو تواصل معنا إذا استمر المشكلة
+            {subtitle}
           </p>
         </div>
         <Button
@@ -55,7 +63,7 @@ export class ErrorBoundary extends Component<Props, State> {
           className="gap-2 font-arabic text-xs"
         >
           <RefreshCw className="w-3.5 h-3.5" />
-          حاول مرة أخرى
+          {retryLabel}
         </Button>
       </div>
     );

@@ -4,6 +4,7 @@ import {
   Mic, MessageSquare, TrendingUp, Calendar, Heart, Brain,
   Shield, Globe, Zap, ChevronRight, Star
 } from "lucide-react";
+import { useLanguage } from "@/hooks/useLanguage";
 
 /* ─── Saudi Signal Strip ─────────────────────────────────────────── */
 function useSaudiSignal() {
@@ -64,6 +65,7 @@ const whyPoints = [
 export default function Index() {
   const navigate  = useNavigate();
   const signal    = useSaudiSignal();
+  const { dir }   = useLanguage();
   const [micActive, setMicActive] = useState(false);
 
   function handleMicClick() {
@@ -74,7 +76,7 @@ export default function Index() {
   }
 
   return (
-    <div className="min-h-screen bg-background text-foreground overflow-x-hidden">
+    <div className="min-h-screen bg-background text-foreground overflow-x-hidden" dir={dir}>
 
       {/* Header */}
       <header className="sticky top-0 z-50 border-b border-border/40 backdrop-blur-md bg-background/80">
