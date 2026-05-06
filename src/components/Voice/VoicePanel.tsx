@@ -320,3 +320,5 @@ export const VoicePanel: React.FC = () => {
     </div>
   );
 };
+
+export default VoicePanel;
