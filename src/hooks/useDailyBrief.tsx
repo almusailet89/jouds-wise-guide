@@ -1,6 +1,7 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
+import type { Lang } from '@/lib/i18n';
 
 export interface BriefHighlight {
   kind: 'prayer' | 'finance' | 'memory' | 'event' | 'tip' | string;
@@ -23,20 +24,21 @@ export interface DailyBrief {
   meta?: Record<string, any>;
 }
 
-export const useDailyBrief = () => {
+export const useDailyBrief = (lang: Lang = 'ar') => {
   const { session } = useAuth();
   const [brief, setBrief] = useState<DailyBrief | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const prevLang = useRef<Lang>(lang);
 
   // ── Generate (or fetch cached) brief ───────────────────────────────────
-  const generate = useCallback(async (force = false) => {
+  const generate = useCallback(async (force = false, overrideLang?: Lang) => {
     if (!session) return;
     setLoading(true);
     setError(null);
     try {
       const { data, error: fnErr } = await supabase.functions.invoke('daily-brief', {
-        body: { force },
+        body: { force, lang: overrideLang ?? lang },
         headers: { Authorization: `Bearer ${session.access_token}` },
       });
       if (fnErr) throw fnErr;
@@ -47,13 +49,22 @@ export const useDailyBrief = () => {
     } finally {
       setLoading(false);
     }
-  }, [session]);
+  }, [session, lang]);
 
   // ── Auto-load on mount ─────────────────────────────────────────────────
   useEffect(() => {
     if (!session) return;
     generate(false);
-  }, [session, generate]);
+  }, [session]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Re-generate when language changes ─────────────────────────────────
+  useEffect(() => {
+    if (prevLang.current === lang) return;
+    prevLang.current = lang;
+    if (!session) return;
+    setBrief(null);
+    generate(true, lang);
+  }, [lang]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Mark as read ───────────────────────────────────────────────────────
   const markRead = useCallback(async () => {

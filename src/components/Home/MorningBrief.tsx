@@ -34,9 +34,9 @@ interface MorningBriefProps {
 }
 
 export const MorningBrief: React.FC<MorningBriefProps> = ({ onActionClick }) => {
-  const { brief, loading, error, generate, markRead, markSpoken, dismiss } = useDailyBrief();
+  const { t, dir, lang } = useLanguage();
+  const { brief, loading, error, generate, markRead, markSpoken, dismiss } = useDailyBrief(lang);
   const { speakMessage, speaking } = useChat();
-  const { t, dir } = useLanguage();
 
   // Mark as read when brief becomes visible
   useEffect(() => {
