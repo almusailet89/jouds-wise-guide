@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Brain, BookHeart, Shield, Link2, Bell, CalendarDays } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useLanguage } from '@/hooks/useLanguage';
 import AIRecommendations from '@/components/Recommendations/AIRecommendations';
 import MemoryCenter from '@/components/Memory/MemoryCenter';
 import SecurityCenter from '@/components/Security/SecurityCenter';
@@ -11,21 +12,22 @@ import NotificationPrefs from '@/components/Notifications/NotificationPrefs';
 
 type SettingsTab = 'insights' | 'memory' | 'calendar' | 'security' | 'integrations' | 'notifications';
 
-const TABS: { value: SettingsTab; label: string; icon: React.ElementType }[] = [
-  { value: 'insights',      label: 'التوصيات',  icon: Brain },
-  { value: 'calendar',      label: 'التقويم',   icon: CalendarDays },
-  { value: 'memory',        label: 'الذاكرة',   icon: BookHeart },
-  { value: 'integrations',  label: 'الاتصالات', icon: Link2 },
-  { value: 'notifications', label: 'الإشعارات', icon: Bell },
-  { value: 'security',      label: 'الخصوصية',  icon: Shield },
-];
-
 interface SettingsHubProps {
   onNavigate?: (tab: string) => void;
 }
 
 const SettingsHub: React.FC<SettingsHubProps> = ({ onNavigate }) => {
+  const { t } = useLanguage();
   const [active, setActive] = useState<SettingsTab>('insights');
+
+  const TABS: { value: SettingsTab; label: string; icon: React.ElementType }[] = [
+    { value: 'insights',      label: t('settings.tab.insights'),      icon: Brain },
+    { value: 'calendar',      label: t('settings.tab.calendar'),      icon: CalendarDays },
+    { value: 'memory',        label: t('settings.tab.memory'),        icon: BookHeart },
+    { value: 'integrations',  label: t('settings.tab.integrations'),  icon: Link2 },
+    { value: 'notifications', label: t('settings.tab.notifications'), icon: Bell },
+    { value: 'security',      label: t('settings.tab.security'),      icon: Shield },
+  ];
 
   return (
     <div className="space-y-4">

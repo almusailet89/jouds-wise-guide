@@ -11,6 +11,7 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
+import { useLanguage } from '@/hooks/useLanguage';
 import { cn } from '@/lib/utils';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -39,8 +40,6 @@ interface HabitLog {
 // ─── Color palette ────────────────────────────────────────────────────────────
 const COLORS = ['#0E4E4E', '#1a7a7a', '#B8924A', '#d4a853', '#10b981', '#6366f1', '#f43f5e', '#8b5cf6'];
 const ICONS  = ['⭐', '💪', '📖', '🏃', '🥗', '💧', '🧘', '🤲', '💊', '🌙'];
-
-const DAYS_AR = ['أحد', 'إثن', 'ثلا', 'أرب', 'خمي', 'جمع', 'سبت'];
 
 // ─── Mini heatmap for last 35 days ───────────────────────────────────────────
 const HeatmapDots: React.FC<{ logs: HabitLog[]; habitId: string }> = ({ logs, habitId }) => {
@@ -79,6 +78,7 @@ interface HabitRowProps {
 
 const HabitRow: React.FC<HabitRowProps> = ({ habit, logs, onToggle, onDelete }) => {
   const [expanded, setExpanded] = useState(false);
+  const { t } = useLanguage();
 
   return (
     <motion.div
@@ -103,7 +103,7 @@ const HabitRow: React.FC<HabitRowProps> = ({ habit, logs, onToggle, onDelete }) 
           <div className="flex items-center gap-1.5 mt-0.5">
             <Flame className="w-3 h-3 text-jood-gold-500" />
             <span className="text-[11px] text-muted-foreground font-arabic">
-              {habit.streak ?? 0} يوم متتالي
+              {habit.streak ?? 0} {t('hab.streak.days')}
             </span>
           </div>
         </div>
@@ -164,6 +164,7 @@ const HabitRow: React.FC<HabitRowProps> = ({ habit, logs, onToggle, onDelete }) 
 const HabitsTracker: React.FC = () => {
   const { session } = useAuth();
   const { toast } = useToast();
+  const { t, lang } = useLanguage();
   const [habits, setHabits] = useState<Habit[]>([]);
   const [logs, setLogs] = useState<HabitLog[]>([]);
   const [loading, setLoading] = useState(true);
@@ -267,9 +268,9 @@ const HabitsTracker: React.FC = () => {
       setName('');
       setShowForm(false);
       await load();
-      toast({ title: 'تمت الإضافة', description: `عادة "${name.trim()}" تمت إضافتها.` });
+      toast({ title: t('hab.added.title'), description: `"${name.trim()}"` });
     } catch (e: any) {
-      toast({ title: 'خطأ', description: e.message, variant: 'destructive' });
+      toast({ title: t('hab.error'), description: e.message, variant: 'destructive' });
     } finally {
       setSaving(false);
     }
@@ -296,7 +297,7 @@ const HabitsTracker: React.FC = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-2xl font-bold font-mono">{completedToday}/{totalToday}</p>
-                <p className="text-xs text-muted-foreground font-arabic">مكتملة اليوم</p>
+                <p className="text-xs text-muted-foreground font-arabic">{t('hab.completed.today')}</p>
               </div>
               <Target className="w-7 h-7 text-jood-teal-500/60" />
             </div>
@@ -307,7 +308,7 @@ const HabitsTracker: React.FC = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-2xl font-bold font-mono">{todayPct}%</p>
-                <p className="text-xs text-muted-foreground font-arabic">نسبة الإنجاز</p>
+                <p className="text-xs text-muted-foreground font-arabic">{t('hab.completion.rate')}</p>
               </div>
               <Calendar className="w-7 h-7 text-jood-teal-500/60" />
             </div>
@@ -318,7 +319,7 @@ const HabitsTracker: React.FC = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-2xl font-bold font-mono">{maxStreak}</p>
-                <p className="text-xs text-muted-foreground font-arabic">أطول سلسلة</p>
+                <p className="text-xs text-muted-foreground font-arabic">{t('hab.longest.streak')}</p>
               </div>
               <Trophy className="w-7 h-7 text-jood-gold-500/70" />
             </div>
@@ -331,8 +332,8 @@ const HabitsTracker: React.FC = () => {
         <div className="jood-card p-3 flex items-center gap-3">
           <div className="flex-1">
             <p className="text-sm font-arabic font-semibold text-foreground">
-              {DAYS_AR[new Date().getDay()]} ·{' '}
-              {new Date().toLocaleDateString('ar-SA', { month: 'long', day: 'numeric' })}
+              {t(`hab.day.${new Date().getDay()}` as any)} ·{' '}
+              {new Date().toLocaleDateString(lang === 'ar' ? 'ar-SA' : 'en-US', { month: 'long', day: 'numeric' })}
             </p>
             <div className="w-full bg-muted rounded-full h-1.5 mt-1.5">
               <motion.div
@@ -350,14 +351,14 @@ const HabitsTracker: React.FC = () => {
       <Card className="jood-card">
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
-            <CardTitle className="text-base font-arabic">عاداتي اليومية</CardTitle>
+            <CardTitle className="text-base font-arabic">{t('hab.my.habits')}</CardTitle>
             <Button
               size="sm"
               onClick={() => setShowForm(v => !v)}
               className="jood-btn-primary gap-1.5 h-8 text-xs"
             >
               <Plus className="w-3.5 h-3.5" />
-              عادة جديدة
+              {t('hab.add.new')}
             </Button>
           </div>
         </CardHeader>
@@ -376,13 +377,13 @@ const HabitsTracker: React.FC = () => {
                   <Input
                     value={name}
                     onChange={e => setName(e.target.value)}
-                    placeholder="اسم العادة… مثل: قرأت القرآن"
+                    placeholder={t('hab.add.placeholder')}
                     className="font-arabic text-sm"
                     onKeyDown={e => e.key === 'Enter' && addHabit()}
                   />
                   {/* Icon picker */}
                   <div>
-                    <p className="text-[11px] text-muted-foreground font-arabic mb-1.5">الأيقونة</p>
+                    <p className="text-[11px] text-muted-foreground font-arabic mb-1.5">{t('hab.icon.label')}</p>
                     <div className="flex gap-1.5 flex-wrap">
                       {ICONS.map(ic => (
                         <button
@@ -401,7 +402,7 @@ const HabitsTracker: React.FC = () => {
 
                   {/* Color picker */}
                   <div>
-                    <p className="text-[11px] text-muted-foreground font-arabic mb-1.5">اللون</p>
+                    <p className="text-[11px] text-muted-foreground font-arabic mb-1.5">{t('hab.color.label')}</p>
                     <div className="flex gap-1.5">
                       {COLORS.map(c => (
                         <button
@@ -420,11 +421,11 @@ const HabitsTracker: React.FC = () => {
                   <div className="flex gap-2">
                     <Button size="sm" onClick={addHabit} disabled={saving || !name.trim()} className="jood-btn-primary flex-1">
                       {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
-                      حفظ
+                      {saving ? t('hab.saving') : t('hab.save')}
                     </Button>
                     <Button size="sm" variant="outline" onClick={() => setShowForm(false)} className="flex-1">
                       <X className="w-3.5 h-3.5" />
-                      إلغاء
+                      {t('hab.cancel')}
                     </Button>
                   </div>
                 </div>
@@ -439,8 +440,7 @@ const HabitsTracker: React.FC = () => {
           ) : habits.length === 0 ? (
             <div className="text-center py-10 space-y-2">
               <p className="text-3xl">🌱</p>
-              <p className="text-sm font-arabic text-muted-foreground">لا عادات بعد.</p>
-              <p className="text-xs text-muted-foreground font-arabic">أضيفي أولى عاداتك اليومية الآن!</p>
+              <p className="text-sm font-arabic text-muted-foreground">{t('hab.empty')}</p>
             </div>
           ) : (
             <AnimatePresence mode="popLayout">

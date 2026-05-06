@@ -4,30 +4,27 @@ import { CalendarDays, Save, RotateCcw } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
+import { useLanguage } from '@/hooks/useLanguage';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
 // JS Date.getDay(): 0=Sun, 6=Sat. Saudi default work week = Sun-Thu.
-const DAYS = [
-  { idx: 0, ar: 'الأحد',     short: 'أ' },
-  { idx: 1, ar: 'الإثنين',  short: 'إ' },
-  { idx: 2, ar: 'الثلاثاء', short: 'ث' },
-  { idx: 3, ar: 'الأربعاء', short: 'ر' },
-  { idx: 4, ar: 'الخميس',   short: 'خ' },
-  { idx: 5, ar: 'الجمعة',   short: 'ج' },
-  { idx: 6, ar: 'السبت',    short: 'س' },
-];
-
 const SAUDI_DEFAULTS = { working_days: [0,1,2,3,4], weekend_days: [5,6], week_start_day: 0 };
 
 const CalendarSettings: React.FC = () => {
   const { user } = useAuth();
   const { toast } = useToast();
+  const { t } = useLanguage();
   const [loading, setLoading]   = useState(true);
   const [saving, setSaving]     = useState(false);
   const [working, setWorking]   = useState<number[]>(SAUDI_DEFAULTS.working_days);
   const [weekend, setWeekend]   = useState<number[]>(SAUDI_DEFAULTS.weekend_days);
   const [weekStart, setWeekStart] = useState<number>(SAUDI_DEFAULTS.week_start_day);
+
+  const DAYS = [
+    { idx: 0 }, { idx: 1 }, { idx: 2 }, { idx: 3 },
+    { idx: 4 }, { idx: 5 }, { idx: 6 },
+  ];
 
   // ── Load current settings ─────────────────────────────────────────────────
   useEffect(() => {
@@ -51,11 +48,9 @@ const CalendarSettings: React.FC = () => {
   // ── Toggle a day between working/weekend (mutually exclusive) ─────────────
   const toggleDay = (dayIdx: number) => {
     if (working.includes(dayIdx)) {
-      // Move from working → weekend
       setWorking(working.filter(d => d !== dayIdx));
       setWeekend([...weekend.filter(d => d !== dayIdx), dayIdx].sort());
     } else {
-      // Move from weekend → working
       setWeekend(weekend.filter(d => d !== dayIdx));
       setWorking([...working.filter(d => d !== dayIdx), dayIdx].sort());
     }
@@ -76,16 +71,16 @@ const CalendarSettings: React.FC = () => {
       .eq('user_id', user.id);
     setSaving(false);
     if (error) {
-      toast({ title: 'فشل الحفظ', description: error.message, variant: 'destructive' });
+      toast({ title: t('cal.save.error'), description: error.message, variant: 'destructive' });
     } else {
-      toast({ title: 'تم الحفظ', description: 'إعدادات التقويم محدّثة' });
+      toast({ title: t('cal.save.success'), description: t('cal.save.desc') });
     }
   };
 
   if (loading) {
     return (
       <div className="p-6 text-center text-muted-foreground font-arabic text-sm">
-        جاري التحميل...
+        {t('cal.loading')}
       </div>
     );
   }
@@ -99,18 +94,19 @@ const CalendarSettings: React.FC = () => {
       {/* Header */}
       <div className="flex items-center gap-2">
         <CalendarDays className="w-5 h-5 text-jood-teal-500" />
-        <h3 className="font-arabic font-semibold text-base">إعدادات التقويم وأسبوع العمل</h3>
+        <h3 className="font-arabic font-semibold text-base">{t('cal.title')}</h3>
       </div>
 
       {/* Working / Weekend split */}
       <div className="space-y-3">
         <p className="text-xs text-muted-foreground font-arabic">
-          اضغطي على اليوم لتبديله بين أيام العمل والإجازة. الافتراضي السعودي: الأحد-الخميس عمل، الجمعة-السبت إجازة.
+          {t('cal.hint')}
         </p>
 
         <div className="grid grid-cols-7 gap-1.5">
           {DAYS.map(d => {
             const isWorking = working.includes(d.idx);
+            const dayLabel = t(`cal.day.${d.idx}` as any);
             return (
               <button
                 key={d.idx}
@@ -122,9 +118,9 @@ const CalendarSettings: React.FC = () => {
                     : 'bg-jood-gold-500/10 border-jood-gold-500/40 text-jood-gold-700',
                 )}
               >
-                <span className="text-[10px] font-arabic font-medium">{d.ar}</span>
+                <span className="text-[10px] font-arabic font-medium">{dayLabel}</span>
                 <span className="text-[9px] opacity-70 font-arabic">
-                  {isWorking ? 'عمل' : 'إجازة'}
+                  {isWorking ? t('cal.working') : t('cal.weekend')}
                 </span>
               </button>
             );
@@ -134,22 +130,25 @@ const CalendarSettings: React.FC = () => {
 
       {/* Week start day */}
       <div className="space-y-2">
-        <label className="text-xs font-arabic text-muted-foreground">أول أيام الأسبوع في التقويم</label>
+        <label className="text-xs font-arabic text-muted-foreground">{t('cal.week.start')}</label>
         <div className="flex gap-1.5 flex-wrap">
-          {DAYS.map(d => (
-            <button
-              key={d.idx}
-              onClick={() => setWeekStart(d.idx)}
-              className={cn(
-                'px-3 py-1.5 rounded-lg text-xs font-arabic transition-all border',
-                weekStart === d.idx
-                  ? 'bg-jood-teal-500 text-white border-jood-teal-500 font-semibold'
-                  : 'bg-muted/30 border-border/30 text-muted-foreground hover:text-foreground',
-              )}
-            >
-              {d.ar}
-            </button>
-          ))}
+          {DAYS.map(d => {
+            const dayLabel = t(`cal.day.${d.idx}` as any);
+            return (
+              <button
+                key={d.idx}
+                onClick={() => setWeekStart(d.idx)}
+                className={cn(
+                  'px-3 py-1.5 rounded-lg text-xs font-arabic transition-all border',
+                  weekStart === d.idx
+                    ? 'bg-jood-teal-500 text-white border-jood-teal-500 font-semibold'
+                    : 'bg-muted/30 border-border/30 text-muted-foreground hover:text-foreground',
+                )}
+              >
+                {dayLabel}
+              </button>
+            );
+          })}
         </div>
       </div>
 
@@ -162,7 +161,7 @@ const CalendarSettings: React.FC = () => {
           className="font-arabic gap-1.5"
         >
           <RotateCcw className="w-3.5 h-3.5" />
-          الافتراضي السعودي
+          {t('cal.reset')}
         </Button>
         <Button
           size="sm"
@@ -171,7 +170,7 @@ const CalendarSettings: React.FC = () => {
           className="font-arabic gap-1.5 bg-jood-teal-500 hover:bg-jood-teal-600 text-white"
         >
           <Save className="w-3.5 h-3.5" />
-          {saving ? 'يحفظ...' : 'حفظ'}
+          {saving ? t('cal.saving') : t('cal.save')}
         </Button>
       </div>
     </motion.div>

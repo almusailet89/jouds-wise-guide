@@ -13,6 +13,7 @@ import {
   Wallet, CalendarClock, Target, TrendingUp, Plus, Sparkles, ArrowUpRight, Loader2,
 } from 'lucide-react';
 import { useProfile, useFinancialData, useGoals } from '@/hooks/useDatabase';
+import { useLanguage } from '@/hooks/useLanguage';
 import { cn } from '@/lib/utils';
 
 // ─── Utility: days until next salary ─────────────────────────────────────────
@@ -34,12 +35,6 @@ const projectGrowth = (principal: number, monthlyDeposit: number, annualRate: nu
   return Math.round(fv);
 };
 
-const SCENARIOS = [
-  { label: 'حذر',     rate: 0.04, color: 'text-slate-600',     tag: 'صكوك' },
-  { label: 'متوازن',  rate: 0.08, color: 'text-jood-teal-700', tag: 'مؤشر تاسي' },
-  { label: 'نشط',     rate: 0.12, color: 'text-jood-gold-700', tag: 'أسهم نامية' },
-];
-
 // ─── Goal colour palette ──────────────────────────────────────────────────────
 const GOAL_COLORS = [
   'from-jood-gold-500 to-jood-gold-700',
@@ -55,6 +50,7 @@ export const FinanceExtras: React.FC = () => {
   const { profile } = useProfile();
   const { financialData } = useFinancialData();
   const { goals, loading: goalsLoading, updateGoal } = useGoals();
+  const { t, lang, dir } = useLanguage();
 
   const [editingGoalId, setEditingGoalId] = useState<string | null>(null);
   const [addAmount, setAddAmount]         = useState('');
@@ -70,6 +66,13 @@ export const FinanceExtras: React.FC = () => {
     const expense = financialData.filter(f => f.type === 'expense').reduce((s, f) => s + Number(f.amount), 0);
     return Math.max(income - expense, 0);
   }, [financialData]);
+
+  // ── Investment scenarios ──────────────────────────────────────────────────
+  const SCENARIOS = [
+    { labelKey: 'fin.proj.conservative', rate: 0.04, color: 'text-slate-600',     tagKey: 'fin.proj.sukuk' },
+    { labelKey: 'fin.proj.balanced',     rate: 0.08, color: 'text-jood-teal-700', tagKey: 'fin.proj.tasi' },
+    { labelKey: 'fin.proj.aggressive',   rate: 0.12, color: 'text-jood-gold-700', tagKey: 'fin.proj.growth' },
+  ];
 
   // ── Investment projections ────────────────────────────────────────────────
   const monthlyDeposit = Math.max(Math.round(salary * 0.2), 500);
@@ -95,7 +98,7 @@ export const FinanceExtras: React.FC = () => {
     setAddAmount('');
   };
 
-  const fmt = (n: number) => new Intl.NumberFormat('ar-SA').format(Math.round(n));
+  const fmt = (n: number) => new Intl.NumberFormat('en').format(Math.round(n));
   const editingGoal = goals.find(g => g.id === editingGoalId);
 
   return (
@@ -112,38 +115,41 @@ export const FinanceExtras: React.FC = () => {
                   <CalendarClock className="w-4.5 h-4.5 text-white" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-sm font-arabic">الراتب القادم</h3>
+                  <h3 className="font-bold text-sm font-arabic">{t('fin.salary.title')}</h3>
                   <p className="text-[10px] text-muted-foreground font-arabic">
-                    {nextDate.toLocaleDateString('ar-SA', { day: 'numeric', month: 'long' })}
+                    {nextDate.toLocaleDateString(lang === 'ar' ? 'ar-SA' : 'en-US', { day: 'numeric', month: 'long' })}
                   </p>
                 </div>
               </div>
               <Badge className="bg-jood-gold-500/20 text-jood-gold-700 border-0 font-arabic text-[10px]">
-                {days <= 3 ? '🔥 قريب' : days <= 10 ? '⏰ قريباً' : '📅'}
+                {days <= 3 ? t('fin.salary.soon') : days <= 10 ? t('fin.salary.coming') : '📅'}
               </Badge>
             </div>
 
             <div className="mb-2">
               <div className="text-4xl font-black font-arabic text-jood-teal-900 leading-none">{days}</div>
               <div className="text-xs text-muted-foreground font-arabic mt-1">
-                {days === 1 ? 'يوم' : days === 2 ? 'يومان' : days <= 10 ? 'أيام' : 'يوماً'} متبقية
+                {lang === 'ar'
+                  ? (days === 1 ? 'يوم' : days === 2 ? 'يومان' : days <= 10 ? 'أيام' : 'يوماً') + ' متبقية'
+                  : t('fin.salary.days')
+                }
               </div>
             </div>
 
             {salary > 0 ? (
               <div className="pt-3 mt-3 border-t border-border/40">
                 <div className="flex justify-between items-center text-xs font-arabic">
-                  <span className="text-muted-foreground">المتوقع</span>
-                  <span className="font-mono font-bold text-jood-teal-700">{fmt(salary)} ر.س</span>
+                  <span className="text-muted-foreground">{t('fin.salary.expected')}</span>
+                  <span className="font-mono font-bold text-jood-teal-700">{fmt(salary)} {t('fin.salary.sar')}</span>
                 </div>
                 <div className="flex justify-between items-center text-[10px] font-arabic mt-1 text-muted-foreground">
-                  <span>يومياً ≈</span>
-                  <span className="font-mono">{fmt(Math.round(salary / 30))} ر.س</span>
+                  <span>{t('fin.salary.daily')}</span>
+                  <span className="font-mono">{fmt(Math.round(salary / 30))} {t('fin.salary.sar')}</span>
                 </div>
               </div>
             ) : (
               <p className="text-[10px] text-muted-foreground font-arabic mt-2 italic">
-                عدّلي دخلك في الملف الشخصي لرؤية التوقعات
+                {t('fin.salary.no.income')}
               </p>
             )}
           </CardContent>
@@ -160,9 +166,12 @@ export const FinanceExtras: React.FC = () => {
                   <Target className="w-4.5 h-4.5 text-white" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-sm font-arabic">أهداف الادخار</h3>
+                  <h3 className="font-bold text-sm font-arabic">{t('fin.goals.title')}</h3>
                   <p className="text-[10px] text-muted-foreground font-arabic">
-                    {goalsLoading ? '…' : `${goals.filter(g => g.status === 'completed').length} من ${goals.length} مكتمل`}
+                    {goalsLoading
+                      ? '…'
+                      : `${goals.filter(g => g.status === 'completed').length} ${t('fin.goals.of')} ${goals.length} ${t('fin.goals.completed')}`
+                    }
                   </p>
                 </div>
               </div>
@@ -176,10 +185,10 @@ export const FinanceExtras: React.FC = () => {
               <div className="text-center py-6">
                 <Target className="w-8 h-8 text-muted-foreground/40 mx-auto mb-2" />
                 <p className="text-xs text-muted-foreground font-arabic">
-                  لا توجد أهداف بعد
+                  {t('fin.goals.empty')}
                 </p>
                 <p className="text-[10px] text-muted-foreground/60 font-arabic mt-1">
-                  قولي لجود: "حطّي هدف توفير سيارة ٦٠٠٠٠ ريال"
+                  {t('fin.goals.empty.hint')}
                 </p>
               </div>
             ) : (
@@ -202,7 +211,6 @@ export const FinanceExtras: React.FC = () => {
                         <button
                           onClick={() => setEditingGoalId(g.id)}
                           className="opacity-0 group-hover:opacity-100 transition-opacity"
-                          title="أضيفي مبلغ"
                         >
                           <Plus className="w-3 h-3 text-jood-teal-700" />
                         </button>
@@ -218,7 +226,7 @@ export const FinanceExtras: React.FC = () => {
                       <div className="flex justify-between text-[9px] font-arabic mt-0.5 text-muted-foreground">
                         <span className="font-mono">{fmt(saved)}</span>
                         <span>{pct}%</span>
-                        <span className="font-mono">{fmt(target)} ر.س</span>
+                        <span className="font-mono">{fmt(target)} {t('fin.salary.sar')}</span>
                       </div>
                     </div>
                   );
@@ -241,10 +249,10 @@ export const FinanceExtras: React.FC = () => {
                 </div>
                 <div>
                   <h3 className="font-bold text-sm font-arabic flex items-center gap-1">
-                    توقعات جود <Sparkles className="w-3 h-3 text-jood-gold-500" />
+                    {t('fin.proj.title')} <Sparkles className="w-3 h-3 text-jood-gold-500" />
                   </h3>
                   <p className="text-[10px] text-muted-foreground font-arabic">
-                    بعد ٥ سنوات • إيداع {fmt(monthlyDeposit)} ر.س/شهر
+                    {t('fin.proj.subtitle')} • {fmt(monthlyDeposit)} {t('fin.proj.per.month')}
                   </p>
                 </div>
               </div>
@@ -253,20 +261,20 @@ export const FinanceExtras: React.FC = () => {
             <div className="space-y-2">
               {projections5.map((p, i) => (
                 <motion.div
-                  key={p.label}
+                  key={p.labelKey}
                   initial={{ opacity: 0, x: -10 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ duration: 0.4, delay: 0.2 + i * 0.08 }}
                   className="flex items-center justify-between p-2 rounded-lg bg-muted/20 hover:bg-muted/40 transition-colors"
                 >
                   <div>
-                    <div className={cn('text-xs font-bold font-arabic', p.color)}>{p.label}</div>
-                    <div className="text-[9px] text-muted-foreground font-arabic">{p.tag} • {Math.round(p.rate * 100)}٪ سنوياً</div>
+                    <div className={cn('text-xs font-bold font-arabic', p.color)}>{t(p.labelKey)}</div>
+                    <div className="text-[9px] text-muted-foreground font-arabic">{t(p.tagKey)} • {Math.round(p.rate * 100)}{t('fin.proj.annual')}</div>
                   </div>
                   <div className="text-left">
                     <div className="text-sm font-black font-mono text-foreground">{fmt(p.fv)}</div>
                     <div className="text-[9px] text-jood-teal-700 font-arabic flex items-center gap-0.5 justify-end">
-                      <ArrowUpRight className="w-2.5 h-2.5" />ر.س
+                      <ArrowUpRight className="w-2.5 h-2.5" />{t('fin.salary.sar')}
                     </div>
                   </div>
                 </motion.div>
@@ -274,7 +282,7 @@ export const FinanceExtras: React.FC = () => {
             </div>
 
             <p className="text-[9px] text-muted-foreground font-arabic mt-3 italic leading-relaxed">
-              * توقعات تقديرية — النتائج الفعلية تتفاوت. اطلبي استشارة مالية قبل أي قرار.
+              {t('fin.proj.disclaimer')}
             </p>
           </CardContent>
         </Card>
@@ -282,14 +290,14 @@ export const FinanceExtras: React.FC = () => {
 
       {/* ── Add-to-goal dialog ────────────────────────────────────────────────── */}
       <Dialog open={!!editingGoalId} onOpenChange={v => !v && setEditingGoalId(null)}>
-        <DialogContent className="max-w-sm" dir="rtl">
+        <DialogContent className="max-w-sm" dir={dir}>
           <DialogHeader>
             <DialogTitle className="font-arabic">
-              أضيفي مدّخرات لـ «{editingGoal?.title ?? ''}»
+              {t('fin.goals.add.title')} — «{editingGoal?.title ?? ''}»
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-2">
-            <Label className="font-arabic text-xs">المبلغ (ر.س)</Label>
+            <Label className="font-arabic text-xs">{t('fin.goals.add.label')}</Label>
             <Input
               type="number"
               placeholder="500"
@@ -301,16 +309,16 @@ export const FinanceExtras: React.FC = () => {
             />
             {editingGoal && (
               <p className="text-[10px] text-muted-foreground font-arabic">
-                المدّخر حالياً: {fmt(Number(editingGoal.saved_amount))} ر.س
+                {t('fin.goals.saved')} {fmt(Number(editingGoal.saved_amount))} {t('fin.salary.sar')}
                 {' '}/{' '}
-                {fmt(Number(editingGoal.target_amount))} ر.س
+                {fmt(Number(editingGoal.target_amount))} {t('fin.salary.sar')}
               </p>
             )}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setEditingGoalId(null)} className="font-arabic">إلغاء</Button>
+            <Button variant="outline" onClick={() => setEditingGoalId(null)} className="font-arabic">{t('fin.goals.cancel')}</Button>
             <Button onClick={addToGoal} disabled={saving} className="bg-jood-gold-500 hover:bg-jood-gold-700 text-white font-arabic">
-              {saving ? <Loader2 className="w-3 h-3 animate-spin" /> : 'إضافة'}
+              {saving ? <Loader2 className="w-3 h-3 animate-spin" /> : t('fin.goals.add.btn')}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -5,6 +5,7 @@ import {
 } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { BarChart3 } from 'lucide-react';
+import { useLanguage } from '@/hooks/useLanguage';
 
 interface MonthlyFlowData {
   month: string;
@@ -19,16 +20,18 @@ interface MonthlyFlowChartProps {
 }
 
 export const MonthlyFlowChart: React.FC<MonthlyFlowChartProps> = ({ data, currency }) => {
+  const { t, dir } = useLanguage();
+
   const fmt = (n: number) => {
-    if (n >= 1000000) return `${(n / 1000000).toFixed(1)}م`;
-    if (n >= 1000)    return `${(n / 1000).toFixed(0)}ك`;
+    if (n >= 1000000) return `${(n / 1000000).toFixed(1)}M`;
+    if (n >= 1000)    return `${(n / 1000).toFixed(0)}K`;
     return String(Math.round(n));
   };
 
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (!active || !payload?.length) return null;
     return (
-      <div className="bg-card/95 backdrop-blur border border-border/50 rounded-xl p-3 shadow-elegant min-w-[140px]" dir="rtl">
+      <div className="bg-card/95 backdrop-blur border border-border/50 rounded-xl p-3 shadow-elegant min-w-[140px]" dir={dir}>
         <p className="font-arabic font-semibold text-sm mb-2 text-foreground">{label}</p>
         {payload.map((p: any, i: number) => (
           <div key={i} className="flex items-center justify-between gap-3 text-xs font-arabic">
@@ -36,7 +39,7 @@ export const MonthlyFlowChart: React.FC<MonthlyFlowChartProps> = ({ data, curren
               <div className="w-2 h-2 rounded-full" style={{ backgroundColor: p.color }} />
               <span className="text-muted-foreground">{p.name}</span>
             </div>
-            <span className="font-bold">{new Intl.NumberFormat('ar-SA', { maximumFractionDigits: 0 }).format(p.value)}</span>
+            <span className="font-bold">{new Intl.NumberFormat('en', { maximumFractionDigits: 0 }).format(p.value)}</span>
           </div>
         ))}
       </div>
@@ -44,7 +47,7 @@ export const MonthlyFlowChart: React.FC<MonthlyFlowChartProps> = ({ data, curren
   };
 
   const CustomLegend = ({ payload }: any) => (
-    <div className="flex justify-center gap-6 mt-2" dir="rtl">
+    <div className="flex justify-center gap-6 mt-2" dir={dir}>
       {payload?.map((entry: any, i: number) => (
         <div key={i} className="flex items-center gap-1.5">
           <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: entry.color }} />
@@ -57,13 +60,13 @@ export const MonthlyFlowChart: React.FC<MonthlyFlowChartProps> = ({ data, curren
   const hasData = data.some(d => d.income > 0 || d.expense > 0);
 
   return (
-    <Card className="luxury-card" dir="rtl">
+    <Card className="luxury-card" dir={dir}>
       <CardHeader className="pb-2">
         <CardTitle className="flex items-center gap-2 font-arabic text-base">
           <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-jood-teal-900 to-jood-teal-700 flex items-center justify-center">
             <BarChart3 className="w-3.5 h-3.5 text-white" />
           </div>
-          التدفق المالي — آخر ٦ أشهر
+          {t('chart.flow.title')}
         </CardTitle>
       </CardHeader>
       <CardContent>
@@ -87,18 +90,18 @@ export const MonthlyFlowChart: React.FC<MonthlyFlowChartProps> = ({ data, curren
                 />
                 <Tooltip content={<CustomTooltip />} cursor={{ fill: 'hsl(var(--muted))', opacity: 0.3 }} />
                 <Legend content={<CustomLegend />} />
-                <Bar dataKey="income"  name="الدخل"    fill="#0d5c63" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="expense" name="المصاريف" fill="#ef4444" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="savings" name="الادخار"  fill="#10b981" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="income"  name={t('chart.flow.income')}  fill="#0d5c63" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="expense" name={t('chart.flow.expense')} fill="#ef4444" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="savings" name={t('chart.flow.savings')} fill="#10b981" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
         ) : (
           <div className="h-64 flex flex-col items-center justify-center text-center gap-2">
             <BarChart3 className="w-10 h-10 text-muted-foreground/40" />
-            <p className="font-arabic text-sm text-muted-foreground">لا توجد بيانات مالية بعد</p>
+            <p className="font-arabic text-sm text-muted-foreground">{t('chart.flow.empty')}</p>
             <p className="font-arabic text-xs text-muted-foreground/60">
-              سجّلي أول معاملة عبر جود أو زر «+ إضافة»
+              {t('chart.flow.empty.hint')}
             </p>
           </div>
         )}

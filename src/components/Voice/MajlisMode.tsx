@@ -8,6 +8,7 @@ import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { JoodAvatar, type AvatarMode } from './JoodAvatar';
+import { useLanguage } from '@/hooks/useLanguage';
 
 // ─── Audio-reactive visualizer rings ─────────────────────────────────────────
 const PulseRings: React.FC<{ active: boolean; intensity: number }> = ({ active, intensity }) => (
@@ -75,14 +76,6 @@ const ThinkingDots: React.FC = () => (
 // ─── Mode definitions ─────────────────────────────────────────────────────────
 type Mode = 'idle' | 'listening' | 'processing' | 'thinking' | 'speaking';
 
-const MODE_LABELS: Record<Mode, { ar: string; sub: string }> = {
-  idle:       { ar: 'اضغطي للبدء',        sub: 'اضغطة قصيرة = مستمر · مطوّلة = push-to-talk' },
-  listening:  { ar: 'أستمع إليك…',        sub: 'تحدثي بحرّية' },
-  processing: { ar: 'جار التعرف…',        sub: 'Whisper يعالج صوتك' },
-  thinking:   { ar: 'أفكّر…',             sub: 'لحظة من فضلك' },
-  speaking:   { ar: 'جود تتحدث',          sub: 'اضغطي على المايك لمقاطعتها' },
-};
-
 // ─── Supported MIME type picker ───────────────────────────────────────────────
 function getBestMimeType(): string {
   const candidates = [
@@ -104,6 +97,7 @@ interface MajlisModeProps {
 export const MajlisMode: React.FC<MajlisModeProps> = ({ onClose }) => {
   const { session } = useAuth();
   const { toast } = useToast();
+  const { t, dir } = useLanguage();
   const { sendMessage, speakMessage, stopSpeaking, messages, loading, speaking, speakingIntensity } = useChat();
   const previewAudioRef = useRef<HTMLAudioElement | null>(null);
   const [previewPlaying, setPreviewPlaying] = useState(false);
@@ -126,6 +120,14 @@ export const MajlisMode: React.FC<MajlisModeProps> = ({ onClose }) => {
   const streamRef = useRef<MediaStream | null>(null);
   /** Prevents the mode-sync useEffect from overriding 'processing' state */
   const isProcessingRef = useRef(false);
+
+  const MODE_LABELS: Record<Mode, { label: string; sub: string }> = {
+    idle:       { label: t('majlis.idle'),       sub: t('majlis.idle.sub') },
+    listening:  { label: t('majlis.listening'),  sub: t('majlis.listening.sub') },
+    processing: { label: t('majlis.processing'), sub: t('majlis.processing.sub') },
+    thinking:   { label: t('majlis.thinking'),   sub: t('majlis.thinking.sub') },
+    speaking:   { label: t('majlis.speaking'),   sub: t('majlis.speaking.sub') },
+  };
 
   // ── Sync mode with chat state (when not processing Whisper) ──────────────
   useEffect(() => {
@@ -179,7 +181,7 @@ export const MajlisMode: React.FC<MajlisModeProps> = ({ onClose }) => {
   const startRecording = useCallback(async () => {
     if (mediaRecorderRef.current) return; // already recording
     if (!session) {
-      toast({ title: 'غير مسجّل دخول', variant: 'destructive' });
+      toast({ title: t('voice.error.mic'), variant: 'destructive' });
       return;
     }
 
@@ -188,8 +190,7 @@ export const MajlisMode: React.FC<MajlisModeProps> = ({ onClose }) => {
       stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
     } catch {
       toast({
-        title: 'لا يمكن الوصول للميكروفون',
-        description: 'يرجى السماح للتطبيق بالوصول للميكروفون في إعدادات المتصفح',
+        title: t('voice.error.mic'),
         variant: 'destructive',
       });
       return;
@@ -227,7 +228,7 @@ export const MajlisMode: React.FC<MajlisModeProps> = ({ onClose }) => {
       // ── Phase 1: Whisper STT ────────────────────────────────────────────
       isProcessingRef.current = true;
       setMode('processing');
-      setTranscript('جار التعرف على صوتك…');
+      setTranscript(t('voice.processing'));
 
       try {
         const ext = mimeTypeRef.current.includes('mp4')  ? 'mp4'
@@ -276,8 +277,7 @@ export const MajlisMode: React.FC<MajlisModeProps> = ({ onClose }) => {
         setMode('idle');
         setTranscript('');
         toast({
-          title: 'لم أستطع التعرف على صوتك',
-          description: 'حاولي مجدداً أو تحدثي بشكل أوضح',
+          title: t('voice.transcript.empty'),
           variant: 'destructive',
         });
       }
@@ -395,7 +395,7 @@ export const MajlisMode: React.FC<MajlisModeProps> = ({ onClose }) => {
       exit={{ opacity: 0 }}
       transition={{ duration: 0.4 }}
       className="fixed inset-0 z-50 bg-gradient-to-br from-jood-teal-900 via-jood-teal-700 to-jood-teal-900 overflow-hidden"
-      dir="rtl"
+      dir={dir}
     >
       {/* Ambient particles */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
@@ -496,7 +496,7 @@ export const MajlisMode: React.FC<MajlisModeProps> = ({ onClose }) => {
             transition={{ duration: 0.3 }}
             className="text-center mt-4"
           >
-            <p className="text-white text-2xl font-arabic font-bold">{labels.ar}</p>
+            <p className="text-white text-2xl font-arabic font-bold">{labels.label}</p>
             <p className="text-jood-gold-300/80 text-xs font-arabic mt-1">{labels.sub}</p>
           </motion.div>
         </AnimatePresence>

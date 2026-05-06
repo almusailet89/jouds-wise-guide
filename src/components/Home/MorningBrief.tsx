@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { useDailyBrief, type BriefHighlight } from '@/hooks/useDailyBrief';
 import { useChat } from '@/hooks/useChat';
+import { useLanguage } from '@/hooks/useLanguage';
 import { cn } from '@/lib/utils';
 
 // ─── Highlight icon mapping ─────────────────────────────────────────────────
@@ -35,6 +36,7 @@ interface MorningBriefProps {
 export const MorningBrief: React.FC<MorningBriefProps> = ({ onActionClick }) => {
   const { brief, loading, error, generate, markRead, markSpoken, dismiss } = useDailyBrief();
   const { speakMessage, speaking } = useChat();
+  const { t, dir } = useLanguage();
 
   // Mark as read when brief becomes visible
   useEffect(() => {
@@ -62,7 +64,7 @@ export const MorningBrief: React.FC<MorningBriefProps> = ({ onActionClick }) => 
       <Card className="p-6 bg-gradient-to-br from-jood-teal-700/5 via-card to-jood-gold-500/5 border-jood-gold-300/30">
         <div className="flex items-center gap-3 text-muted-foreground">
           <Loader2 className="w-4 h-4 animate-spin text-jood-gold-500" />
-          <span className="font-arabic text-sm">جود تُحضّر موجز يومكِ…</span>
+          <span className="font-arabic text-sm">{t('brief.loading')}</span>
         </div>
       </Card>
     );
@@ -89,7 +91,7 @@ export const MorningBrief: React.FC<MorningBriefProps> = ({ onActionClick }) => 
           'relative overflow-hidden p-5 md:p-6',
           'bg-gradient-to-br from-jood-teal-900 via-jood-teal-700 to-jood-teal-900',
           'border-jood-gold-500/30 shadow-luxury',
-        )} dir="rtl">
+        )} dir={dir}>
 
           {/* Ambient particles */}
           <div className="absolute inset-0 pointer-events-none overflow-hidden opacity-30">
@@ -116,7 +118,7 @@ export const MorningBrief: React.FC<MorningBriefProps> = ({ onActionClick }) => 
           <div className="relative z-10 flex items-center justify-between mb-3">
             <div className="flex items-center gap-2 text-jood-gold-300">
               <Sparkles className="w-4 h-4" />
-              <span className="font-arabic text-xs font-bold tracking-wide">موجز اليوم من جود</span>
+              <span className="font-arabic text-xs font-bold tracking-wide">{t('brief.label')}</span>
             </div>
             <div className="flex items-center gap-1">
               <Button
@@ -125,7 +127,7 @@ export const MorningBrief: React.FC<MorningBriefProps> = ({ onActionClick }) => 
                 onClick={() => generate(true)}
                 disabled={loading}
                 className="h-7 w-7 text-white/60 hover:text-white hover:bg-white/10"
-                title="تحديث الموجز"
+                title={t('brief.refresh.title')}
               >
                 <RefreshCw className={cn('w-3.5 h-3.5', loading && 'animate-spin')} />
               </Button>
@@ -134,7 +136,7 @@ export const MorningBrief: React.FC<MorningBriefProps> = ({ onActionClick }) => 
                 size="icon"
                 onClick={dismiss}
                 className="h-7 w-7 text-white/60 hover:text-white hover:bg-white/10"
-                title="إغلاق"
+                title={t('brief.close')}
               >
                 <X className="w-3.5 h-3.5" />
               </Button>
@@ -208,7 +210,7 @@ export const MorningBrief: React.FC<MorningBriefProps> = ({ onActionClick }) => 
               )}
             >
               <Volume2 className={cn('w-3.5 h-3.5', speaking && 'animate-pulse')} />
-              {speaking ? 'تتحدث جود…' : 'استمعي'}
+              {speaking ? t('voice.speaking') : t('brief.listen')}
             </Button>
           </div>
         </Card>
