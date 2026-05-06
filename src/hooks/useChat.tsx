@@ -179,7 +179,7 @@ export const useChat = () => {
       mode,
       pendingFunction: existingPendingFunction,
       voice_mode = false,
-      detected_language = lang,   // default to app language, not hardcoded 'ar'
+      detected_language,          // undefined = let edge function detect from message content
     } = opts ?? {};
 
     try {
