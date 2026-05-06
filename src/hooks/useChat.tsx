@@ -2,6 +2,7 @@ import { useState, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 import { useToast } from './use-toast';
+import { useLanguage } from './useLanguage';
 
 export interface ChatSession {
   id: string;
@@ -65,6 +66,7 @@ export interface AIChatResponse {
 export const useChat = () => {
   const { session } = useAuth();
   const { toast } = useToast();
+  const { lang } = useLanguage();
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
@@ -177,7 +179,7 @@ export const useChat = () => {
       mode,
       pendingFunction: existingPendingFunction,
       voice_mode = false,
-      detected_language = 'ar',
+      detected_language = lang,   // default to app language, not hardcoded 'ar'
     } = opts ?? {};
 
     try {
@@ -214,6 +216,7 @@ export const useChat = () => {
           pendingFunction: existingPendingFunction,
           voice_mode,
           detected_language,
+          lang,                   // app UI language — tells Jood which language to reply in
         },
         headers: { Authorization: `Bearer ${session.access_token}` },
       });
