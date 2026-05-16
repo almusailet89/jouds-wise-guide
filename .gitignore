@@ -24,3 +24,14 @@ dist-ssr
 *.sw?
 .env
 .claude/worktrees/
+
+# Nested repos & archives (not part of this project)
+jouds-wise-guide/
+joodai-v2/
+joodai-v2-complete.zip
+supabase/
+
+# Business docs & presentations
+*.pptx
+*.docx
+*.pdf
