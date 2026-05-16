@@ -149,7 +149,7 @@ export const useChat = () => {
   ): Promise<string> => {
     const { data, error } = await (supabase as any)
       .from('chat_messages')
-      .insert({ session_id: sessionId, role, content })
+      .insert({ session_id: sessionId, role, content, user_id: session?.user?.id })
       .select('id')
       .single();
 
@@ -258,10 +258,11 @@ export const useChat = () => {
       return data as AIChatResponse;
 
     } catch (err: any) {
-      console.error('Chat error:', err);
+      console.error('Chat error:', err, JSON.stringify(err, null, 2));
+      console.error('Chat error details:', err?.message, err?.code, err?.details, err?.hint);
       toast({
         title: 'خطأ في المحادثة',
-        description: 'فشل الاتصال بجود AI. يرجى المحاولة مجدداً.',
+        description: `${err?.message || 'فشل الاتصال بجود AI. يرجى المحاولة مجدداً.'}`,
         variant: 'destructive',
       });
     } finally {
