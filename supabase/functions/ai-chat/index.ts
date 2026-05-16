@@ -15,6 +15,10 @@ const DIRECT_EXECUTE = new Set([
   'update_financial_entry', 'delete_financial_entry',
   'add_goal', 'update_goal', 'delete_goal',
   'update_portfolio_holding', 'delete_portfolio_holding',
+  // read tools — Jood sees everything in the app
+  'get_portfolio', 'get_financial_summary', 'get_tasks',
+  'get_upcoming_events', 'get_habits', 'get_goals',
+  'get_wallet_balance', 'get_recent_moods',
 ]);
 
 const MEMORY_CATEGORIES = [
@@ -60,6 +64,16 @@ const functionTools = [
   { type: "function", function: { name: "update_habit", description: "Edit an existing habit — rename, change schedule, time, or pause/resume it. Trigger: 'غيّري العادة', 'بدّلي وقت العادة', 'أوقفي عادة', 'pause habit', 'change habit schedule'.", parameters: { type: "object", properties: { search_name: { type: "string", description: "Key words from the habit name to find it." }, new_name: { type: "string", description: "New name (omit if not changing)." }, frequency: { type: "string", enum: ["daily","weekly"], description: "Omit if not changing." }, target_days: { type: "array", items: { type: "integer", minimum: 0, maximum: 6 }, description: "New weekday indices (omit if not changing)." }, time_of_day: { type: "string", description: "New time HH:MM (omit if not changing)." }, is_active: { type: "boolean", description: "false = pause, true = resume." } }, required: ["search_name"] } } },
 
   { type: "function", function: { name: "delete_habit", description: "Permanently delete a habit. Trigger: 'احذفي العادة', 'مو أبي أتعود', 'remove habit', 'stop tracking habit'.", parameters: { type: "object", properties: { search_name: { type: "string", description: "Key words from the habit name to find it." } }, required: ["search_name"] } } },
+
+  // ── READ tools — Jood sees everything ──────────────────────────────────────
+  { type: "function", function: { name: "get_portfolio", description: "Show the user's investment portfolio — stocks, crypto, real estate holdings. Trigger: 'اعرضي محفظتي', 'وش عندي استثمارات', 'كم سعر السهم', 'show my portfolio', 'my investments', 'المحفظة'.", parameters: { type: "object", properties: {}, required: [] } } },
+  { type: "function", function: { name: "get_financial_summary", description: "Show financial summary — income, expenses, savings totals and recent transactions. Trigger: 'كم صرفت', 'وش وضعي المالي', 'ملخص مالي', 'المصاريف', 'الدخل', 'my finances', 'spending summary', 'how much did I spend'.", parameters: { type: "object", properties: { period: { type: "string", enum: ["week","month","year","all"], description: "Time period. Default 'month'." } }, required: [] } } },
+  { type: "function", function: { name: "get_tasks", description: "Show user's tasks — pending, completed, or all. Trigger: 'وش مهامي', 'وش عندي اليوم', 'مهامي', 'my tasks', 'to-do list', 'what do I have to do'.", parameters: { type: "object", properties: { status: { type: "string", enum: ["pending","completed","all"], description: "Filter. Default 'pending'." } }, required: [] } } },
+  { type: "function", function: { name: "get_upcoming_events", description: "Show upcoming calendar events and appointments. Trigger: 'وش مواعيدي', 'اجتماعاتي', 'التقويم', 'my events', 'my schedule', 'upcoming meetings'.", parameters: { type: "object", properties: { days_ahead: { type: "number", description: "How many days ahead to look. Default 7." } }, required: [] } } },
+  { type: "function", function: { name: "get_habits", description: "Show user's active habits and today's tracking status. Trigger: 'عاداتي', 'وش عاداتي', 'my habits', 'habit tracker'.", parameters: { type: "object", properties: {}, required: [] } } },
+  { type: "function", function: { name: "get_goals", description: "Show savings goals with progress. Trigger: 'أهدافي', 'كم وصلت', 'التوفير', 'my goals', 'savings progress'.", parameters: { type: "object", properties: {}, required: [] } } },
+  { type: "function", function: { name: "get_wallet_balance", description: "Show wallet/cash balance. Trigger: 'رصيدي', 'كم عندي', 'المحفظة النقدية', 'my balance', 'wallet'.", parameters: { type: "object", properties: {}, required: [] } } },
+  { type: "function", function: { name: "get_recent_moods", description: "Show recent mood logs and trends. Trigger: 'مزاجي', 'كيف كان مزاجي', 'mood history', 'how have I been feeling'.", parameters: { type: "object", properties: { days: { type: "number", description: "How many days to look back. Default 7." } }, required: [] } } },
 ];
 
 async function executeFunction(functionCall: any, userId: string, supabase: any) {
@@ -404,6 +418,141 @@ async function executeFunction(functionCall: any, userId: string, supabase: any)
       return { kind: 'holding_delete', summary: `✓ حذفت ${holding.symbol} من المحفظة (${holding.quantity} وحدة)`, data: args };
     }
 
+    // ═════════════════════════════════════════════════════════════════════════
+    // READ tools — Jood sees ALL user data
+    // ═════════════════════════════════════════════════════════════════════════
+
+    case 'get_portfolio': {
+      const { data: holdings } = await supabase.from('portfolio_holdings')
+        .select('symbol, market, quantity, avg_price, current_price, currency, asset_type, is_crypto')
+        .eq('user_id', userId).order('created_at', { ascending: false });
+      if (!holdings?.length) return { kind: 'portfolio', summary: 'محفظتك الاستثمارية فاضية حالياً. تبي تضيف استثمار؟', data: { holdings: [] } };
+      let totalValue = 0;
+      const lines = holdings.map((h: any) => {
+        const price = Number(h.current_price || h.avg_price || 0);
+        const qty = Number(h.quantity || 0);
+        const value = qty * price;
+        totalValue += value;
+        const pnl = h.current_price && h.avg_price ? ((h.current_price - h.avg_price) / h.avg_price * 100).toFixed(1) : null;
+        const typeLabel = h.is_crypto ? 'كريبتو' : (h.asset_type === 'real_estate' ? 'عقار' : 'سهم');
+        return `• ${h.symbol} (${typeLabel}): ${qty} × ${fmt(price)} ${h.currency} = ${fmt(value)} ${h.currency}${pnl ? ` (${Number(pnl) >= 0 ? '+' : ''}${pnl}%)` : ''}`;
+      });
+      return { kind: 'portfolio', summary: `محفظتك الاستثمارية:\n${lines.join('\n')}\n\nإجمالي القيمة: ${fmt(totalValue)} ريال`, data: { holdings, total_value: totalValue } };
+    }
+
+    case 'get_financial_summary': {
+      const period = args?.period || 'month';
+      const now = new Date();
+      let startDate: string;
+      if (period === 'week') { const d = new Date(now); d.setDate(d.getDate() - 7); startDate = d.toISOString(); }
+      else if (period === 'year') { startDate = new Date(now.getFullYear(), 0, 1).toISOString(); }
+      else if (period === 'all') { startDate = '2000-01-01T00:00:00Z'; }
+      else { startDate = new Date(now.getFullYear(), now.getMonth(), 1).toISOString(); }
+      const { data: entries } = await supabase.from('financial_data')
+        .select('type, amount, currency, category, note, label, created_at')
+        .eq('user_id', userId).gte('created_at', startDate)
+        .order('created_at', { ascending: false }).limit(50);
+      if (!entries?.length) return { kind: 'finance', summary: 'ما عندك معاملات مالية في هالفترة.', data: { totals: {}, entries: [] } };
+      const totals: any = { income: 0, expense: 0, savings: 0, investment: 0 };
+      entries.forEach((e: any) => { const t = e.type as string; if (totals[t] !== undefined) totals[t] += Number(e.amount); });
+      const net = totals.income - totals.expense;
+      const periodAr = period === 'week' ? 'هالأسبوع' : period === 'year' ? 'هالسنة' : period === 'all' ? 'الكل' : 'هالشهر';
+      const recent = entries.slice(0, 5).map((e: any) => {
+        const typeAr = e.type === 'income' ? '💰 دخل' : e.type === 'savings' ? '🏦 ادخار' : e.type === 'investment' ? '📈 استثمار' : '💸 مصروف';
+        return `${typeAr}: ${fmt(Number(e.amount))} ${e.currency} — ${e.category || e.label || e.note || ''}`;
+      }).join('\n');
+      return { kind: 'finance', summary: `ملخصك المالي ${periodAr}:\n💰 دخل: ${fmt(totals.income)} ريال\n💸 مصاريف: ${fmt(totals.expense)} ريال\n🏦 ادخار: ${fmt(totals.savings)} ريال\n📈 استثمار: ${fmt(totals.investment)} ريال\n📊 صافي: ${fmt(net)} ريال\n\nآخر المعاملات:\n${recent}`, data: { totals, entries: entries.slice(0, 10), period } };
+    }
+
+    case 'get_tasks': {
+      const statusFilter = args?.status || 'pending';
+      let query = supabase.from('tasks').select('title, status, priority, due_date, category, description, created_at').eq('user_id', userId);
+      if (statusFilter !== 'all') query = query.eq('status', statusFilter);
+      const { data: tasks } = await query.order('due_date', { ascending: true }).limit(20);
+      if (!tasks?.length) return { kind: 'task', summary: statusFilter === 'pending' ? 'ما عندك مهام معلّقة الحين 🎉' : 'ما لقيت مهام.', data: { tasks: [] } };
+      const priorityIcon: any = { high: '🔴', medium: '🟡', low: '🟢' };
+      const lines = tasks.map((t: any) => {
+        const icon = priorityIcon[t.priority] || '⚪';
+        const dateStr = t.due_date ? new Date(t.due_date + 'T12:00:00').toLocaleDateString('ar-SA', { weekday: 'short', month: 'short', day: 'numeric' }) : '';
+        const done = t.status === 'completed' ? ' ✅' : '';
+        return `${icon} ${t.title}${dateStr ? ` — ${dateStr}` : ''}${done}`;
+      }).join('\n');
+      return { kind: 'task', summary: `مهامك (${statusFilter === 'pending' ? 'معلّقة' : statusFilter === 'completed' ? 'مكتملة' : 'الكل'}):\n${lines}`, data: { tasks, count: tasks.length } };
+    }
+
+    case 'get_upcoming_events': {
+      const daysAhead = args?.days_ahead || 7;
+      const now = new Date();
+      const end = new Date(now); end.setDate(end.getDate() + daysAhead);
+      const { data: events } = await supabase.from('events')
+        .select('title, starts_at, ends_at, location, category, all_day, description')
+        .eq('user_id', userId).gte('starts_at', now.toISOString()).lte('starts_at', end.toISOString())
+        .order('starts_at', { ascending: true }).limit(15);
+      if (!events?.length) return { kind: 'event', summary: `ما عندك مواعيد قادمة خلال ${daysAhead} أيام.`, data: { events: [] } };
+      const lines = events.map((e: any) => {
+        const dt = new Date(e.starts_at).toLocaleDateString('ar-SA', { weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+        const loc = e.location ? ` 📍 ${e.location}` : '';
+        return `📅 ${e.title} — ${dt}${loc}`;
+      }).join('\n');
+      return { kind: 'event', summary: `مواعيدك القادمة:\n${lines}`, data: { events, count: events.length } };
+    }
+
+    case 'get_habits': {
+      const { data: habits } = await supabase.from('habits')
+        .select('name, frequency, target_days, icon, is_active, time_of_day')
+        .eq('user_id', userId).eq('is_active', true).order('created_at', { ascending: true });
+      if (!habits?.length) return { kind: 'task', summary: 'ما عندك عادات مسجّلة. تبي تضيف عادة جديدة؟', data: { habits: [] } };
+      const dayNames = ['الأحد','الإثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت'];
+      const lines = habits.map((h: any) => {
+        const freq = h.frequency === 'weekly' && h.target_days?.length ? h.target_days.map((d: number) => dayNames[d]).join('، ') : (h.frequency === 'daily' ? 'يومياً' : 'أسبوعياً');
+        const time = h.time_of_day ? ` الساعة ${h.time_of_day}` : '';
+        return `${h.icon || '⭐'} ${h.name} — ${freq}${time}`;
+      }).join('\n');
+      return { kind: 'task', summary: `عاداتك النشطة:\n${lines}`, data: { habits, count: habits.length } };
+    }
+
+    case 'get_goals': {
+      const { data: goals } = await supabase.from('goals')
+        .select('title, target_amount, saved_amount, progress, target_date, status')
+        .eq('user_id', userId).order('created_at', { ascending: false });
+      if (!goals?.length) return { kind: 'goal', summary: 'ما عندك أهداف توفير مسجّلة. تبي تحط هدف؟', data: { goals: [] } };
+      const lines = goals.map((g: any) => {
+        const saved = Number(g.saved_amount || 0);
+        const target = Number(g.target_amount || 1);
+        const pct = Math.round((saved / target) * 100);
+        const bar = '█'.repeat(Math.round(pct / 10)) + '░'.repeat(10 - Math.round(pct / 10));
+        const statusIcon = g.status === 'completed' ? '✅' : g.status === 'paused' ? '⏸️' : '🎯';
+        const dateStr = g.target_date ? ` — بحلول ${new Date(g.target_date).toLocaleDateString('ar-SA', { month: 'short', year: 'numeric' })}` : '';
+        return `${statusIcon} ${g.title}: ${fmt(saved)}/${fmt(target)} ريال [${bar}] ${pct}%${dateStr}`;
+      }).join('\n');
+      return { kind: 'goal', summary: `أهدافك:\n${lines}`, data: { goals, count: goals.length } };
+    }
+
+    case 'get_wallet_balance': {
+      const { data: wallets } = await supabase.from('wallets')
+        .select('balance, currency').eq('user_id', userId);
+      if (!wallets?.length) return { kind: 'finance', summary: 'ما لقيت محفظة نقدية. رصيدك الحالي: 0 ريال.', data: { balance: 0 } };
+      const lines = wallets.map((w: any) => `💳 ${fmt(Number(w.balance))} ${w.currency}`).join('\n');
+      const total = wallets.reduce((s: number, w: any) => s + Number(w.balance), 0);
+      return { kind: 'finance', summary: `رصيدك النقدي:\n${lines}\nالإجمالي: ${fmt(total)} ريال`, data: { wallets, total } };
+    }
+
+    case 'get_recent_moods': {
+      const daysBack = args?.days || 7;
+      const since = new Date(); since.setDate(since.getDate() - daysBack);
+      const { data: moods } = await supabase.from('mood_logs')
+        .select('mood_score, mood_label, note, created_at')
+        .eq('user_id', userId).gte('created_at', since.toISOString())
+        .order('created_at', { ascending: false }).limit(14);
+      if (!moods?.length) return { kind: 'task', summary: `ما سجّلت مزاجك خلال آخر ${daysBack} أيام. كيف حالك اليوم؟`, data: { moods: [] } };
+      const avg = moods.reduce((s: number, m: any) => s + Number(m.mood_score), 0) / moods.length;
+      const lines = moods.slice(0, 5).map((m: any) => {
+        const dt = new Date(m.created_at).toLocaleDateString('ar-SA', { weekday: 'short', day: 'numeric' });
+        return `${m.mood_label} (${m.mood_score}/10) — ${dt}${m.note ? `: ${m.note}` : ''}`;
+      }).join('\n');
+      return { kind: 'task', summary: `مزاجك آخر ${daysBack} أيام (المعدل: ${avg.toFixed(1)}/10):\n${lines}`, data: { moods, average: avg } };
+    }
+
     default: throw new Error(`Unknown function: ${name}`);
   }
 }
@@ -565,6 +714,17 @@ serve(async (req) => {
 ${genderRule}
 
 قدراتك:
+📖 قراءة البيانات — أنتِ تشوفين كل شي في التطبيق:
+✓ المحفظة الاستثمارية — عرض الأسهم والأصول والأرباح/الخسائر
+✓ الملخص المالي — الدخل والمصاريف والادخار (أسبوعي/شهري/سنوي)
+✓ المهام — المعلّقة والمكتملة
+✓ المواعيد — الأحداث القادمة في التقويم
+✓ العادات — العادات النشطة وتفاصيلها
+✓ أهداف التوفير — التقدم والنسبة المئوية
+✓ الرصيد النقدي — المحفظة والميزانية
+✓ المزاج — سجلات المزاج والمعدل
+
+✍️ كتابة البيانات:
 ✓ مهام وتذكيرات — إضافة / تعديل / حذف — مباشرة
 ✓ عادات يومية وأسبوعية — إضافة / تعديل / إيقاف / حذف — مباشرة
 ✓ تسجيل المزاج — مباشرة
@@ -573,6 +733,8 @@ ${genderRule}
 ✓ أهداف التوفير — إضافة / تعديل / حذف — مباشرة
 ✓ المحفظة الاستثمارية — تعديل / حذف الأسهم والأصول — مباشرة
 ✓ إيميل وواتساب — مع تأكيد
+
+⚡ مهم: لما المستخدم يسأل عن بياناته (محفظة، مصاريف، مهام، مواعيد، عادات، أهداف، رصيد، مزاج) — استخدمي أداة القراءة المناسبة وأعطيه المعلومات بالتفصيل. لا تقولي "ما عندي معلومات" — دائماً استخدمي الأداة أولاً.
 
 السياق: اليوم ${TODAY} (${TODAY_ISO}) · ${userContext}
 أسبوع العمل: ${workDaysAr} · الإجازة: ${weekendAr}
@@ -592,6 +754,7 @@ ${modeRules}
 • المستخدم يخطط للأمور القريبة — فكّري باليوم والأسبوع القادم كأولوية
 
 قواعد الأدوات:
+• استعلام/عرض البيانات (get_*): نفّذي فوراً وأعطي المعلومات بالتفصيل كسكرتيرة ذكية — لا تقولي "ما عندي معلومات" بدون ما تستعلمي أولاً
 • إضافة مهام/عادات/مزاج/تعديل/حذف أي منها: نفّذي فوراً وأخبري المستخدم بما فعلتِ
 • تعديل/حذف المواعيد: نفّذي فوراً (لا تطلبي تأكيداً لأن المستخدم طلب ذلك صراحةً)
 • إضافة مواعيد تقويم جديدة/إيميل/واتساب: اعرضي ملخصاً واطلبي نعم/لا

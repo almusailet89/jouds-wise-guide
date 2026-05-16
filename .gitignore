@@ -29,7 +29,11 @@ dist-ssr
 jouds-wise-guide/
 joodai-v2/
 joodai-v2-complete.zip
-supabase/
+
+# Supabase — track edge function source, ignore generated/config
+supabase/.branches
+supabase/.temp
+supabase/config.toml
 
 # Business docs & presentations
 *.pptx
