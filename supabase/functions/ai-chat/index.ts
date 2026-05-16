@@ -28,13 +28,13 @@ const MEMORY_CATEGORIES = [
 
 // ─── Function tool definitions ────────────────────────────────────────────────
 const functionTools = [
-  { type: "function", function: { name: "add_task", description: "Add a task/reminder. Trigger: 'أضيفي مهمة', 'ذكّريني', 'remind me to', 'add to my list'.", parameters: { type: "object", properties: { title: { type: "string" }, due_date: { type: "string", description: "ISO date YYYY-MM-DD. ALWAYS set this — default to TODAY_ISO if no date mentioned. Use TODAY_ISO from system context as base; year is ALWAYS TODAY_ISO's year unless user explicitly says otherwise. 'بكرة/tomorrow' = TODAY+1, 'نهاية الأسبوع' = next Fri/Sat, 'الأسبوع الجاي' = same weekday next week. Never schedule more than 3 months ahead unless user specifically requests it." }, priority: { type: "string", enum: ["low","medium","high"] }, notes: { type: "string" } }, required: ["title", "due_date"] } } },
-  { type: "function", function: { name: "add_habit", description: "Add a recurring habit. Trigger: 'عوّدني', 'أبي أتعود', 'حطّي عادة', 'track my habit'. For specific weekdays (e.g. 'من الأحد إلى الأربعاء' = Sun-Wed), set frequency='weekly' and provide target_days array (0=Sun, 1=Mon, 2=Tue, 3=Wed, 4=Thu, 5=Fri, 6=Sat).", parameters: { type: "object", properties: { name: { type: "string" }, frequency: { type: "string", enum: ["daily","weekly"] }, target_days: { type: "array", items: { type: "integer", minimum: 0, maximum: 6 }, description: "Weekday indices when frequency=weekly. 0=Sunday … 6=Saturday." }, time_of_day: { type: "string", description: "Optional time HH:MM (24h)" }, icon: { type: "string" } }, required: ["name"] } } },
-  { type: "function", function: { name: "log_mood", description: "Log mood/energy. Trigger: 'أنا متعب', 'مزاجي ممتاز', 'feeling stressed/great', 'سجّلي مزاجي'.", parameters: { type: "object", properties: { score: { type: "number" }, label: { type: "string" }, note: { type: "string" } }, required: ["score","label"] } } },
-  { type: "function", function: { name: "create_calendar_event", description: "Create calendar event/meeting. Trigger: 'احجزي', 'اجتماع', 'موعد', 'حطّي في التقويم', 'book'.", parameters: { type: "object", properties: { title: { type: "string" }, starts_at: { type: "string" }, ends_at: { type: "string" }, location: { type: "string" }, description: { type: "string" }, all_day: { type: "boolean" }, category: { type: "string" } }, required: ["title","starts_at"] } } },
-  { type: "function", function: { name: "compose_email", description: "Draft email. Trigger: 'راسلي', 'أرسلي إيميل', 'draft email'.", parameters: { type: "object", properties: { to: { type: "string" }, subject: { type: "string" }, body: { type: "string" } }, required: ["to","subject","body"] } } },
-  { type: "function", function: { name: "draft_whatsapp", description: "Draft WhatsApp. Trigger: 'واتساب', 'راسل فلان'.", parameters: { type: "object", properties: { recipient: { type: "string" }, message: { type: "string" } }, required: ["recipient","message"] } } },
-  { type: "function", function: { name: "add_financial_entry", description: "Record financial transaction. Trigger: amount stated (صرفت، دخلي، X ريال).", parameters: { type: "object", properties: { type: { type: "string", enum: ["expense","income","savings","investment"] }, amount: { type: "number" }, currency: { type: "string" }, category: { type: "string" }, description: { type: "string" } }, required: ["type","amount","currency"] } } },
+  { type: "function", function: { name: "add_task", description: "Add a task/reminder/to-do/follow-up/deadline. Trigger: 'أضيفي مهمة', 'ذكّريني', 'سوّي لي تاسك', 'ضيفي', 'حطّي في قائمتي', 'متابعة مع', 'لازم أسوي', 'لا تنسيني', 'ديدلاين', 'remind me to', 'add to my list', 'follow up with', 'set a deadline', 'I need to', 'don't let me forget', 'todo', 'schedule a reminder', 'put on my plate', 'add action item'. Also for recurring reminders: 'ذكّريني كل شهر', 'remind me every month' → add task with note about recurrence.", parameters: { type: "object", properties: { title: { type: "string" }, due_date: { type: "string", description: "ISO date YYYY-MM-DD. ALWAYS set this — default to TODAY_ISO if no date mentioned. Use TODAY_ISO from system context as base; year is ALWAYS TODAY_ISO's year unless user explicitly says otherwise. 'بكرة/tomorrow' = TODAY+1, 'نهاية الأسبوع' = next Fri/Sat, 'الأسبوع الجاي' = same weekday next week. Never schedule more than 3 months ahead unless user specifically requests it." }, priority: { type: "string", enum: ["low","medium","high"] }, notes: { type: "string" } }, required: ["title", "due_date"] } } },
+  { type: "function", function: { name: "add_habit", description: "Add a recurring habit/routine/daily practice. Trigger: 'عوّدني', 'أبي أتعود', 'حطّي عادة', 'أبي روتين', 'سوّي لي جدول يومي', 'أبي ألتزم بـ', 'track my habit', 'daily routine', 'I want to start doing', 'build a habit', 'track my workout/reading/water/prayer'. For specific weekdays (e.g. 'من الأحد إلى الأربعاء' = Sun-Wed), set frequency='weekly' and provide target_days array (0=Sun, 1=Mon, 2=Tue, 3=Wed, 4=Thu, 5=Fri, 6=Sat).", parameters: { type: "object", properties: { name: { type: "string" }, frequency: { type: "string", enum: ["daily","weekly"] }, target_days: { type: "array", items: { type: "integer", minimum: 0, maximum: 6 }, description: "Weekday indices when frequency=weekly. 0=Sunday … 6=Saturday." }, time_of_day: { type: "string", description: "Optional time HH:MM (24h)" }, icon: { type: "string" } }, required: ["name"] } } },
+  { type: "function", function: { name: "log_mood", description: "Log mood/energy/stress/wellbeing. Trigger: 'أنا متعب', 'مزاجي ممتاز', 'يومي كان صعب', 'مبسوط', 'منهك', 'حاسس بضغط', 'مرتاح', 'قلقان', 'حماسي عالي', 'feeling stressed/great/anxious/tired/happy/excited', 'سجّلي مزاجي', 'today was rough/amazing', 'log how I feel', 'I'm burned out', 'best day ever'.", parameters: { type: "object", properties: { score: { type: "number" }, label: { type: "string" }, note: { type: "string" } }, required: ["score","label"] } } },
+  { type: "function", function: { name: "create_calendar_event", description: "Create calendar event/meeting/appointment/block time. Trigger: 'احجزي', 'اجتماع', 'موعد', 'حطّي في التقويم', 'جدولي', 'حطّي بلوك', 'عندي لقاء', 'موعد دكتور', 'رحلة', 'حفلة', 'مناسبة', 'book', 'schedule a meeting', 'block time for', 'set up a call', 'board meeting', 'doctor appointment', 'dinner reservation', 'flight', 'conference', 'interview'. Also for personal: 'عزيمة', 'زيارة', 'مشوار'.", parameters: { type: "object", properties: { title: { type: "string" }, starts_at: { type: "string" }, ends_at: { type: "string" }, location: { type: "string" }, description: { type: "string" }, all_day: { type: "boolean" }, category: { type: "string" } }, required: ["title","starts_at"] } } },
+  { type: "function", function: { name: "compose_email", description: "Draft email — formal, informal, follow-up, apology, request, report. Trigger: 'راسلي', 'أرسلي إيميل', 'اكتبي إيميل رسمي', 'إيميل اعتذار', 'إيميل متابعة', 'رد على الإيميل', 'draft email', 'write a formal email', 'send an apology email', 'follow-up email', 'compose a message to', 'email my team/boss/client'.", parameters: { type: "object", properties: { to: { type: "string" }, subject: { type: "string" }, body: { type: "string" } }, required: ["to","subject","body"] } } },
+  { type: "function", function: { name: "draft_whatsapp", description: "Draft WhatsApp message — professional, casual, apology, invitation. Trigger: 'واتساب', 'راسل فلان', 'اكتبي رسالة لـ', 'ابعثي واتساب', 'رسالة اعتذار', 'دعوة', 'WhatsApp', 'text', 'message to', 'send a WhatsApp to', 'invite via WhatsApp'.", parameters: { type: "object", properties: { recipient: { type: "string" }, message: { type: "string" } }, required: ["recipient","message"] } } },
+  { type: "function", function: { name: "add_financial_entry", description: "Record financial transaction — expense, income, salary, savings deposit, investment. Trigger: 'صرفت', 'دخلي', 'راتبي', 'X ريال', 'دفعت', 'اشتريت', 'فاتورة', 'سجّلي مصروف', 'إيداع', 'حوّلت', 'I spent', 'I earned', 'salary', 'paid', 'bought', 'bill', 'deposit', 'transferred', 'log expense/income', amount stated with currency.", parameters: { type: "object", properties: { type: { type: "string", enum: ["expense","income","savings","investment"] }, amount: { type: "number" }, currency: { type: "string" }, category: { type: "string" }, description: { type: "string" } }, required: ["type","amount","currency"] } } },
   // ── Financial edit/delete tools ─────────────────────────────────────────────
   { type: "function", function: { name: "update_financial_entry", description: "Edit an existing financial transaction — change amount, category, type, or description. Trigger: 'عدّلي مصروف', 'غيّري المبلغ', 'صحّحي الدخل', 'بدّلي الفئة', 'change expense', 'edit transaction'.", parameters: { type: "object", properties: { search_desc: { type: "string", description: "Key words from the description, note, category, or label to find it." }, new_amount: { type: "number", description: "New amount (omit if not changing)." }, new_type: { type: "string", enum: ["expense","income","savings","investment"], description: "Omit if not changing." }, new_category: { type: "string", description: "Omit if not changing." }, new_description: { type: "string", description: "Omit if not changing." } }, required: ["search_desc"] } } },
 
@@ -66,14 +66,14 @@ const functionTools = [
   { type: "function", function: { name: "delete_habit", description: "Permanently delete a habit. Trigger: 'احذفي العادة', 'مو أبي أتعود', 'remove habit', 'stop tracking habit'.", parameters: { type: "object", properties: { search_name: { type: "string", description: "Key words from the habit name to find it." } }, required: ["search_name"] } } },
 
   // ── READ tools — Jood sees everything ──────────────────────────────────────
-  { type: "function", function: { name: "get_portfolio", description: "Show the user's investment portfolio — stocks, crypto, real estate holdings. Trigger: 'اعرضي محفظتي', 'وش عندي استثمارات', 'كم سعر السهم', 'show my portfolio', 'my investments', 'المحفظة'.", parameters: { type: "object", properties: {}, required: [] } } },
-  { type: "function", function: { name: "get_financial_summary", description: "Show financial summary — income, expenses, savings totals and recent transactions. Trigger: 'كم صرفت', 'وش وضعي المالي', 'ملخص مالي', 'المصاريف', 'الدخل', 'my finances', 'spending summary', 'how much did I spend'.", parameters: { type: "object", properties: { period: { type: "string", enum: ["week","month","year","all"], description: "Time period. Default 'month'." } }, required: [] } } },
-  { type: "function", function: { name: "get_tasks", description: "Show user's tasks — pending, completed, or all. Trigger: 'وش مهامي', 'وش عندي اليوم', 'مهامي', 'my tasks', 'to-do list', 'what do I have to do'.", parameters: { type: "object", properties: { status: { type: "string", enum: ["pending","completed","all"], description: "Filter. Default 'pending'." } }, required: [] } } },
-  { type: "function", function: { name: "get_upcoming_events", description: "Show upcoming calendar events and appointments. Trigger: 'وش مواعيدي', 'اجتماعاتي', 'التقويم', 'my events', 'my schedule', 'upcoming meetings'.", parameters: { type: "object", properties: { days_ahead: { type: "number", description: "How many days ahead to look. Default 7." } }, required: [] } } },
-  { type: "function", function: { name: "get_habits", description: "Show user's active habits and today's tracking status. Trigger: 'عاداتي', 'وش عاداتي', 'my habits', 'habit tracker'.", parameters: { type: "object", properties: {}, required: [] } } },
-  { type: "function", function: { name: "get_goals", description: "Show savings goals with progress. Trigger: 'أهدافي', 'كم وصلت', 'التوفير', 'my goals', 'savings progress'.", parameters: { type: "object", properties: {}, required: [] } } },
-  { type: "function", function: { name: "get_wallet_balance", description: "Show wallet/cash balance. Trigger: 'رصيدي', 'كم عندي', 'المحفظة النقدية', 'my balance', 'wallet'.", parameters: { type: "object", properties: {}, required: [] } } },
-  { type: "function", function: { name: "get_recent_moods", description: "Show recent mood logs and trends. Trigger: 'مزاجي', 'كيف كان مزاجي', 'mood history', 'how have I been feeling'.", parameters: { type: "object", properties: { days: { type: "number", description: "How many days to look back. Default 7." } }, required: [] } } },
+  { type: "function", function: { name: "get_portfolio", description: "Show the user's investment portfolio — stocks, crypto, real estate holdings, P&L. Trigger: 'اعرضي محفظتي', 'وش عندي استثمارات', 'كم سعر السهم', 'أسهمي', 'كريبتو', 'أرباحي', 'خسائري', 'كم ربحت', 'وش وضع الأسهم', 'show my portfolio', 'my investments', 'المحفظة', 'how are my stocks', 'crypto holdings', 'P&L', 'returns', 'asset allocation'. Also when user asks 'وش وضعي المالي بالكامل' call this + get_financial_summary.", parameters: { type: "object", properties: {}, required: [] } } },
+  { type: "function", function: { name: "get_financial_summary", description: "Show financial summary — income, expenses, savings totals, recent transactions, budget status. Trigger: 'كم صرفت', 'وش وضعي المالي', 'ملخص مالي', 'المصاريف', 'الدخل', 'ميزانيتي', 'هل أنا ماشي زين مالياً', 'كم باقي من راتبي', 'تقرير مالي', 'فين تروح فلوسي', 'my finances', 'spending summary', 'how much did I spend', 'budget report', 'where is my money going', 'am I on budget', 'monthly report', 'expense breakdown', 'financial report'.", parameters: { type: "object", properties: { period: { type: "string", enum: ["week","month","year","all"], description: "Time period. Default 'month'." } }, required: [] } } },
+  { type: "function", function: { name: "get_tasks", description: "Show user's tasks — pending, completed, overdue, or all. Trigger: 'وش مهامي', 'وش عندي اليوم', 'مهامي', 'أولوياتي', 'التاسكات', 'وش اللي لازم أسويه', 'عندي شي معلّق؟', 'وش ضاغطني', 'my tasks', 'to-do list', 'what do I have to do', 'my priorities', 'what's on my plate', 'pending items', 'action items', 'overdue tasks', 'what's left'. Also for morning briefing: 'وش برنامجي اليوم' → call get_tasks + get_upcoming_events.", parameters: { type: "object", properties: { status: { type: "string", enum: ["pending","completed","all"], description: "Filter. Default 'pending'." } }, required: [] } } },
+  { type: "function", function: { name: "get_upcoming_events", description: "Show upcoming calendar events, meetings, appointments. Trigger: 'وش مواعيدي', 'اجتماعاتي', 'التقويم', 'جدولي', 'عندي شي بكرة؟', 'هل عندي تعارض', 'وش برنامج الأسبوع', 'فاضية متى؟', 'my events', 'my schedule', 'upcoming meetings', 'am I free on', 'what's my day look like', 'any conflicts', 'calendar this week', 'do I have anything tomorrow'.", parameters: { type: "object", properties: { days_ahead: { type: "number", description: "How many days ahead to look. Default 7." } }, required: [] } } },
+  { type: "function", function: { name: "get_habits", description: "Show user's active habits, streaks, and today's tracking status. Trigger: 'عاداتي', 'وش عاداتي', 'التزامي', 'هل سويت عاداتي اليوم', 'نسبة التزامي', 'my habits', 'habit tracker', 'how consistent am I', 'did I complete my habits', 'daily routine check'.", parameters: { type: "object", properties: {}, required: [] } } },
+  { type: "function", function: { name: "get_goals", description: "Show savings/financial goals with progress bars and percentages. Trigger: 'أهدافي', 'كم وصلت', 'التوفير', 'نسبة الإنجاز', 'كم باقي على الهدف', 'تقدمي', 'هل أنا على المسار', 'my goals', 'savings progress', 'how close am I', 'goal tracking', 'am I on track'.", parameters: { type: "object", properties: {}, required: [] } } },
+  { type: "function", function: { name: "get_wallet_balance", description: "Show wallet/cash/account balance. Trigger: 'رصيدي', 'كم عندي', 'المحفظة النقدية', 'كم فلوسي', 'كم باقي عندي', 'الكاش', 'my balance', 'wallet', 'how much cash do I have', 'available funds', 'account balance'.", parameters: { type: "object", properties: {}, required: [] } } },
+  { type: "function", function: { name: "get_recent_moods", description: "Show recent mood logs, trends, and patterns. Trigger: 'مزاجي', 'كيف كان مزاجي', 'وش مزاجي آخر فترة', 'هل أنا تعبان كثير', 'وضعي النفسي', 'mood history', 'how have I been feeling', 'mood trend', 'stress levels', 'emotional wellbeing', 'am I doing okay'.", parameters: { type: "object", properties: { days: { type: "number", description: "How many days to look back. Default 7." } }, required: [] } } },
 ];
 
 async function executeFunction(functionCall: any, userId: string, supabase: any) {
@@ -704,25 +704,72 @@ serve(async (req) => {
       return `قاعدة الجنس: الجنس غير محدد — استخدمي صيغة محايدة أو اسألي المستخدم عن جنسه.`;
     })();
 
-    const SYSTEM = `أنتِ جود — سكرتيرة تنفيذية سعودية ذكية من الرياض.
+    const SYSTEM = `أنتِ جود — سكرتيرة تنفيذية سعودية ذكية من الرياض. أنتِ مش مجرد شات بوت — أنتِ سكرتيرة شخصية محترفة تعرف كل شي عن حياة المستخدم العملية والشخصية والمالية.
 
 الشخصية:
 - لهجة سعودية أصيلة (نجدية/خليجية): الحين، بكرة، زين، تمام، وش، أبي، خلاص، عاد، بس، مو، كذا، يلا
 - مباشرة وذكية — لا تبدئين بـ "بالطبع" — ابدئي بالمضمون
 - ترديّن على Arabizi والمزيج عربي-إنجليزي بنفس أسلوب المستخدم
+- لو المستخدم يتكلم إنجليزي، ردّي إنجليزي بالكامل بنبرة محترفة ودافئة
 - كل رد ينتهي بسؤال متابعة أو اقتراح واحد
+- ردودك ذكية ومختصرة — لا تكرري البيانات اللي المستخدم يعرفها
 ${genderRule}
+
+🧠 ذكاء السكرتيرة — أنتِ تفكّرين كسكرتيرة تنفيذية محترفة:
+
+📊 الطلبات المركّبة (Compound Requests):
+لما المستخدم يطلب شي عام أو شامل، استدعي عدة أدوات:
+• "وش وضعي اليوم" / "what's my day look like" / "morning briefing" → get_tasks + get_upcoming_events
+• "وش وضعي المالي بالكامل" / "full financial picture" → get_financial_summary + get_portfolio + get_goals + get_wallet_balance
+• "اعطيني تقرير شامل" / "give me a full report" → get_tasks + get_upcoming_events + get_financial_summary + get_habits
+• "كيف حالي" / "how am I doing" → get_recent_moods + get_habits + get_goals (ربطي الصحة النفسية بالإنتاجية)
+• "مستعد للأسبوع الجاي؟" / "am I ready for next week" → get_tasks + get_upcoming_events(days_ahead=7)
+
+🔗 ربط البيانات (Cross-Data Intelligence):
+فكّري كسكرتيرة ذكية تربط المعلومات:
+• إذا المستخدم يسأل "هل أقدر أصرف X ريال" → استعلمي get_wallet_balance + get_financial_summary وقارني
+• إذا يسأل "هل أنا على المسار" → get_goals + get_financial_summary وحللي التقدم
+• إذا يسأل عن "إنتاجيتي" → get_tasks(status=completed) + get_habits وأعطيه ملخص إنجاز
+• إذا مزاجه متدني باستمرار وعنده مهام كثيرة → أشيري بلطف للعلاقة
+
+🎯 الذكاء الاستباقي (Proactive Intelligence):
+• بعد عرض المهام: إذا فيه مهام متأخرة، نبّهي بلطف ("عندك 3 مهام فاتت — تبي نرتبها؟")
+• بعد عرض المالي: إذا المصاريف تجاوزت الدخل، حذّري ("مصاريفك هالشهر أكثر من دخلك — تبي نراجع الميزانية؟")
+• بعد إضافة موعد: إذا تعارض مع موعد موجود، نبّهي ("تنبيه: عندك اجتماع في نفس الوقت")
+• لما يسجّل مصروف كبير: اقترحي مراجعة الهدف ("هذا مبلغ كبير — تبي نشوف تأثيره على هدف التوفير؟")
+
+💼 فهم مصطلحات العمل والإدارة:
+أنتِ تفهمين لغة المدراء والتنفيذيين:
+• "KPIs" / "مؤشرات" → get_goals + get_habits (مقاييس الإنجاز)
+• "board meeting prep" / "تحضير اجتماع المجلس" → create_calendar_event + add_task(تحضير العرض)
+• "Q1/Q2 report" / "تقرير ربع سنوي" → get_financial_summary(period=year)
+• "follow up" / "متابعة" → add_task مع أولوية عالية
+• "delegate" / "وكّلي" / "حولّي" → add_task لشخص ثاني
+• "deep work" / "وقت تركيز" → create_calendar_event(block time)
+• "1:1" / "ون-أون-ون" → create_calendar_event(meeting)
+• "standup" / "ستاند أب" → create_calendar_event(meeting)
+• "deadline" / "ديدلاين" → add_task مع تاريخ وأولوية high
+• "OKR" / "quarterly goals" → get_goals
+
+📱 الحياة الشخصية:
+أنتِ كمان سكرتيرة شخصية:
+• "ذكّريني بعيد ميلاد فلان" → add_task + remember_about_user
+• "ذكّريني أدفع الإيجار كل شهر" → add_task مع ملاحظة "تذكير شهري"
+• "سجّلي موعد مع الدكتور" → create_calendar_event(category: health)
+• "أبي أبدأ دايت" → add_habit(daily) + remember_about_user(health)
+• "عندي سفرة الشهر الجاي" → create_calendar_event + add_task(تحضير الشنطة)
+• "كم باقي على راتبي" → get_financial_summary + تحليل المصاريف المتبقية
 
 قدراتك:
 📖 قراءة البيانات — أنتِ تشوفين كل شي في التطبيق:
 ✓ المحفظة الاستثمارية — عرض الأسهم والأصول والأرباح/الخسائر
 ✓ الملخص المالي — الدخل والمصاريف والادخار (أسبوعي/شهري/سنوي)
-✓ المهام — المعلّقة والمكتملة
-✓ المواعيد — الأحداث القادمة في التقويم
-✓ العادات — العادات النشطة وتفاصيلها
-✓ أهداف التوفير — التقدم والنسبة المئوية
+✓ المهام — المعلّقة والمكتملة والمتأخرة
+✓ المواعيد — الأحداث القادمة في التقويم مع كشف التعارضات
+✓ العادات — العادات النشطة وتفاصيلها ونسبة الالتزام
+✓ أهداف التوفير — التقدم والنسبة المئوية والمسار
 ✓ الرصيد النقدي — المحفظة والميزانية
-✓ المزاج — سجلات المزاج والمعدل
+✓ المزاج — سجلات المزاج والمعدل والأنماط
 
 ✍️ كتابة البيانات:
 ✓ مهام وتذكيرات — إضافة / تعديل / حذف — مباشرة
@@ -734,7 +781,7 @@ ${genderRule}
 ✓ المحفظة الاستثمارية — تعديل / حذف الأسهم والأصول — مباشرة
 ✓ إيميل وواتساب — مع تأكيد
 
-⚡ مهم: لما المستخدم يسأل عن بياناته (محفظة، مصاريف، مهام، مواعيد، عادات، أهداف، رصيد، مزاج) — استخدمي أداة القراءة المناسبة وأعطيه المعلومات بالتفصيل. لا تقولي "ما عندي معلومات" — دائماً استخدمي الأداة أولاً.
+⚡ قاعدة ذهبية: لا تقولي أبداً "ما عندي معلومات" أو "I don't have access to your data" — دائماً استعلمي بالأداة المناسبة أولاً. إذا البيانات فاضية، قولي "ما لقيت شي مسجّل — تبي نضيف؟" مو "ما أقدر أشوف".
 
 السياق: اليوم ${TODAY} (${TODAY_ISO}) · ${userContext}
 أسبوع العمل: ${workDaysAr} · الإجازة: ${weekendAr}
@@ -745,10 +792,12 @@ ${modeRules}
 ذكاء التاريخ والوقت (قواعد صارمة):
 • نحن الآن في ${TODAY} — السنة هي ${TODAY_ISO.slice(0,4)} دائماً
 • إذا لم يذكر المستخدم تاريخاً → استخدمي TODAY_ISO تلقائياً (اليوم)
-• "بكرة" / "غداً" → ${TODAY_ISO} + يوم واحد
-• "نهاية الأسبوع" → أقرب جمعة أو سبت
-• "الأسبوع الجاي" → نفس اليوم من الأسبوع القادم
-• "الشهر الجاي" → نفس اليوم من الشهر القادم
+• "بكرة" / "غداً" / "tomorrow" → ${TODAY_ISO} + يوم واحد
+• "نهاية الأسبوع" / "this weekend" → أقرب جمعة أو سبت
+• "الأسبوع الجاي" / "next week" → نفس اليوم من الأسبوع القادم
+• "الشهر الجاي" / "next month" → نفس اليوم من الشهر القادم
+• "بداية الشهر" / "أول الشهر" → اليوم الأول من الشهر القادم
+• "نهاية الشهر" / "end of month" → آخر يوم من الشهر الحالي
 • السنة دائماً ${TODAY_ISO.slice(0,4)} ما لم يذكر المستخدم سنة مختلفة صراحةً
 • لا تجدولي مهام أو أحداث بعد 3 أشهر من اليوم إلا إذا طلب المستخدم ذلك صراحةً
 • المستخدم يخطط للأمور القريبة — فكّري باليوم والأسبوع القادم كأولوية
@@ -764,7 +813,15 @@ ${modeRules}
 • إذا طلب المستخدم عدة عناصر دفعة وحدة (مثلاً "ذكّريني بكل الصلوات الخمس" أو "أضيفي ثلاث مهام")، استدعي الأداة لكل عنصر — مهمة واحدة لكل صلاة (الفجر، الظهر، العصر، المغرب، العشاء)
 • للعادات بأيام محددة (مثلاً "من الأحد إلى الأربعاء")، استخدمي frequency=weekly مع target_days=[0,1,2,3] حيث 0=الأحد و6=السبت
 • إذا ذكر المستخدم وقتاً للعادة (مثلاً "الساعة 6 صباحاً")، أضيفي time_of_day بصيغة HH:MM
-• لا تخمّني التفاصيل المفقودة — إذا الوقت أو اليوم غير واضح، اسألي قبل التنفيذ`;
+• لا تخمّني التفاصيل المفقودة — إذا الوقت أو اليوم غير واضح، اسألي قبل التنفيذ
+
+أسلوب الرد حسب نوع الطلب:
+• طلب بيانات → أعطي البيانات + تحليل مختصر + اقتراح
+• طلب إجراء → نفّذي + أخبري المستخدم + اقترحي الخطوة التالية
+• سؤال عام عن الحياة/العمل → أجيبي بذكاء + اربطي ببيانات المستخدم إذا أمكن
+• تعبير عن مشاعر → سجّلي المزاج ضمنياً + ردّي بتعاطف + اقترحي شي مفيد`;
+
+
 
     let systemPrompt = SYSTEM;
     if (shouldCommit) systemPrompt += `\n\nالمستخدم أكّد — نفّذي فوراً.`;
@@ -781,7 +838,7 @@ ${modeRules}
     const requestBody: any = {
       model,
       messages,
-      max_tokens: voice_mode ? 150 : isSimple ? 350 : 800,
+      max_tokens: voice_mode ? 150 : isSimple ? 350 : 1200,
       temperature: 0.7,
       tools: functionTools,
       tool_choice: shouldCommit ? 'required' : 'auto',
