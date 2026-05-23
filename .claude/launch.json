@@ -1,0 +1,24 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "vite-frontend",
+      "runtimeExecutable": "/opt/homebrew/bin/node",
+      "runtimeArgs": ["node_modules/vite/bin/vite.js"],
+      "port": 8080,
+      "autoPort": true
+    },
+    {
+      "name": "fastapi-backend",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": ["-m", "uvicorn", "app:app", "--reload", "--port", "8000"],
+      "port": 8000
+    },
+    {
+      "name": "streamlit-dashboard",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": ["-m", "streamlit", "run", "main_dashboard.py", "--server.port", "8501"],
+      "port": 8501
+    }
+  ]
+}
