@@ -257,6 +257,18 @@ const Dashboard = () => {
   }, [(profile as any)?.onboarding_done]);
   const [majlisOpen, setMajlisOpen] = useState(false);
 
+  // Phase 4: Listen for Jood navigation commands from chat
+  React.useEffect(() => {
+    const handler = (e: Event) => {
+      const tab = (e as CustomEvent).detail?.tab;
+      if (tab && ['home','chat','financial','planning','mood','settings'].includes(tab)) {
+        setActiveTab(tab);
+      }
+    };
+    window.addEventListener('jood:navigate', handler);
+    return () => window.removeEventListener('jood:navigate', handler);
+  }, []);
+
   return (
     <div className="min-h-screen bg-background flex flex-col" dir={dir}>
 

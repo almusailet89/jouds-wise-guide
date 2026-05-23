@@ -124,6 +124,15 @@ const ActionCard: React.FC<{ card: { kind: string; summary: string; data: Record
   const copy = (text: string) => { navigator.clipboard.writeText(text); toast({ title: t('chat.copy') }); };
   const dtLocale = lang === 'ar' ? 'ar-SA' : 'en-US';
 
+  // Phase 4: Navigate action — dispatch custom event for Dashboard to handle
+  React.useEffect(() => {
+    if (card.kind === 'navigate' && card.data?.navigate_to) {
+      window.dispatchEvent(new CustomEvent('jood:navigate', { detail: { tab: card.data.navigate_to } }));
+    }
+  }, [card.kind, card.data?.navigate_to]);
+
+  if (card.kind === 'navigate') return null; // Navigation cards don't render visually
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 8, scale: 0.97 }}

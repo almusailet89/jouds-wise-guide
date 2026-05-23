@@ -132,30 +132,44 @@ export const VoicePanel: React.FC = () => {
         const formData = new FormData();
         formData.append('audio', blob, `recording.${ext}`);
 
-        const { data: sttData, error: sttErr } = await supabase.functions.invoke('whisper-transcribe', {
-          body: formData,
-          headers: { Authorization: `Bearer ${session.access_token}` },
-        });
-
-        if (sttErr || !sttData?.text?.trim()) throw new Error(sttErr?.message ?? 'Empty transcript');
+        // STT with retry
+        let sttData: any = null;
+        for (let attempt = 0; attempt < 2; attempt++) {
+          const { data, error: sttErr } = await supabase.functions.invoke('whisper-transcribe', {
+            body: formData,
+            headers: { Authorization: `Bearer ${session.access_token}` },
+          });
+          if (!sttErr && data?.text?.trim()) { sttData = data; break; }
+          if (attempt === 1) throw new Error(sttErr?.message ?? 'Empty transcript');
+        }
 
         const text: string = sttData.text.trim();
-        const lang: 'ar' | 'en' | 'mixed' = sttData.language ?? 'ar';
+        const detectedLang: 'ar' | 'en' | 'mixed' = sttData.language ?? 'ar';
         setTranscript(text);
 
         isProcessingRef.current = false;
-        const result = await sendMessage(text, { voice_mode: true, detected_language: lang });
+        const result = await sendMessage(text, { voice_mode: true, detected_language: detectedLang });
         setTranscript('');
 
         if (result?.message) {
-          await speakMessage(result.message, result.suggested_emotion ?? 'neutral', true);
+          try {
+            await speakMessage(result.message, result.suggested_emotion ?? 'neutral', true);
+          } catch {
+            // TTS failed — fallback to browser speech synthesis
+            if ('speechSynthesis' in window) {
+              const utter = new SpeechSynthesisUtterance(result.message);
+              utter.lang = /[؀-ۿ]/.test(result.message) ? 'ar-SA' : 'en-US';
+              utter.rate = 0.95;
+              window.speechSynthesis.speak(utter);
+            }
+          }
         }
       } catch (err: any) {
         console.error('[VoicePanel] pipeline error:', err);
         isProcessingRef.current = false;
         setMode('idle');
         setTranscript('');
-        toast({ title: lang === 'ar' ? 'لم أستطع التعرف على صوتك' : 'Could not recognize your voice', description: lang === 'ar' ? 'حاولي مجدداً' : 'Please try again', variant: 'destructive' });
+        toast({ title: lang === 'ar' ? 'ما قدرت أسمعك، عيد مرة ثانية' : 'Couldn\'t hear you, please try again', variant: 'destructive' });
       }
     };
 
@@ -315,7 +329,7 @@ export const VoicePanel: React.FC = () => {
       {/* Engine badge */}
       <div className="flex items-center gap-1.5 px-3 py-1.5 bg-muted/40 rounded-full">
         <Sparkles className="w-3 h-3 text-jood-gold-500" />
-        <span className="text-[10px] text-muted-foreground">Whisper · ElevenLabs · GPT-5</span>
+        <span className="text-[10px] text-muted-foreground">Whisper · ElevenLabs · GPT-4o</span>
       </div>
     </div>
   );

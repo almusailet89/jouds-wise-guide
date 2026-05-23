@@ -65,3 +65,15 @@ verify_jwt = true
 
 [functions.text-to-speech]
 verify_jwt = true
+
+[functions.whisper-transcribe]
+verify_jwt = true
+
+[functions.elevenlabs-tts]
+verify_jwt = true
+
+[functions.daily-brief]
+verify_jwt = true
+
+[functions.zakat-calc]
+verify_jwt = true

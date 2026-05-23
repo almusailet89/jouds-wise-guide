@@ -97,7 +97,7 @@ interface MajlisModeProps {
 export const MajlisMode: React.FC<MajlisModeProps> = ({ onClose }) => {
   const { session } = useAuth();
   const { toast } = useToast();
-  const { t, dir } = useLanguage();
+  const { t, lang, dir } = useLanguage();
   const { sendMessage, speakMessage, stopSpeaking, messages, loading, speaking, speakingIntensity } = useChat();
   const previewAudioRef = useRef<HTMLAudioElement | null>(null);
   const [previewPlaying, setPreviewPlaying] = useState(false);
@@ -128,6 +128,43 @@ export const MajlisMode: React.FC<MajlisModeProps> = ({ onClose }) => {
     thinking:   { label: t('majlis.thinking'),   sub: t('majlis.thinking.sub') },
     speaking:   { label: t('majlis.speaking'),   sub: t('majlis.speaking.sub') },
   };
+
+  // ── Request mic permission + welcome greeting on mount ──────────────────
+  const welcomePlayedRef = useRef(false);
+  const [micGranted, setMicGranted] = useState(false);
+  useEffect(() => {
+    if (welcomePlayedRef.current) return;
+    welcomePlayedRef.current = true;
+
+    // Request mic permission immediately on open — don't wait for first recording
+    navigator.mediaDevices.getUserMedia({ audio: true, video: false })
+      .then((stream) => {
+        // Permission granted — keep the stream reference for later use
+        streamRef.current = stream;
+        setMicGranted(true);
+      })
+      .catch(() => {
+        // Permission denied — show a helpful toast but don't block the greeting
+        toast({
+          title: t('voice.error.mic'),
+          description: lang === 'ar'
+            ? 'افتح إعدادات المتصفح واسمح بالميكروفون لهذا الموقع'
+            : 'Open browser settings and allow microphone for this site',
+          variant: 'destructive',
+        });
+      });
+
+    // Play welcome greeting regardless of mic permission
+    const hour = new Date().getHours();
+    const greeting = hour < 12 ? 'صباح الخير طال عمرك، تأمر أمر'
+      : hour < 17 ? 'أهلين، وش ودّك نسوّي؟'
+      : 'مساء الخير، تفضّل وش تبي؟';
+    const timer = setTimeout(() => {
+      speakMessage(greeting, 'warm', true);
+      setLastReply(greeting);
+    }, 800);
+    return () => clearTimeout(timer);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Sync mode with chat state (when not processing Whisper) ──────────────
   useEffect(() => {
@@ -187,16 +224,23 @@ export const MajlisMode: React.FC<MajlisModeProps> = ({ onClose }) => {
 
     let stream: MediaStream;
     try {
-      stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+      // Reuse stream from initial permission grant if still active
+      if (streamRef.current && streamRef.current.active) {
+        stream = streamRef.current;
+      } else {
+        stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+        streamRef.current = stream;
+      }
     } catch {
       toast({
         title: t('voice.error.mic'),
+        description: lang === 'ar'
+          ? 'افتح إعدادات المتصفح واسمح بالميكروفون'
+          : 'Open browser settings and allow microphone',
         variant: 'destructive',
       });
       return;
     }
-
-    streamRef.current = stream;
     startAnalyserLoop(stream);
 
     const mimeType = getBestMimeType();
@@ -238,37 +282,53 @@ export const MajlisMode: React.FC<MajlisModeProps> = ({ onClose }) => {
         const formData = new FormData();
         formData.append('audio', blob, `recording.${ext}`);
 
-        const { data: sttData, error: sttErr } = await supabase.functions.invoke(
-          'whisper-transcribe',
-          {
-            body: formData,
-            headers: { Authorization: `Bearer ${session.access_token}` },
-          },
-        );
-
-        if (sttErr || !sttData?.text?.trim()) {
-          throw new Error(sttErr?.message ?? 'Empty transcript');
+        // ── STT with retry ────────────────────────────────────────────────
+        let sttData: any = null;
+        for (let attempt = 0; attempt < 2; attempt++) {
+          const { data, error: sttErr } = await supabase.functions.invoke(
+            'whisper-transcribe',
+            {
+              body: formData,
+              headers: { Authorization: `Bearer ${session.access_token}` },
+            },
+          );
+          if (!sttErr && data?.text?.trim()) {
+            sttData = data;
+            break;
+          }
+          if (attempt === 1) throw new Error(sttErr?.message ?? 'Empty transcript');
         }
 
         const text: string = sttData.text.trim();
-        const lang: 'ar' | 'en' | 'mixed' = sttData.language ?? 'ar';
+        const detectedLang: 'ar' | 'en' | 'mixed' = sttData.language ?? 'ar';
 
         setTranscript(text);
 
-        // ── Phase 2: ai-chat ──────────────────────────────────────────────
-        isProcessingRef.current = false; // let loading state take over mode
+        // ── ai-chat ───────────────────────────────────────────────────────
+        isProcessingRef.current = false;
 
         const result = await sendMessage(text, {
           voice_mode: true,
-          detected_language: lang,
+          detected_language: detectedLang,
         });
 
         setTranscript('');
 
-        // ── Phase 3: ElevenLabs TTS ────────────────────────────────────────
+        // ── TTS with fallback ─────────────────────────────────────────────
         if (result?.message) {
           const emotion = result.suggested_emotion ?? 'neutral';
-          await speakMessage(result.message, emotion, true);
+          try {
+            await speakMessage(result.message, emotion, true);
+          } catch {
+            // TTS failed — fallback to browser speech synthesis
+            if ('speechSynthesis' in window) {
+              const utter = new SpeechSynthesisUtterance(result.message);
+              utter.lang = /[؀-ۿ]/.test(result.message) ? 'ar-SA' : 'en-US';
+              utter.rate = 0.95;
+              window.speechSynthesis.speak(utter);
+            }
+            setLastReply(result.message);
+          }
         }
 
       } catch (err: any) {
@@ -276,10 +336,12 @@ export const MajlisMode: React.FC<MajlisModeProps> = ({ onClose }) => {
         isProcessingRef.current = false;
         setMode('idle');
         setTranscript('');
-        toast({
-          title: t('voice.transcript.empty'),
-          variant: 'destructive',
-        });
+
+        // User-friendly Saudi error
+        const errMsg = lang === 'ar'
+          ? 'ما قدرت أسمعك، عيد مرة ثانية لو سمحت'
+          : 'Couldn\'t hear you clearly, please try again';
+        toast({ title: errMsg, variant: 'destructive' });
       }
     };
 

@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -106,6 +107,28 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   try {
+    // ── Auth guard — block unauthenticated calls to protect API quota ──────
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ error: "Authorization required" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    const supabaseClient = createClient(
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
+      { auth: { persistSession: false } }
+    );
+    const token = authHeader.replace("Bearer ", "");
+    const { data: userData } = await supabaseClient.auth.getUser(token);
+    if (!userData?.user) {
+      return new Response(
+        JSON.stringify({ error: "Invalid token" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     const {
       text,
       emotion = "neutral",
@@ -129,28 +152,45 @@ serve(async (req) => {
     const settings = VOICE_SETTINGS[emotion] ?? VOICE_SETTINGS.neutral;
     const processedText = enforceVoiceBrevity(text, voice_mode);
 
-    console.log(`[elevenlabs-tts] emotion=${emotion} voice_mode=${voice_mode} chars=${processedText.length}`);
+    console.log(`[elevenlabs-tts] emotion=${emotion} voice_mode=${voice_mode} chars=${processedText.length} model=${voice_mode ? 'turbo-v2.5' : 'multilingual-v2'}`);
 
     // ── Primary: ElevenLabs TTS ────────────────────────────────────────────────
     if (elevenKey) {
-      const elevenRes = await fetch(
-        `https://api.elevenlabs.io/v1/text-to-speech/${targetVoiceId}/stream`,
-        {
-          method: "POST",
-          headers: {
-            "xi-api-key":   elevenKey,
-            "Content-Type": "application/json",
-            "Accept":       "audio/mpeg",
-          },
-          body: JSON.stringify({
-            text:          processedText,
-            model_id:      "eleven_multilingual_v2",   // Full Arabic + EN support
-            voice_settings: settings,
-            // Output format: mp3_44100_128 — high quality, browser compatible
-            output_format: "mp3_44100_128",
-          }),
-        }
-      );
+      // Voice mode uses turbo model + lower quality for ~2x faster response
+      const modelId   = voice_mode ? "eleven_turbo_v2_5" : "eleven_multilingual_v2";
+      const outFormat = voice_mode ? "mp3_22050_32"       : "mp3_44100_128";
+
+      // Timeout: 15s for voice mode (turbo), 30s for text mode
+      const ttsTimeout = voice_mode ? 15000 : 30000;
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), ttsTimeout);
+
+      let elevenRes: Response;
+      try {
+        elevenRes = await fetch(
+          `https://api.elevenlabs.io/v1/text-to-speech/${targetVoiceId}/stream`,
+          {
+            method: "POST",
+            headers: {
+              "xi-api-key":   elevenKey,
+              "Content-Type": "application/json",
+              "Accept":       "audio/mpeg",
+            },
+            body: JSON.stringify({
+              text:           processedText,
+              model_id:       modelId,
+              voice_settings: settings,
+              output_format:  outFormat,
+            }),
+            signal: controller.signal,
+          }
+        );
+      } catch (abortErr: any) {
+        clearTimeout(timer);
+        console.error(`ElevenLabs timeout after ${ttsTimeout}ms — falling back`);
+        elevenRes = new Response(null, { status: 408 }); // force fallback
+      }
+      clearTimeout(timer);
 
       if (elevenRes.ok) {
         const audio = await elevenRes.arrayBuffer();

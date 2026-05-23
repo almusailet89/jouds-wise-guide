@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -6,7 +7,7 @@ const corsHeaders = {
 };
 
 // ─── Saudi Dialect Vocabulary Normalisation ────────────────────────────────────
-// Maps common Saudi colloquial terms to their standard meanings so GPT-5
+// Maps common Saudi colloquial terms to their standard meanings so GPT-4o
 // reasons correctly even when Whisper outputs MSA approximations.
 const SAUDI_VOCAB: [RegExp, string][] = [
   // Time
@@ -81,6 +82,28 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   try {
+    // ── Auth guard — block unauthenticated calls to protect API quota ──────
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ error: "Authorization required", text: "", language: "ar" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    const supabaseClient = createClient(
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
+      { auth: { persistSession: false } }
+    );
+    const token = authHeader.replace("Bearer ", "");
+    const { data: userData } = await supabaseClient.auth.getUser(token);
+    if (!userData?.user) {
+      return new Response(
+        JSON.stringify({ error: "Invalid token", text: "", language: "ar" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     const openaiKey = Deno.env.get("OPENAI_API_KEY");
     if (!openaiKey) throw new Error("OPENAI_API_KEY not configured");
 

@@ -8,7 +8,8 @@ const corsHeaders = {
 };
 
 const DIRECT_EXECUTE = new Set([
-  'add_task', 'add_habit', 'log_mood', 'remember_about_user',
+  'add_task', 'add_habit', 'log_mood', 'remember_about_user', 'update_user_preferences',
+  'navigate_to_section', 'create_recurring_task', 'multi_step_workflow',
   'update_task', 'update_event', 'update_habit',
   'delete_task', 'delete_event', 'delete_habit',
   // financial
@@ -18,7 +19,7 @@ const DIRECT_EXECUTE = new Set([
   // read tools — Jood sees everything in the app
   'get_portfolio', 'get_financial_summary', 'get_tasks',
   'get_upcoming_events', 'get_habits', 'get_goals',
-  'get_wallet_balance', 'get_recent_moods',
+  'get_wallet_balance', 'get_recent_moods', 'get_daily_plan',
 ]);
 
 const MEMORY_CATEGORIES = [
@@ -51,6 +52,11 @@ const functionTools = [
   { type: "function", function: { name: "delete_portfolio_holding", description: "Permanently remove an investment holding from portfolio. Trigger: 'احذفي استثماري', 'بعت', 'مو عندي', 'sold my', 'remove holding'.", parameters: { type: "object", properties: { search_symbol: { type: "string", description: "Symbol or partial name of the asset, e.g. 'ARAMCO', 'BTC'." } }, required: ["search_symbol"] } } },
 
   { type: "function", function: { name: "remember_about_user", description: "Save a durable fact about the user to long-term memory. Call this when the user reveals something stable about themselves (name, job, family, goals, preferences, health, religious practice, daily routine, etc.). DO NOT call for transient state like 'I'm tired today'. The fact should be third-person and concise.", parameters: { type: "object", properties: { category: { type: "string", enum: ["identity","work","family","financial","health","religion","routine","goals","interests","relationships","preferences","pain_points"], description: "Which life-area this fact belongs to." }, content: { type: "string", description: "Short third-person fact, e.g. 'يعمل مديراً تقنياً في أرامكو' or 'يصلي الفجر في المسجد كل يوم'." }, importance: { type: "number", minimum: 0, maximum: 1, description: "0.0–1.0; how foundational this is. Default 0.6." } }, required: ["category","content"] } } },
+  { type: "function", function: { name: "update_user_preferences", description: "Update the user's Jood preferences when they say things like 'كلميني بالتفصيل', 'أبي ردود قصيرة', 'خلّي ردودك مختصرة', 'I prefer detailed responses', 'call me Abu Mohammed', 'ناديني أبو محمد'. Only call when user explicitly requests a change.", parameters: { type: "object", properties: { response_style: { type: "string", enum: ["concise","balanced","detailed"], description: "How verbose Jood should be." }, jood_nickname: { type: "string", description: "What the user wants to call Jood (e.g. جودي, حبيبتي, etc.)." }, voice_language: { type: "string", enum: ["ar","en","auto"], description: "Preferred voice response language." } }, required: [] } } },
+  // ── Phase 4: Jarvis-like Control ────────────────────────────────────────────
+  { type: "function", function: { name: "navigate_to_section", description: "Navigate the user to a specific app section/tab. Trigger: 'وديني للمالية', 'فتحي الجدول', 'ابي أشوف المهام', 'فتحي الإعدادات', 'go to finance', 'open settings', 'show me tasks', 'open planning', 'show dashboard'. Call this when user asks to GO SOMEWHERE in the app, not when they ask to SEE data (use get_* tools for data).", parameters: { type: "object", properties: { section: { type: "string", enum: ["home","chat","financial","planning","mood","settings"], description: "Dashboard tab to navigate to." } }, required: ["section"] } } },
+  { type: "function", function: { name: "create_recurring_task", description: "Create a task that automatically repeats — daily, weekly, or monthly. Trigger: 'كل يوم ذكرني', 'كل أسبوع سوّي', 'مهمة متكررة', 'روتين أسبوعي', 'every day remind', 'weekly task', 'monthly recurring', 'repeat task'. Use for tasks that happen on a schedule.", parameters: { type: "object", properties: { title: { type: "string", description: "Task name." }, recurrence: { type: "string", enum: ["daily","weekly","monthly"], description: "How often it repeats." }, recurrence_day: { type: "integer", description: "Day of week (0=Sun..6=Sat) for weekly, or day of month (1-28) for monthly. Omit for daily." }, time: { type: "string", description: "Time in HH:MM format, e.g. '09:00'." }, priority: { type: "string", enum: ["high","medium","low"], description: "Default medium." }, category: { type: "string", description: "Task category." } }, required: ["title","recurrence"] } } },
+  { type: "function", function: { name: "multi_step_workflow", description: "Execute a multi-step workflow that chains multiple actions together. Trigger: 'رتّبي كل شي لبكرة', 'جهّزي اجتماع وارسلي إيميل', 'plan everything for tomorrow and send invites', 'do X then Y then Z'. Use when user asks for 2+ connected actions that should happen in sequence.", parameters: { type: "object", properties: { description: { type: "string", description: "Brief description of the workflow." }, steps: { type: "array", items: { type: "object", properties: { action: { type: "string", description: "Tool name to call." }, args: { type: "object", description: "Arguments for the tool." }, needs_approval: { type: "boolean", description: "If true, pause and ask before executing this step." } }, required: ["action","args"] }, description: "Ordered list of steps." } }, required: ["description","steps"] } } },
 
   // ── Edit & Delete tools ──────────────────────────────────────────────────────
   { type: "function", function: { name: "update_task", description: "Edit an existing task — reschedule, rename, change priority, or mark done. Trigger: 'غيّري مهمة', 'بدّلي تاريخ', 'عدّلي', 'خلّيها غداً', 'انتهيت من', 'reschedule', 'change task'.", parameters: { type: "object", properties: { search_title: { type: "string", description: "Key words from the task title to find it." }, new_title: { type: "string", description: "New title (omit if not changing)." }, due_date: { type: "string", description: "New due date YYYY-MM-DD (use TODAY_ISO year). Omit if not changing." }, priority: { type: "string", enum: ["low","medium","high"], description: "Omit if not changing." }, status: { type: "string", enum: ["pending","completed"], description: "Use 'completed' when user says they finished it." }, notes: { type: "string", description: "Omit if not changing." } }, required: ["search_title"] } } },
@@ -64,6 +70,9 @@ const functionTools = [
   { type: "function", function: { name: "update_habit", description: "Edit an existing habit — rename, change schedule, time, or pause/resume it. Trigger: 'غيّري العادة', 'بدّلي وقت العادة', 'أوقفي عادة', 'pause habit', 'change habit schedule'.", parameters: { type: "object", properties: { search_name: { type: "string", description: "Key words from the habit name to find it." }, new_name: { type: "string", description: "New name (omit if not changing)." }, frequency: { type: "string", enum: ["daily","weekly"], description: "Omit if not changing." }, target_days: { type: "array", items: { type: "integer", minimum: 0, maximum: 6 }, description: "New weekday indices (omit if not changing)." }, time_of_day: { type: "string", description: "New time HH:MM (omit if not changing)." }, is_active: { type: "boolean", description: "false = pause, true = resume." } }, required: ["search_name"] } } },
 
   { type: "function", function: { name: "delete_habit", description: "Permanently delete a habit. Trigger: 'احذفي العادة', 'مو أبي أتعود', 'remove habit', 'stop tracking habit'.", parameters: { type: "object", properties: { search_name: { type: "string", description: "Key words from the habit name to find it." } }, required: ["search_name"] } } },
+
+  // ── Composite tools — smarter aggregation ────────────────────────────────────
+  { type: "function", function: { name: "get_daily_plan", description: "Get a complete daily plan: today's tasks + events + active habits + recent mood in one call. Trigger: 'رتبي يومي', 'برنامجي اليوم', 'وش عندي اليوم', 'يومي', 'خلّيني أعرف يومي', 'plan my day', 'what's my day', 'daily plan', 'morning briefing', 'صباح الخير وش عندي'. ALWAYS use this instead of calling get_tasks+get_upcoming_events separately when user asks about their day.", parameters: { type: "object", properties: { include_mood: { type: "boolean", description: "Include recent mood context. Default true." } }, required: [] } } },
 
   // ── READ tools — Jood sees everything ──────────────────────────────────────
   { type: "function", function: { name: "get_portfolio", description: "Show the user's investment portfolio — stocks, crypto, real estate holdings, P&L. Trigger: 'اعرضي محفظتي', 'وش عندي استثمارات', 'كم سعر السهم', 'أسهمي', 'كريبتو', 'أرباحي', 'خسائري', 'كم ربحت', 'وش وضع الأسهم', 'show my portfolio', 'my investments', 'المحفظة', 'how are my stocks', 'crypto holdings', 'P&L', 'returns', 'asset allocation'. Also when user asks 'وش وضعي المالي بالكامل' call this + get_financial_summary.", parameters: { type: "object", properties: {}, required: [] } } },
@@ -145,6 +154,119 @@ async function executeFunction(functionCall: any, userId: string, supabase: any)
       // Silent — no user-facing summary; Jood continues her natural reply.
       return { kind: 'memory', summary: '', data: args, silent: true };
     }
+    // ── Navigate to Section (Phase 4) ───────────────────────────────────────
+    case 'navigate_to_section': {
+      const sectionAr: Record<string, string> = {
+        home: 'الرئيسية', chat: 'المحادثة', financial: 'المالية',
+        planning: 'التخطيط', mood: 'المزاج', settings: 'الإعدادات',
+      };
+      const label = sectionAr[args.section] || args.section;
+      return {
+        kind: 'navigate' as any,
+        summary: `تم، فتحت لك ${label} 📱`,
+        data: { navigate_to: args.section },
+      };
+    }
+
+    // ── Create Recurring Task (Phase 4) ───────────────────────────────────────
+    case 'create_recurring_task': {
+      const { error } = await supabase.from('tasks').insert({
+        user_id: userId,
+        title: args.title,
+        priority: args.priority || 'medium',
+        category: args.category || 'routine',
+        status: 'pending',
+        is_recurring: true,
+        recurrence: args.recurrence,
+        recurrence_day: args.recurrence_day ?? null,
+        recurrence_time: args.time ?? null,
+      });
+      if (error) {
+        // If is_recurring column doesn't exist, fall back to regular task with note
+        const { error: fallbackErr } = await supabase.from('tasks').insert({
+          user_id: userId,
+          title: `🔄 ${args.title}`,
+          priority: args.priority || 'medium',
+          category: args.category || 'routine',
+          status: 'pending',
+          description: `متكررة: ${args.recurrence}${args.recurrence_day !== undefined ? ` يوم ${args.recurrence_day}` : ''}${args.time ? ` الساعة ${args.time}` : ''}`,
+        });
+        if (fallbackErr) throw new Error(`create_recurring_task: ${fallbackErr.message}`);
+      }
+      const freqAr = args.recurrence === 'daily' ? 'يومياً' : args.recurrence === 'weekly' ? 'أسبوعياً' : 'شهرياً';
+      const timeNote = args.time ? ` الساعة ${args.time}` : '';
+      return { kind: 'task', summary: `✓ سجّلت مهمة متكررة "${args.title}" — ${freqAr}${timeNote}`, data: args };
+    }
+
+    // ── Multi-Step Workflow (Phase 4) ─────────────────────────────────────────
+    case 'multi_step_workflow': {
+      const stepResults: string[] = [];
+      const stepData: any[] = [];
+      let needsApproval = false;
+      let pendingSteps: any[] = [];
+
+      for (const step of (args.steps || [])) {
+        if (step.needs_approval) {
+          // Queue remaining steps for approval
+          needsApproval = true;
+          pendingSteps = args.steps.slice(args.steps.indexOf(step));
+          stepResults.push(`⏸ ${step.action}: يحتاج تأكيدك`);
+          break;
+        }
+        try {
+          const result = await executeFunction(
+            { name: step.action, arguments: JSON.stringify(step.args) },
+            userId,
+            supabase,
+          );
+          if (!result.silent && result.summary) stepResults.push(result.summary);
+          stepData.push(result);
+        } catch (err: any) {
+          stepResults.push(`✗ ${step.action}: ${err?.message || 'فشل'}`);
+        }
+      }
+
+      const workflowSummary = `سير العمل: ${args.description}\n\n${stepResults.join('\n')}`;
+
+      if (needsApproval) {
+        return {
+          kind: 'task',
+          summary: workflowSummary + '\n\nنكمّل الباقي؟',
+          data: { workflow: true, completed_steps: stepData, pending_steps: pendingSteps },
+        };
+      }
+
+      return {
+        kind: 'task',
+        summary: workflowSummary,
+        data: { workflow: true, completed_steps: stepData, all_done: true },
+      };
+    }
+
+    // ── Update User Preferences (Phase 3) ────────────────────────────────────
+    case 'update_user_preferences': {
+      const updates: any = {};
+      const changes: string[] = [];
+      if (args.response_style) {
+        updates.preferred_response_style = args.response_style;
+        const styleAr: Record<string, string> = { concise: 'مختصر', balanced: 'متوازن', detailed: 'مفصّل' };
+        changes.push(`أسلوب الرد: ${styleAr[args.response_style] || args.response_style}`);
+      }
+      if (args.jood_nickname) {
+        updates.jood_nickname = args.jood_nickname;
+        changes.push(`أناديك: ${args.jood_nickname}`);
+      }
+      if (args.voice_language) {
+        updates.preferred_voice_language = args.voice_language;
+        changes.push(`لغة الصوت: ${args.voice_language === 'ar' ? 'عربي' : args.voice_language === 'en' ? 'إنجليزي' : 'تلقائي'}`);
+      }
+      if (Object.keys(updates).length) {
+        const { error } = await supabase.from('profiles').update(updates).eq('user_id', userId);
+        if (error) throw new Error(`update_user_preferences: ${error.message}`);
+      }
+      return { kind: 'memory', summary: changes.length ? `✓ حدّثت تفضيلاتك: ${changes.join('، ')}` : 'ما فيه شي جديد.', data: args, silent: false };
+    }
+
     // ── Update Task ────────────────────────────────────────────────────────────
     case 'update_task': {
       const { data: found } = await supabase.from('tasks')
@@ -422,6 +544,102 @@ async function executeFunction(functionCall: any, userId: string, supabase: any)
     // READ tools — Jood sees ALL user data
     // ═════════════════════════════════════════════════════════════════════════
 
+    // ═══ COMPOSITE: Daily Plan (Phase 2) ═════════════════════════════════════
+    case 'get_daily_plan': {
+      const now = new Date();
+      const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
+      const todayEnd   = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).toISOString();
+      const tomorrowEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 2).toISOString();
+      const todayISO = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+
+      // Parallel fetch: tasks, events, habits, mood
+      const [tasksRes, eventsRes, habitsRes, moodRes, overdueRes] = await Promise.all([
+        supabase.from('tasks').select('title, status, priority, due_date, category')
+          .eq('user_id', userId).eq('status', 'pending')
+          .lte('due_date', todayISO)
+          .order('priority', { ascending: false }).limit(10),
+        supabase.from('events').select('title, starts_at, ends_at, location, category, all_day')
+          .eq('user_id', userId).gte('starts_at', todayStart).lt('starts_at', tomorrowEnd)
+          .order('starts_at', { ascending: true }).limit(10),
+        supabase.from('habits').select('name, frequency, target_days, icon, time_of_day')
+          .eq('user_id', userId).eq('is_active', true).order('time_of_day', { ascending: true }),
+        args?.include_mood !== false
+          ? supabase.from('mood_logs').select('mood_score, mood_label, created_at')
+              .eq('user_id', userId).gte('created_at', new Date(now.getTime() - 3*24*60*60*1000).toISOString())
+              .order('created_at', { ascending: false }).limit(3)
+          : Promise.resolve({ data: [] }),
+        supabase.from('tasks').select('title, due_date, priority')
+          .eq('user_id', userId).eq('status', 'pending')
+          .lt('due_date', todayISO)
+          .order('due_date', { ascending: true }).limit(5),
+      ]);
+
+      const tasks = tasksRes.data || [];
+      const events = eventsRes.data || [];
+      const habits = habitsRes.data || [];
+      const moods  = moodRes.data || [];
+      const overdue = overdueRes.data || [];
+
+      // Filter habits for today's day-of-week
+      const todayDow = now.getDay(); // 0=Sun
+      const todayHabits = habits.filter((h: any) => {
+        if (h.frequency === 'daily') return true;
+        if (h.frequency === 'weekly' && Array.isArray(h.target_days)) return h.target_days.includes(todayDow);
+        return true;
+      });
+
+      const priorityIcon: any = { high: '🔴', medium: '🟡', low: '🟢' };
+      const sections: string[] = [];
+
+      // Overdue warning
+      if (overdue.length) {
+        sections.push(`⚠️ متأخر (${overdue.length}):\n` + overdue.map((t: any) => `${priorityIcon[t.priority]||'⚪'} ${t.title}`).join('\n'));
+      }
+
+      // Events timeline
+      if (events.length) {
+        const evLines = events.map((e: any) => {
+          if (e.all_day) return `📅 ${e.title} (طول اليوم)${e.location ? ` 📍${e.location}` : ''}`;
+          const time = new Date(e.starts_at).toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' });
+          return `📅 ${time} — ${e.title}${e.location ? ` 📍${e.location}` : ''}`;
+        });
+        sections.push(`مواعيدك اليوم:\n${evLines.join('\n')}`);
+      }
+
+      // Today's tasks
+      if (tasks.length) {
+        const taskLines = tasks.map((t: any) => `${priorityIcon[t.priority]||'⚪'} ${t.title}`);
+        sections.push(`مهامك اليوم (${tasks.length}):\n${taskLines.join('\n')}`);
+      }
+
+      // Habits
+      if (todayHabits.length) {
+        const habLines = todayHabits.map((h: any) => {
+          const time = h.time_of_day ? ` (${h.time_of_day})` : '';
+          return `${h.icon||'⭐'} ${h.name}${time}`;
+        });
+        sections.push(`عاداتك اليوم:\n${habLines.join('\n')}`);
+      }
+
+      // Mood context
+      let moodNote = '';
+      if (moods.length) {
+        const avg = moods.reduce((s: number, m: any) => s + Number(m.mood_score), 0) / moods.length;
+        if (avg <= 4) moodNote = '\n💙 مزاجك كان منخفض مؤخراً — خذها بالراحة اليوم.';
+        else if (avg >= 8) moodNote = '\n✨ مزاجك ممتاز — يوم موفّق إن شاء الله!';
+      }
+
+      if (!sections.length) {
+        return { kind: 'task', summary: `يومك فاضي الحين — ما عندك مهام ولا مواعيد. تبي نضيف شي؟${moodNote}`, data: { tasks: [], events: [], habits: [], overdue: [] } };
+      }
+
+      return {
+        kind: 'task',
+        summary: `خل نشوف يومك:\n\n${sections.join('\n\n')}${moodNote}`,
+        data: { tasks, events, habits: todayHabits, moods, overdue, counts: { tasks: tasks.length, events: events.length, habits: todayHabits.length, overdue: overdue.length } },
+      };
+    }
+
     case 'get_portfolio': {
       const { data: holdings } = await supabase.from('portfolio_holdings')
         .select('symbol, market, quantity, avg_price, current_price, currency, asset_type, is_crypto')
@@ -448,20 +666,63 @@ async function executeFunction(functionCall: any, userId: string, supabase: any)
       else if (period === 'year') { startDate = new Date(now.getFullYear(), 0, 1).toISOString(); }
       else if (period === 'all') { startDate = '2000-01-01T00:00:00Z'; }
       else { startDate = new Date(now.getFullYear(), now.getMonth(), 1).toISOString(); }
-      const { data: entries } = await supabase.from('financial_data')
-        .select('type, amount, currency, category, note, label, created_at')
-        .eq('user_id', userId).gte('created_at', startDate)
-        .order('created_at', { ascending: false }).limit(50);
+
+      // Fetch current period + previous period for trend analysis (parallel)
+      const prevStart = period === 'month'
+        ? new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString()
+        : period === 'week'
+          ? new Date(now.getTime() - 14*24*60*60*1000).toISOString()
+          : null;
+
+      const [currentRes, prevRes] = await Promise.all([
+        supabase.from('financial_data')
+          .select('type, amount, currency, category, note, label, created_at')
+          .eq('user_id', userId).gte('created_at', startDate)
+          .order('created_at', { ascending: false }).limit(50),
+        prevStart
+          ? supabase.from('financial_data')
+              .select('type, amount')
+              .eq('user_id', userId).gte('created_at', prevStart).lt('created_at', startDate)
+          : Promise.resolve({ data: [] }),
+      ]);
+
+      const entries = currentRes.data || [];
       if (!entries?.length) return { kind: 'finance', summary: 'ما عندك معاملات مالية في هالفترة.', data: { totals: {}, entries: [] } };
       const totals: any = { income: 0, expense: 0, savings: 0, investment: 0 };
       entries.forEach((e: any) => { const t = e.type as string; if (totals[t] !== undefined) totals[t] += Number(e.amount); });
       const net = totals.income - totals.expense;
       const periodAr = period === 'week' ? 'هالأسبوع' : period === 'year' ? 'هالسنة' : period === 'all' ? 'الكل' : 'هالشهر';
+
+      // Category breakdown (top 3 expense categories)
+      const catTotals: Record<string, number> = {};
+      entries.filter((e: any) => e.type === 'expense').forEach((e: any) => {
+        const cat = e.category || e.label || e.note || 'أخرى';
+        catTotals[cat] = (catTotals[cat] || 0) + Number(e.amount);
+      });
+      const topCats = Object.entries(catTotals).sort((a, b) => b[1] - a[1]).slice(0, 3);
+      const catBreakdown = topCats.length
+        ? '\n\n📊 أعلى المصاريف:\n' + topCats.map(([cat, amt]) => `• ${cat}: ${fmt(amt)} ريال`).join('\n')
+        : '';
+
+      // Trend analysis vs previous period
+      let trendNote = '';
+      const prevEntries = prevRes.data || [];
+      if (prevEntries.length && (period === 'month' || period === 'week')) {
+        const prevTotals: any = { income: 0, expense: 0 };
+        prevEntries.forEach((e: any) => { if (prevTotals[e.type] !== undefined) prevTotals[e.type] += Number(e.amount); });
+        if (prevTotals.expense > 0) {
+          const expChange = ((totals.expense - prevTotals.expense) / prevTotals.expense * 100).toFixed(0);
+          const prevPeriodAr = period === 'week' ? 'الأسبوع اللي قبل' : 'الشهر اللي قبل';
+          if (Number(expChange) > 10) trendNote = `\n\n📈 مصاريفك زادت ${expChange}% مقارنة بـ${prevPeriodAr}`;
+          else if (Number(expChange) < -10) trendNote = `\n\n📉 مصاريفك نقصت ${Math.abs(Number(expChange))}% عن ${prevPeriodAr} — ممتاز!`;
+        }
+      }
+
       const recent = entries.slice(0, 5).map((e: any) => {
         const typeAr = e.type === 'income' ? '💰 دخل' : e.type === 'savings' ? '🏦 ادخار' : e.type === 'investment' ? '📈 استثمار' : '💸 مصروف';
         return `${typeAr}: ${fmt(Number(e.amount))} ${e.currency} — ${e.category || e.label || e.note || ''}`;
       }).join('\n');
-      return { kind: 'finance', summary: `ملخصك المالي ${periodAr}:\n💰 دخل: ${fmt(totals.income)} ريال\n💸 مصاريف: ${fmt(totals.expense)} ريال\n🏦 ادخار: ${fmt(totals.savings)} ريال\n📈 استثمار: ${fmt(totals.investment)} ريال\n📊 صافي: ${fmt(net)} ريال\n\nآخر المعاملات:\n${recent}`, data: { totals, entries: entries.slice(0, 10), period } };
+      return { kind: 'finance', summary: `ملخصك المالي ${periodAr}:\n💰 دخل: ${fmt(totals.income)} ريال\n💸 مصاريف: ${fmt(totals.expense)} ريال\n🏦 ادخار: ${fmt(totals.savings)} ريال\n📈 استثمار: ${fmt(totals.investment)} ريال\n📊 صافي: ${fmt(net)} ريال${catBreakdown}${trendNote}\n\nآخر المعاملات:\n${recent}`, data: { totals, entries: entries.slice(0, 10), period, top_categories: topCats, trend: trendNote ? 'changed' : 'stable' } };
     }
 
     case 'get_tasks': {
@@ -572,7 +833,7 @@ function buildPreview(name: string, args: any, voiceMode: boolean): string {
     }
     default: preview = name;
   }
-  return voiceMode ? `${preview}. تأكيدي؟` : `سأنفّذ: **${preview}**\n\nتأكيدي؟ قولي **نعم** أو **لا**.`;
+  return voiceMode ? `${preview}. نمشي فيها؟` : `حاب أسجّل لك: **${preview}**\n\nنمشي؟ قول **تمام** أو **لا**.`;
 }
 
 serve(async (req) => {
@@ -584,6 +845,14 @@ serve(async (req) => {
     const { message, context, mode, pendingFunction, voice_mode = false, detected_language = "ar" } = await req.json();
     if (!message) throw new Error('Message is required');
 
+    // ── Input length guard — prevent abuse / prompt stuffing ─────────────
+    if (typeof message === 'string' && message.length > 4000) {
+      return new Response(
+        JSON.stringify({ error: 'Message too long (max 4000 chars)' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     stage = 'env_check';
     const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
     if (!openAIApiKey) throw new Error('OpenAI API key not configured');
@@ -594,16 +863,26 @@ serve(async (req) => {
       { auth: { persistSession: false } }
     );
 
-    // Auth
+    // Auth — require valid user; reject unauthenticated calls
     stage = 'auth';
     let userId: string | null = null;
     const authHeader = req.headers.get("Authorization");
-    if (authHeader) {
-      const token = authHeader.replace("Bearer ", "");
-      try {
-        const { data: userData } = await supabaseClient.auth.getUser(token);
-        if (userData?.user) userId = userData.user.id;
-      } catch { /* anon */ }
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ error: 'Authorization required' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    const token = authHeader.replace("Bearer ", "");
+    try {
+      const { data: userData } = await supabaseClient.auth.getUser(token);
+      if (userData?.user) userId = userData.user.id;
+    } catch { /* token invalid */ }
+    if (!userId) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid or expired token' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     // Profile + memory taxonomy (parallel for speed) — non-fatal
@@ -614,17 +893,21 @@ serve(async (req) => {
     let knownFacts = "";
     let missingCategories: string[] = [];
     let genderForPrompt: string | null = null;
+    let preferredStyle = 'balanced'; // concise | balanced | detailed
+    let joodNickname = '';
     if (userId) {
       try {
         const [profileRes, taxonomyRes] = await Promise.all([
           supabaseClient.from('profiles')
-            .select('display_name, gender, phone, city, date_of_birth, bio, base_currency, working_days, weekend_days')
+            .select('display_name, gender, phone, city, date_of_birth, bio, base_currency, working_days, weekend_days, preferred_response_style, preferred_voice_language, jood_nickname')
             .eq('user_id', userId).maybeSingle(),
           supabaseClient.rpc('get_memory_taxonomy', { p_user_id: userId })
             .then((r: any) => r).catch(() => ({ data: [] })),
         ]);
         const profile = profileRes?.data;
         genderForPrompt = profile?.gender ?? null;
+        preferredStyle = profile?.preferred_response_style || 'balanced';
+        joodNickname = profile?.jood_nickname || '';
         if (profile) {
           const genderAr = profile.gender === 'female' ? 'أنثى' : profile.gender === 'male' ? 'ذكر' : '';
           userContext = [
@@ -644,15 +927,28 @@ serve(async (req) => {
           routine: "الروتين اليومي", goals: "الأهداف", interests: "الاهتمامات",
           relationships: "العلاقات", preferences: "التفضيلات", pain_points: "التحديات",
         };
+        const ALL_CATS = Object.keys(CAT_AR);
+        const filledCats = new Set<string>();
         const filled: string[] = [];
         for (const row of taxonomy) {
+          filledCats.add(row.category);
           if (row.filled_count > 0 && row.latest_real_content) {
             filled.push(`• ${CAT_AR[row.category] ?? row.category}: ${row.latest_real_content}`);
-          } else {
-            missingCategories.push(CAT_AR[row.category] ?? row.category);
           }
         }
+        // Find truly missing categories (no memories at all)
+        for (const cat of ALL_CATS) {
+          if (!filledCats.has(cat)) missingCategories.push(CAT_AR[cat]);
+        }
         if (filled.length) knownFacts = "\n\nما تعرفينه عن المستخدم:\n" + filled.join('\n');
+
+        // Bump use_count on referenced memories (fire-and-forget for speed)
+        if (filled.length) {
+          supabaseClient.from('user_memories')
+            .update({ last_used_at: new Date().toISOString(), use_count: 1 }) // use_count will be incremented via trigger or next iteration
+            .eq('user_id', userId).eq('active', true).eq('is_template', false)
+            .then(() => {}).catch(() => {}); // non-fatal
+        }
       } catch { /* non-fatal */ }
     }
     const dayNamesAr = ['الأحد','الإثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت'];
@@ -664,15 +960,60 @@ serve(async (req) => {
 
     // Flow detection
     stage = 'flow_detect';
-    const CONFIRM_WORDS = ['yes','confirm','ok','sure','نعم','تأكيد','تمام','ماشي','صح','أكيد'];
-    const CANCEL_WORDS = ['no','cancel','لا','إلغاء','الغي'];
+    const CONFIRM_WORDS = ['yes','confirm','ok','sure','نعم','تأكيد','تمام','ماشي','صح','أكيد','سم','يلا','نمشي','امشي','طيب','اي','ايه','يب'];
+    const CANCEL_WORDS = ['no','cancel','لا','إلغاء','الغي','خلاص','لا خلاص','وقف','كنسل','الغها'];
     const msgLower = String(message).toLowerCase().trim();
     const isConfirmation = CONFIRM_WORDS.includes(msgLower);
     const isCancel = CANCEL_WORDS.includes(msgLower);
     const shouldCommit = mode === 'commit' || (isConfirmation && pendingFunction);
 
-    const respondInEnglish = detected_language === "en";
-    const respondMixed = detected_language === "mixed";
+    // Auto-detect language from message text when not provided by Whisper
+    const autoDetectLang = (text: string): 'ar' | 'en' | 'mixed' => {
+      const arabicRe = /[؀-ۿ]/;
+      const latinRe = /[a-zA-Z]{2,}/;
+      const hasArabic = arabicRe.test(text);
+      const hasLatin = latinRe.test(text);
+      if (hasArabic && hasLatin) return 'mixed';
+      if (hasLatin && !hasArabic) return 'en';
+      return 'ar';
+    };
+    const effectiveLang = detected_language !== "ar" ? detected_language : autoDetectLang(message);
+    const respondInEnglish = effectiveLang === "en";
+    const respondMixed = effectiveLang === "mixed";
+
+    // ── Response Mode Classifier (Phase 2) ────────────────────────────────────
+    type ResponseMode = 'command' | 'conversation' | 'finance' | 'mood' | 'planning';
+    const classifyMode = (msg: string): ResponseMode => {
+      const m = msg.toLowerCase().trim();
+      // Planning mode
+      if (/رتبي يومي|نظمي|برنامجي|وش عندي اليوم|خلّيني أعرف يومي|plan my day|daily plan|morning brief|صباح.*عندي|يومي شكل/i.test(m)) return 'planning';
+      // Finance mode
+      if (/صرفت|راتب|مصاريف|ميزاني|محفظ|استثمار|أسهم|كريبتو|رصيد|فلوس|دخل|وضعي المالي|كم عندي|finances|budget|portfolio|spent|salary|invest|balance|wallet/i.test(m)) return 'finance';
+      // Mood mode
+      if (/مزاج|تعبان|مبسوط|حاس|ضغط|قلق|stressed|happy|tired|feeling|mood|يومي.*صعب|مرتاح|منهك|حماس/i.test(m)) return 'mood';
+      // Command mode — action verbs
+      if (/سجل|أضيف|ذكر|احذف|عدل|غير|بدل|حط|add|log|remind|delete|update|remove|create|schedule|book|record|سوي لي|حطي/i.test(m)) return 'command';
+      return 'conversation';
+    };
+    const responseMode: ResponseMode = classifyMode(String(message));
+
+    // ── Mood-Aware Context (Phase 2) ────────────────────────────────────────
+    let recentMoodContext = '';
+    if (userId && responseMode !== 'mood') {
+      try {
+        const since = new Date(new Date().getTime() - 2*24*60*60*1000).toISOString();
+        const { data: recentMoods } = await supabaseClient.from('mood_logs')
+          .select('mood_score, mood_label')
+          .eq('user_id', userId).gte('created_at', since)
+          .order('created_at', { ascending: false }).limit(2);
+        if (recentMoods?.length) {
+          const avgMood = recentMoods.reduce((s: number, m: any) => s + Number(m.mood_score), 0) / recentMoods.length;
+          if (avgMood <= 3) recentMoodContext = '\n⚠️ مزاج المستخدم منخفض مؤخراً — كوني لطيفة وخففي عليه. لا تضغطي بالمهام.';
+          else if (avgMood <= 5) recentMoodContext = '\n💙 المستخدم مزاجه متوسط — كوني دافئة وشجّعيه.';
+          else if (avgMood >= 9) recentMoodContext = '\n✨ مزاج المستخدم ممتاز — شاركيه الحماس!';
+        }
+      } catch { /* non-fatal */ }
+    }
 
     // Model routing
     const SIMPLE_RE = /^(كيف حال|how are you|مرحب|hello|هلا|أهلا|شكراً|thank|^ok$|^تمام$|صباح|مساء|السلام)/i;
@@ -686,9 +1027,25 @@ serve(async (req) => {
     const TODAY = _now.toLocaleDateString('ar-SA', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
     const TODAY_ISO = `${_now.getFullYear()}-${String(_now.getMonth() + 1).padStart(2, '0')}-${String(_now.getDate()).padStart(2, '0')}`;
     const langRule = respondInEnglish ? "User spoke English — reply in English." : respondMixed ? "المستخدم يخلط عربي-إنجليزي — رديّ بنفس المزيج." : "";
+    // Mode-specific instructions (Phase 2: per-mode tuning)
+    const responseModeHint: Record<ResponseMode, string> = {
+      command: '🎯 وضع أوامر: المستخدم يبي تنفيذ — نفّذي فوراً + تأكيد مختصر. لا تطوّلي.',
+      conversation: '💬 وضع محادثة: المستخدم يبي يتكلم — كوني دافئة ومهتمة. اسألي سؤال متابعة ذكي.',
+      finance: '💰 وضع مالي: ابدئي بالأرقام والبيانات، ثم تحليل مختصر. لا تنصحي بالشراء/البيع أبداً.',
+      mood: '💙 وضع مزاج: كوني حنونة وطبيعية. سجّلي المزاج إذا واضح. اقترحي شي يساعد بلطف.',
+      planning: '📋 وضع تخطيط: استخدمي get_daily_plan واعرضي اليوم بشكل مرتّب بالوقت. رتبي الأولويات.',
+    };
+
     const modeRules = voice_mode
-      ? `وضع صوتي: جملة واحدة (≤15 كلمة). ممنوع markdown.`
-      : `وضع نص: يمكنكِ markdown وقوائم. ردودك موجزة.`;
+      ? `وضع صوتي — قواعد صارمة:
+• ردّي بالعربي السعودي دائماً حتى لو المستخدم تكلم إنجليزي (إلا لو قال صراحة "English please")
+• جملة وحدة أو جملتين بالكثير (≤15 كلمة)
+• ممنوع markdown أو نجوم أو رموز
+• استخدمي عبارات جود: "سم"، "تم"، "سوّيتها لك"، "تأمر"
+• كوني طبيعية كأنك تتكلمين بالتلفون مع مديرك
+${responseModeHint[responseMode]}`
+      : `وضع نص: يمكنكِ markdown وقوائم. ردودك موجزة ولطيفة.
+${responseModeHint[responseMode]}`;
 
     // Gender-aware grammar rule
     const genderRule = (() => {
@@ -704,122 +1061,131 @@ serve(async (req) => {
       return `قاعدة الجنس: الجنس غير محدد — استخدمي صيغة محايدة أو اسألي المستخدم عن جنسه.`;
     })();
 
-    const SYSTEM = `أنتِ جود — سكرتيرة تنفيذية سعودية ذكية من الرياض. أنتِ مش مجرد شات بوت — أنتِ سكرتيرة شخصية محترفة تعرف كل شي عن حياة المستخدم العملية والشخصية والمالية.
+    const SYSTEM = `أنتِ جود — سكرتيرة تنفيذية سعودية ذكية من الرياض. مو شات بوت — أنتِ سكرتيرة شخصية محترفة تعرفين كل شي عن حياة المستخدم.
 
-الشخصية:
-- لهجة سعودية أصيلة (نجدية/خليجية): الحين، بكرة، زين، تمام، وش، أبي، خلاص، عاد، بس، مو، كذا، يلا
-- مباشرة وذكية — لا تبدئين بـ "بالطبع" — ابدئي بالمضمون
-- ترديّن على Arabizi والمزيج عربي-إنجليزي بنفس أسلوب المستخدم
-- لو المستخدم يتكلم إنجليزي، ردّي إنجليزي بالكامل بنبرة محترفة ودافئة
-- كل رد ينتهي بسؤال متابعة أو اقتراح واحد
-- ردودك ذكية ومختصرة — لا تكرري البيانات اللي المستخدم يعرفها
+═══ الروح والشخصية ═══
+أنتِ سكرتيرة سعودية بنت الرياض — كلامك طبيعي وعفوي زي ما السكرتيرة تكلم مديرها بالمكتب:
+
+🗣️ عبارات جود الأساسية (استخدميها بشكل طبيعي ومتنوع):
+التحية والاستقبال:
+• "سم" / "سم، تفضل" — أول رد على أي طلب
+• "هلا والله" / "أهلين" — رد على السلام
+• "نورت يا طويل العمر" — لما يرجع بعد غياب
+• "حيّاك الله" — ترحيب رسمي
+
+تأكيد الأوامر والتنفيذ:
+• "تأمر أمر طال عمرك" — بعد ما تنفذين طلب
+• "سوّيتها لك" / "تم يا طويل العمر"
+• "خلاص مسجّل عندي" / "خلاص حطيتها لك"
+• "على راسي" / "يصير خير"
+• "تم الطلب" / "جاهز"
+• "إن شاء الله ما يقصر عليك"
+
+الاقتراحات والعرض:
+• "وش ودّك نسوّي؟" — سؤال مفتوح
+• "تبي أرتّب لك يومك؟" / "حاب أرتّب لك جدولك؟"
+• "تبي أسجّل لك موعد؟" / "حاب أحجز لك؟"
+• "تبي نشوف وضعك المالي؟"
+• "أشوف عندك كم شغلة — تبي أرتبها لك؟"
+• "خل نشوف وش عندك اليوم"
+
+المتابعة:
+• "شي ثاني؟" / "تبي شي ثاني طال عمرك؟"
+• "عندك شي زيادة؟"
+• "أي خدمة ثانية؟"
+• "تأمر على شي؟"
+
+التعاطف والدعم:
+• "الله يعينك" / "الله يوفقك"
+• "ما شاء الله عليك" — لما ينجز شي
+• "يا حليلك" — تعاطف خفيف
+• "الله يسهّلها عليك"
+• "توكل على الله وكل شي بيتيسر"
+
+الإلغاء والرفض:
+• "لا يهمك، ما سجّلت شي" — لما يلغي
+• "زين ما سوّينا شي — وش تبي بداله؟"
+• "تمام، ألغيناها. وش ودّك نسوّي؟"
+
 ${genderRule}
 
-🧠 ذكاء السكرتيرة — أنتِ تفكّرين كسكرتيرة تنفيذية محترفة:
-
-📊 الطلبات المركّبة (Compound Requests):
-لما المستخدم يطلب شي عام أو شامل، استدعي عدة أدوات:
-• "وش وضعي اليوم" / "what's my day look like" / "morning briefing" → get_tasks + get_upcoming_events
-• "وش وضعي المالي بالكامل" / "full financial picture" → get_financial_summary + get_portfolio + get_goals + get_wallet_balance
-• "اعطيني تقرير شامل" / "give me a full report" → get_tasks + get_upcoming_events + get_financial_summary + get_habits
-• "كيف حالي" / "how am I doing" → get_recent_moods + get_habits + get_goals (ربطي الصحة النفسية بالإنتاجية)
-• "مستعد للأسبوع الجاي؟" / "am I ready for next week" → get_tasks + get_upcoming_events(days_ahead=7)
-
-🔗 ربط البيانات (Cross-Data Intelligence):
-فكّري كسكرتيرة ذكية تربط المعلومات:
-• إذا المستخدم يسأل "هل أقدر أصرف X ريال" → استعلمي get_wallet_balance + get_financial_summary وقارني
-• إذا يسأل "هل أنا على المسار" → get_goals + get_financial_summary وحللي التقدم
-• إذا يسأل عن "إنتاجيتي" → get_tasks(status=completed) + get_habits وأعطيه ملخص إنجاز
-• إذا مزاجه متدني باستمرار وعنده مهام كثيرة → أشيري بلطف للعلاقة
-
-🎯 الذكاء الاستباقي (Proactive Intelligence):
-• بعد عرض المهام: إذا فيه مهام متأخرة، نبّهي بلطف ("عندك 3 مهام فاتت — تبي نرتبها؟")
-• بعد عرض المالي: إذا المصاريف تجاوزت الدخل، حذّري ("مصاريفك هالشهر أكثر من دخلك — تبي نراجع الميزانية؟")
-• بعد إضافة موعد: إذا تعارض مع موعد موجود، نبّهي ("تنبيه: عندك اجتماع في نفس الوقت")
-• لما يسجّل مصروف كبير: اقترحي مراجعة الهدف ("هذا مبلغ كبير — تبي نشوف تأثيره على هدف التوفير؟")
-
-💼 فهم مصطلحات العمل والإدارة:
-أنتِ تفهمين لغة المدراء والتنفيذيين:
-• "KPIs" / "مؤشرات" → get_goals + get_habits (مقاييس الإنجاز)
-• "board meeting prep" / "تحضير اجتماع المجلس" → create_calendar_event + add_task(تحضير العرض)
-• "Q1/Q2 report" / "تقرير ربع سنوي" → get_financial_summary(period=year)
-• "follow up" / "متابعة" → add_task مع أولوية عالية
-• "delegate" / "وكّلي" / "حولّي" → add_task لشخص ثاني
-• "deep work" / "وقت تركيز" → create_calendar_event(block time)
-• "1:1" / "ون-أون-ون" → create_calendar_event(meeting)
-• "standup" / "ستاند أب" → create_calendar_event(meeting)
-• "deadline" / "ديدلاين" → add_task مع تاريخ وأولوية high
-• "OKR" / "quarterly goals" → get_goals
-
-📱 الحياة الشخصية:
-أنتِ كمان سكرتيرة شخصية:
-• "ذكّريني بعيد ميلاد فلان" → add_task + remember_about_user
-• "ذكّريني أدفع الإيجار كل شهر" → add_task مع ملاحظة "تذكير شهري"
-• "سجّلي موعد مع الدكتور" → create_calendar_event(category: health)
-• "أبي أبدأ دايت" → add_habit(daily) + remember_about_user(health)
-• "عندي سفرة الشهر الجاي" → create_calendar_event + add_task(تحضير الشنطة)
-• "كم باقي على راتبي" → get_financial_summary + تحليل المصاريف المتبقية
-
-قدراتك:
-📖 قراءة البيانات — أنتِ تشوفين كل شي في التطبيق:
-✓ المحفظة الاستثمارية — عرض الأسهم والأصول والأرباح/الخسائر
-✓ الملخص المالي — الدخل والمصاريف والادخار (أسبوعي/شهري/سنوي)
-✓ المهام — المعلّقة والمكتملة والمتأخرة
-✓ المواعيد — الأحداث القادمة في التقويم مع كشف التعارضات
-✓ العادات — العادات النشطة وتفاصيلها ونسبة الالتزام
-✓ أهداف التوفير — التقدم والنسبة المئوية والمسار
-✓ الرصيد النقدي — المحفظة والميزانية
-✓ المزاج — سجلات المزاج والمعدل والأنماط
-
-✍️ كتابة البيانات:
-✓ مهام وتذكيرات — إضافة / تعديل / حذف — مباشرة
-✓ عادات يومية وأسبوعية — إضافة / تعديل / إيقاف / حذف — مباشرة
-✓ تسجيل المزاج — مباشرة
-✓ مواعيد التقويم — إضافة / تعديل / حذف — مع تأكيد للإضافة فقط
-✓ مصاريف ودخل — إضافة (مع تأكيد) / تعديل / حذف — مباشرة
-✓ أهداف التوفير — إضافة / تعديل / حذف — مباشرة
-✓ المحفظة الاستثمارية — تعديل / حذف الأسهم والأصول — مباشرة
-✓ إيميل وواتساب — مع تأكيد
-
-⚡ قاعدة ذهبية: لا تقولي أبداً "ما عندي معلومات" أو "I don't have access to your data" — دائماً استعلمي بالأداة المناسبة أولاً. إذا البيانات فاضية، قولي "ما لقيت شي مسجّل — تبي نضيف؟" مو "ما أقدر أشوف".
-
-السياق: اليوم ${TODAY} (${TODAY_ISO}) · ${userContext}
-أسبوع العمل: ${workDaysAr} · الإجازة: ${weekendAr}
-عند جدولة المهام والمواعيد، احترمي أيام العمل والإجازة. لا تقترحي اجتماعات في الإجازة إلا لو طلبها المستخدم صراحةً.${knownFacts}${missingHint}
+═══ قواعد اللغة الصارمة ═══
+🔴 القاعدة الأهم: ردّي دائماً بالعربية السعودية (اللهجة النجدية/الخليجية) إلا إذا المستخدم كتب/تكلم إنجليزي بالكامل.
+• لو المستخدم يخلط عربي-إنجليزي → ردّي بالعربي مع مصطلحات إنجليزية طبيعية
+• لو المستخدم يتكلم إنجليزي كامل → ردّي إنجليزي بنبرة مهنية ودافئة
+• ممنوع الفصحى الثقيلة — لا تقولي "بالتأكيد سيدي" أو "حسناً سأقوم بذلك" — قولي "سم" أو "تم"
+• ممنوع تبدئي بـ "بالطبع" أو "بالتأكيد" أو "Sure" — ابدئي بالمضمون أو "سم"
 ${langRule}
+
+═══ أسلوب الرد ═══
+${preferredStyle === 'concise' ? '⚡ المستخدم يفضّل الإيجاز — ردودك أقصر ما يمكن، بدون شرح زيادة.' : preferredStyle === 'detailed' ? '📖 المستخدم يفضّل التفصيل — وسّعي شوي بالشرح والتحليل.' : ''}
+${joodNickname ? `المستخدم يناديك "${joodNickname}" بدال جود.` : ''}
 ${modeRules}
+• كل رد مختصر — جملتين أو ثلاث بالكثير + سؤال متابعة أو اقتراح واحد
+• لا تكرري بيانات المستخدم اللي هو يعرفها — أعطيه الجديد بس
+• ابدئي بالمضمون مباشرة — لا مقدمات طويلة
+• خلّي ردودك حلوة ولطيفة — زي سكرتيرة تحب شغلها
 
-ذكاء التاريخ والوقت (قواعد صارمة):
-• نحن الآن في ${TODAY} — السنة هي ${TODAY_ISO.slice(0,4)} دائماً
-• إذا لم يذكر المستخدم تاريخاً → استخدمي TODAY_ISO تلقائياً (اليوم)
-• "بكرة" / "غداً" / "tomorrow" → ${TODAY_ISO} + يوم واحد
-• "نهاية الأسبوع" / "this weekend" → أقرب جمعة أو سبت
-• "الأسبوع الجاي" / "next week" → نفس اليوم من الأسبوع القادم
-• "الشهر الجاي" / "next month" → نفس اليوم من الشهر القادم
-• "بداية الشهر" / "أول الشهر" → اليوم الأول من الشهر القادم
-• "نهاية الشهر" / "end of month" → آخر يوم من الشهر الحالي
-• السنة دائماً ${TODAY_ISO.slice(0,4)} ما لم يذكر المستخدم سنة مختلفة صراحةً
-• لا تجدولي مهام أو أحداث بعد 3 أشهر من اليوم إلا إذا طلب المستخدم ذلك صراحةً
-• المستخدم يخطط للأمور القريبة — فكّري باليوم والأسبوع القادم كأولوية
+═══ ذكاء السكرتيرة ═══
 
-قواعد الأدوات:
-• استعلام/عرض البيانات (get_*): نفّذي فوراً وأعطي المعلومات بالتفصيل كسكرتيرة ذكية — لا تقولي "ما عندي معلومات" بدون ما تستعلمي أولاً
-• إضافة مهام/عادات/مزاج/تعديل/حذف أي منها: نفّذي فوراً وأخبري المستخدم بما فعلتِ
-• تعديل/حذف المواعيد: نفّذي فوراً (لا تطلبي تأكيداً لأن المستخدم طلب ذلك صراحةً)
-• إضافة مواعيد تقويم جديدة/إيميل/واتساب: اعرضي ملخصاً واطلبي نعم/لا
-• إضافة معاملات مالية (add_financial_entry): اعرضي ملخصاً واطلبي نعم/لا
-• تعديل أو حذف معاملات/أهداف/محفظة: نفّذي فوراً وأخبري المستخدم بالتغيير بالتفصيل
-• عند التعديل أو الحذف: ابحثي عن العنصر بالاسم وأخبري المستخدم بالتغيير بالضبط
-• إذا طلب المستخدم عدة عناصر دفعة وحدة (مثلاً "ذكّريني بكل الصلوات الخمس" أو "أضيفي ثلاث مهام")، استدعي الأداة لكل عنصر — مهمة واحدة لكل صلاة (الفجر، الظهر، العصر، المغرب، العشاء)
-• للعادات بأيام محددة (مثلاً "من الأحد إلى الأربعاء")، استخدمي frequency=weekly مع target_days=[0,1,2,3] حيث 0=الأحد و6=السبت
-• إذا ذكر المستخدم وقتاً للعادة (مثلاً "الساعة 6 صباحاً")، أضيفي time_of_day بصيغة HH:MM
-• لا تخمّني التفاصيل المفقودة — إذا الوقت أو اليوم غير واضح، اسألي قبل التنفيذ
+📊 الطلبات المركّبة:
+• "وش وضعي اليوم" / "خلّيني أعرف يومي" / "رتبي يومي" / "صباح الخير" → get_daily_plan (أداة واحدة تجيب كل شي)
+• "وش وضعي المالي" / "كيف فلوسي" → get_financial_summary + get_portfolio + get_goals + get_wallet_balance
+• "اعطني تقرير شامل" → get_tasks + get_upcoming_events + get_financial_summary + get_habits
+• "كيف حالي" → get_recent_moods + get_habits + get_goals
+• "جاهز للأسبوع الجاي؟" → get_tasks + get_upcoming_events(days_ahead=7)
 
-أسلوب الرد حسب نوع الطلب:
-• طلب بيانات → أعطي البيانات + تحليل مختصر + اقتراح
-• طلب إجراء → نفّذي + أخبري المستخدم + اقترحي الخطوة التالية
-• سؤال عام عن الحياة/العمل → أجيبي بذكاء + اربطي ببيانات المستخدم إذا أمكن
-• تعبير عن مشاعر → سجّلي المزاج ضمنياً + ردّي بتعاطف + اقترحي شي مفيد`;
+🔗 ربط البيانات:
+• "هل أقدر أصرف X ريال" → get_wallet_balance + get_financial_summary
+• "هل أنا ماشي صح" → get_goals + get_financial_summary
+• "كيف إنتاجيتي" → get_tasks(status=completed) + get_habits
+• مزاج متدني + مهام كثيرة → نبّهي بلطف
+
+🧭 التنقل في التطبيق:
+• "وديني للمالية" / "فتحي الإعدادات" / "ابي أشوف المهام" → navigate_to_section
+• "ورّيني المزاج" → navigate_to_section(mood)
+
+🔄 المهام المتكررة:
+• "كل يوم ذكرني أشرب ماي" → create_recurring_task(daily)
+• "كل أحد راجعي ميزانيتي" → create_recurring_task(weekly, day=0)
+
+🔗 سير عمل متعدد:
+• "رتّبي كل شي لبكرة" → multi_step_workflow: get_daily_plan + get_tasks
+• "سجّلي مصروف ١٠٠ وبعدين ورّيني الملخص" → add_financial_entry ثم get_financial_summary
+
+🎯 الذكاء الاستباقي:
+• مهام متأخرة → "أشوف عندك ٣ مهام فاتت — تبي نرتبها؟"
+• مصاريف > دخل → "مصاريفك هالشهر زايدة — تبي نراجع الميزانية؟"
+• تعارض مواعيد → "لحظة، عندك شي في نفس الوقت"
+• مصروف كبير → "هذا مبلغ كبير — تبي نشوف تأثيره على هدفك؟"
+
+═══ القدرات ═══
+📖 قراءة: محفظة استثمارية · ملخص مالي · مهام · مواعيد · عادات · أهداف توفير · رصيد · مزاج · خطة اليوم
+✍️ كتابة مباشرة: مهام · عادات · مزاج · تعديل/حذف أي شي · تفضيلات المستخدم · مهام متكررة
+✍️ مع تأكيد: مواعيد جديدة · معاملات مالية جديدة · إيميل · واتساب
+🧭 تحكم: تنقّل بين أقسام التطبيق (navigate_to_section) · سير عمل متعدد الخطوات (multi_step_workflow)
+
+⚡ قاعدة ذهبية: لا تقولي أبداً "ما عندي معلومات" — استعلمي بالأداة المناسبة أولاً. لو البيانات فاضية: "ما لقيت شي مسجّل — تبي نضيف؟"
+
+═══ السياق ═══
+اليوم ${TODAY} (${TODAY_ISO}) · ${userContext}
+أسبوع العمل: ${workDaysAr} · الإجازة: ${weekendAr}
+احترمي أيام العمل والإجازة في الجدولة.${recentMoodContext}${knownFacts}${missingHint}
+
+═══ ذكاء التاريخ ═══
+• التاريخ: ${TODAY_ISO} · السنة: ${TODAY_ISO.slice(0,4)}
+• بدون تاريخ → اليوم · "بكرة" → +1 يوم · "الأسبوع الجاي" → +7 أيام
+• "نهاية الأسبوع" → أقرب جمعة/سبت · "الشهر الجاي" → +شهر
+• السنة ${TODAY_ISO.slice(0,4)} دائماً ما لم يُحدد غيرها
+
+═══ قواعد الأدوات ═══
+• get_* → نفّذي فوراً + تحليل مختصر + اقتراح
+• مهام/عادات/مزاج/تعديل/حذف → نفّذي فوراً + "تم" أو "سوّيتها لك"
+• مواعيد جديدة/إيميل/واتساب/مالية جديدة → اعرضي ملخص + "تبي أسجّلها؟" أو "نمشي؟"
+• طلبات متعددة (مثل ٥ صلوات) → استدعي الأداة لكل وحدة
+• عادات بأيام محددة → frequency=weekly مع target_days (0=الأحد, 6=السبت)
+• وقت عادة → time_of_day بصيغة HH:MM
+• تفاصيل ناقصة → اسألي قبل التنفيذ — لا تخمّني`;
 
 
 
@@ -838,7 +1204,11 @@ ${modeRules}
     const requestBody: any = {
       model,
       messages,
-      max_tokens: voice_mode ? 150 : isSimple ? 350 : 1200,
+      max_tokens: voice_mode
+        ? (responseMode === 'command' ? 80 : responseMode === 'planning' ? 250 : 150)
+        : isSimple ? 350
+        : responseMode === 'finance' || responseMode === 'planning' ? 1500
+        : 1200,
       temperature: 0.7,
       tools: functionTools,
       tool_choice: shouldCommit ? 'required' : 'auto',
@@ -867,7 +1237,7 @@ ${modeRules}
 
     stage = 'tool_handling';
     if (isCancel) {
-      assistantMessage = "تمام، ما سجّلت شيء. وش تبي الحين؟";
+      assistantMessage = "لا يهمك، ما سوّيت شي. وش ودّك نسوّي؟";
     } else if (choice.message?.tool_calls?.length) {
       const toolCalls = choice.message.tool_calls;
 
@@ -946,22 +1316,68 @@ ${modeRules}
     }
 
     if (!assistantMessage) {
-      assistantMessage = "هلا، وش أقدر أسوي لك الحين؟";
+      assistantMessage = "سم، تفضل — وش ودّك نسوّي؟";
     }
 
-    // Emotion hint
+    // ── Usage Pattern Tracking (Phase 3) — fire-and-forget ───────────────────
+    if (userId && !isCancel) {
+      const hour = new Date().getHours();
+      const timeSlot = hour < 6 ? 'night' : hour < 12 ? 'morning' : hour < 17 ? 'afternoon' : hour < 21 ? 'evening' : 'night';
+      // Upsert pattern — increment hit_count if exists
+      supabaseClient.from('usage_patterns')
+        .upsert({
+          user_id: userId,
+          pattern_type: 'time_slot',
+          pattern_key: `${timeSlot}_${responseMode}`,
+          pattern_value: { time_slot: timeSlot, response_mode: responseMode, hour },
+          hit_count: 1,
+          last_seen_at: new Date().toISOString(),
+        }, { onConflict: 'user_id,pattern_type,pattern_key', ignoreDuplicates: false })
+        .then(({ error }: any) => {
+          if (error) {
+            // Fallback: just insert (upsert might fail if no unique constraint yet)
+            supabaseClient.from('usage_patterns').insert({
+              user_id: userId,
+              pattern_type: 'time_slot',
+              pattern_key: `${timeSlot}_${responseMode}`,
+              pattern_value: { time_slot: timeSlot, response_mode: responseMode, hour },
+            }).then(() => {}).catch(() => {});
+          }
+        })
+        .catch(() => {}); // Non-fatal, fire and forget
+    }
+
+    // ── Proactive Suggestions (Phase 3) ───────────────────────────────────────
+    // If user said something vague like "hi" or "صباح الخير", suggest based on time
+    if (responseMode === 'conversation' && !pendingFunction && !shouldCommit) {
+      const hour = new Date().getHours();
+      const greetingRe = /^(صباح الخير|مساء الخير|هلا|أهلا|السلام عليكم|مرحبا|hello|hi|hey|good morning|good evening)/i;
+      if (greetingRe.test(String(message).trim())) {
+        // Morning = suggest daily plan, Evening = suggest mood log
+        if (hour >= 5 && hour < 12 && !/يومي|عندي/.test(assistantMessage)) {
+          assistantMessage += '\n\nتبي أرتّب لك يومك؟ 📋';
+        } else if (hour >= 20 && !/مزاج/.test(assistantMessage)) {
+          assistantMessage += '\n\nكيف كان يومك؟ تبي تسجّل مزاجك؟ 💙';
+        }
+      }
+    }
+
+    // Emotion hint (Phase 2: mode-aware)
     stage = 'emotion';
     let suggestedEmotion = "neutral";
-    if (/متوتر|ضغط|قلق|stressed|تعبان/i.test(assistantMessage)) suggestedEmotion = "empathetic";
-    else if (/ممتاز|رائع|great|excellent|يلا/i.test(assistantMessage)) suggestedEmotion = "warm";
-    else if (/استثمار|محفظة|invest|portfolio/i.test(assistantMessage)) suggestedEmotion = "confident";
+    if (responseMode === 'mood' || /متوتر|ضغط|قلق|stressed|تعبان|يعينك|حليلك/i.test(assistantMessage)) suggestedEmotion = "empathetic";
+    else if (responseMode === 'command' || /ممتاز|رائع|great|excellent|يلا|ما شاء الله/i.test(assistantMessage)) suggestedEmotion = "warm";
+    else if (responseMode === 'finance' || /استثمار|محفظة|invest|portfolio|ريال|مصاريف/i.test(assistantMessage)) suggestedEmotion = "confident";
+    else if (responseMode === 'planning') suggestedEmotion = "confident";
 
     return new Response(JSON.stringify({
       message: assistantMessage,
       function_results: functionResults,
       action_card: actionCard,
       mode: shouldCommit ? 'commit' : 'conversation',
+      response_mode: responseMode,
       voice_mode,
+      auto_listen: voice_mode && !assistantMessage.includes('؟') && responseMode === 'command',
       detected_language,
       suggested_emotion: suggestedEmotion,
       model_used: model,
@@ -975,7 +1391,7 @@ ${modeRules}
     // Real error in `debug` for inspection.
     return new Response(
       JSON.stringify({
-        message: "آسفة، صار شي بسيط عندي. عيدي السؤال مرة ثانية لو سمحتي.",
+        message: "عذراً طال عمرك، صار شي بسيط عندي. عيد السؤال مرة ثانية لو سمحت.",
         function_results: null,
         action_card: null,
         mode: 'conversation',

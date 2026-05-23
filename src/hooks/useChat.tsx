@@ -55,10 +55,14 @@ export interface AIChatResponse {
   detected_language?: string;
   /** ElevenLabs emotion hint: "neutral" | "warm" | "confident" | "empathetic" */
   suggested_emotion?: string;
+  /** Phase 2: classified response mode */
+  response_mode?: 'command' | 'conversation' | 'finance' | 'mood' | 'planning';
   function_results?: {
     preview_mode?: boolean;
     function_call?: any;
   };
+  /** Phase 4: navigation action — frontend should switch to this tab */
+  navigate_to?: string;
   mode?: string;
 }
 
@@ -291,19 +295,35 @@ export const useChat = () => {
     teardownTtsAnalyser();
     setSpeaking(true);
     try {
-      const { data, error } = await supabase.functions.invoke('elevenlabs-tts', {
-        body: {
+      // Direct fetch for speed \u2014 supabase.functions.invoke buffers the whole response
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://neadnclykbukvmlquepg.supabase.co';
+      const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+      const ttsUrl = `${supabaseUrl}/functions/v1/elevenlabs-tts`;
+
+      // 20s timeout \u2014 don't hang forever on slow TTS
+      const ttsController = new AbortController();
+      const ttsTimer = setTimeout(() => ttsController.abort(), 20000);
+
+      const res = await fetch(ttsUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+          ...(anonKey ? { 'apikey': anonKey } : {}),
+        },
+        body: JSON.stringify({
           text,
           emotion,
           voice_mode: voiceMode,
           language: /[\u0600-\u06FF]/.test(text) ? 'ar' : 'en',
-        },
-        headers: { Authorization: `Bearer ${session.access_token}` },
+        }),
+        signal: ttsController.signal,
       });
+      clearTimeout(ttsTimer);
 
-      if (error) throw error;
+      if (!res.ok) throw new Error(`TTS error: ${res.status}`);
 
-      const blob = new Blob([data], { type: 'audio/mpeg' });
+      const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       const audio = new Audio(url);
       ttsAudioElRef.current = audio;
