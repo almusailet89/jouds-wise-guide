@@ -101,14 +101,36 @@ export const VoicePanel: React.FC = () => {
 
     let stream: MediaStream;
     try {
-      stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-    } catch {
-      toast({
-        title: lang === 'ar' ? 'لا يمكن الوصول للميكروفون' : 'Microphone access denied',
-        description: lang === 'ar' ? 'يرجى السماح بالوصول للميكروفون في إعدادات المتصفح' : 'Please allow microphone access in your browser settings',
-        variant: 'destructive',
+      // Audio constraints tuned for Whisper / gpt-4o-transcribe:
+      // - echoCancellation: removes microphone echo from speaker output
+      // - noiseSuppression: reduces background noise (office, AC, etc.)
+      // - sampleRate: 16000 is Whisper's native rate — avoids resampling artefacts
+      // - channelCount: 1 mono — half the data, identical quality for speech
+      stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl:  true,
+          sampleRate:       16000,
+          channelCount:     1,
+        },
+        video: false,
       });
-      return;
+    } catch {
+      // Browser may reject sampleRate constraint — try without it
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+          video: false,
+        });
+      } catch {
+        toast({
+          title: lang === 'ar' ? 'لا يمكن الوصول للميكروفون' : 'Microphone access denied',
+          description: lang === 'ar' ? 'يرجى السماح بالوصول للميكروفون في إعدادات المتصفح' : 'Please allow microphone access in your browser settings',
+          variant: 'destructive',
+        });
+        return;
+      }
     }
 
     streamRef.current = stream;

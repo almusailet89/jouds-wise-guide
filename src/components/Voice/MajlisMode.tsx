@@ -334,11 +334,29 @@ export const MajlisMode: React.FC<MajlisModeProps> = ({ onClose }) => {
 
     let stream: MediaStream;
     try {
-      // Reuse stream from initial permission grant if still active
+      // Reuse active stream from initial permission grant (avoids re-prompt)
       if (streamRef.current && streamRef.current.active) {
         stream = streamRef.current;
       } else {
-        stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+        // Audio constraints tuned for Whisper / gpt-4o-transcribe accuracy
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({
+            audio: {
+              echoCancellation: true,
+              noiseSuppression: true,
+              autoGainControl:  true,
+              sampleRate:       16000,
+              channelCount:     1,
+            },
+            video: false,
+          });
+        } catch {
+          // Fallback without sample rate (some browsers/mobile reject it)
+          stream = await navigator.mediaDevices.getUserMedia({
+            audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+            video: false,
+          });
+        }
         streamRef.current = stream;
       }
     } catch {

@@ -7,43 +7,35 @@ const corsHeaders = {
 };
 
 // ─── Saudi Dialect Vocabulary Normalisation ────────────────────────────────────
-// Maps common Saudi colloquial terms to their standard meanings so GPT-4o
-// reasons correctly even when Whisper outputs MSA approximations.
+// gpt-4o-transcribe handles Saudi dialect much better than whisper-1,
+// but this layer ensures perfectly colloquial terms map to MSA for GPT-4o.
 const SAUDI_VOCAB: [RegExp, string][] = [
-  // Time
-  [/\bبكرة\b/g,        "غداً"],
-  [/\bالحين\b/g,       "الآن"],
-  [/\bتو\b|\bتوّ\b/g,  "الآن"],
-  [/\bمن زمان\b/g,     "منذ وقت طويل"],
-  // Finance
-  [/\bمصاريف\b/g,      "مصروفات"],
-  [/\bراتب\b/g,        "دخل شهري"],
-  [/\bفلوس\b/g,        "أموال"],
-  [/\bريّال\b/g,       "ريال سعودي"],
-  [/\bحساب\b/g,        "رصيد"],
-  [/\bشيك\b/g,         "شيك مصرفي"],
-  [/\bقرض\b/g,         "قرض مالي"],
-  // Tasks/Life
-  [/\bوش\b|\bايش\b/g,  "ماذا"],
-  [/\bكيفك\b/g,        "كيف حالك"],
-  [/\bزين\b|\bزيّن\b/g,"جيد"],
-  [/\bتمام\b/g,        "حسناً"],
-  [/\bبس\b/g,          "فقط"],
-  [/\bشوي\b/g,         "قليلاً"],
-  [/\bكذا\b/g,         "هكذا"],
-  [/\bعندي\b/g,        "لدي"],
-  [/\bما عندي\b/g,     "ليس لدي"],
-  [/\bأبي\b|\bأبغى\b/g,"أريد"],
-  [/\bأقدر\b/g,        "أستطيع"],
-  [/\bما أقدر\b/g,     "لا أستطيع"],
-  [/\bحاسبني\b/g,      "احسب لي"],
-  [/\bوقفت\b/g,        "توقفت"],
-  [/\bشكلك\b/g,        "يبدو أنك"],
-  // Greetings/Affirmations
-  [/\bهلا\b/g,         "أهلاً"],
-  [/\bمرحبا\b/g,       "أهلاً"],
-  [/\bيزاك الله خير\b/g, "شكراً جزيلاً"],
-  [/\bلا هنت\b/g,      "شكراً"],
+  [/\bبكرة\b/g,              "غداً"],
+  [/\bالحين\b/g,             "الآن"],
+  [/\bتو\b|\bتوّ\b/g,        "الآن"],
+  [/\bمن زمان\b/g,           "منذ وقت طويل"],
+  [/\bمصاريف\b/g,            "مصروفات"],
+  [/\bفلوس\b/g,              "أموال"],
+  [/\bريّال\b/g,             "ريال سعودي"],
+  [/\bقرض\b/g,               "قرض مالي"],
+  [/\bوش\b|\bايش\b/g,        "ماذا"],
+  [/\bكيفك\b/g,              "كيف حالك"],
+  [/\bزين\b|\bزيّن\b/g,      "جيد"],
+  [/\bتمام\b/g,              "حسناً"],
+  [/\bبس\b/g,                "فقط"],
+  [/\bشوي\b/g,               "قليلاً"],
+  [/\bكذا\b/g,               "هكذا"],
+  [/\bعندي\b/g,              "لدي"],
+  [/\bما عندي\b/g,           "ليس لدي"],
+  [/\bأبي\b|\bأبغى\b/g,      "أريد"],
+  [/\bأقدر\b/g,              "أستطيع"],
+  [/\bما أقدر\b/g,           "لا أستطيع"],
+  [/\bحاسبني\b/g,            "احسب لي"],
+  [/\bشكلك\b/g,              "يبدو أنك"],
+  [/\bهلا\b/g,               "أهلاً"],
+  [/\bمرحبا\b/g,             "أهلاً"],
+  [/\bيزاك الله خير\b/g,     "شكراً جزيلاً"],
+  [/\bلا هنت\b/g,            "شكراً"],
 ];
 
 function normalizeSaudiDialect(text: string): string {
@@ -54,35 +46,36 @@ function normalizeSaudiDialect(text: string): string {
   return normalized;
 }
 
-// ─── Language detection (simple heuristic) ────────────────────────────────────
+// ─── Language detection ────────────────────────────────────────────────────────
 function detectLanguage(text: string): "ar" | "en" | "mixed" {
-  const arabicChars = (text.match(/[\u0600-\u06FF]/g) || []).length;
+  const arabicChars = (text.match(/[؀-ۿ]/g) || []).length;
   const latinChars  = (text.match(/[a-zA-Z]/g) || []).length;
   const total = arabicChars + latinChars;
   if (total === 0) return "ar";
-  const arabicRatio = arabicChars / total;
-  if (arabicRatio > 0.7) return "ar";
-  if (arabicRatio < 0.3) return "en";
+  const ratio = arabicChars / total;
+  if (ratio > 0.70) return "ar";
+  if (ratio < 0.30) return "en";
   return "mixed";
 }
 
-// ─── Whisper prompt engineered for Saudi dialect ───────────────────────────────
-const WHISPER_SAUDI_PROMPT =
-  "This is a Saudi Arabic executive assistant conversation about personal finance, " +
-  "tasks, investments, and daily life planning. " +
-  "The speaker uses Saudi dialect (لهجة سعودية) and may mix English terms naturally. " +
-  "Common Saudi terms: بكرة (tomorrow), مصاريف (expenses), راتب (salary), " +
-  "زين (good/okay), وش/ايش (what), الحين (now), بس (only/just), شوي (a little), " +
-  "أبي/أبغى (I want), أقدر (I can). " +
-  "Financial terms: ريال (SAR), استثمار (investment), محفظة (portfolio), زكاة (zakat). " +
-  "Transcribe accurately — preserve dialect words as spoken.";
+// ─── Saudi dialect prompt ──────────────────────────────────────────────────────
+// Primes transcription with Saudi vocabulary so the model picks correct spellings.
+// Works for both gpt-4o-transcribe and whisper-1.
+const SAUDI_PROMPT =
+  "Saudi Arabic executive assistant — personal finance, tasks, planning, daily life. " +
+  "Speaker uses Saudi dialect mixed naturally with English business/tech terms. " +
+  "Common Saudi words: بكرة (tomorrow), مصاريف (expenses), راتب (salary), فلوس (money), " +
+  "زين (good/okay), وش/ايش (what), الحين/تو (now), بس (just/only), شوي (a little), " +
+  "أبي/أبغى (I want), أقدر (I can), عندي (I have), هلا (hi), تمام (okay), سم (yes sir). " +
+  "Finance: ريال (SAR), استثمار (investment), محفظة (portfolio), أسهم (stocks), كريبتو (crypto). " +
+  "Preserve both Arabic and English words exactly as spoken.";
 
 // ═══════════════════════════════════════════════════════════════════════════════
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   try {
-    // ── Auth guard — block unauthenticated calls to protect API quota ──────
+    // ── Auth guard ─────────────────────────────────────────────────────────
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
       return new Response(
@@ -107,75 +100,101 @@ serve(async (req) => {
     const openaiKey = Deno.env.get("OPENAI_API_KEY");
     if (!openaiKey) throw new Error("OPENAI_API_KEY not configured");
 
+    // ── Determine STT model ────────────────────────────────────────────────
+    // gpt-4o-transcribe: best accuracy for Arabic/Saudi dialect + mixed speech
+    // gpt-4o-mini-transcribe: 2x faster, slightly lower accuracy, great for voice mode
+    // whisper-1: legacy fallback
+    const { data: profile } = await supabaseClient
+      .from("profiles")
+      .select("stt_model")
+      .eq("user_id", userData.user.id)
+      .maybeSingle();
+    const sttModel: string = profile?.stt_model ?? "gpt-4o-transcribe";
+
+    // ── Parse audio from request ───────────────────────────────────────────
     let audioBytes: Uint8Array;
     let audioMimeType = "audio/webm";
-
     const contentType = req.headers.get("content-type") ?? "";
 
-    // ── Accept both binary multipart and base64 JSON ───────────────────────────
     if (contentType.includes("multipart/form-data")) {
-      // Direct binary upload (preferred — from MediaRecorder)
       const form = await req.formData();
       const file = form.get("audio") as File | null;
       if (!file) throw new Error("No audio file in form data");
-      audioBytes = new Uint8Array(await file.arrayBuffer());
+      audioBytes    = new Uint8Array(await file.arrayBuffer());
       audioMimeType = file.type || "audio/webm";
     } else {
-      // JSON with base64-encoded audio (legacy / fallback)
       const body = await req.json();
       if (!body.audio) throw new Error("No audio data provided");
-
       const binary = atob(body.audio);
-      audioBytes = new Uint8Array(binary.length);
-      for (let i = 0; i < binary.length; i++) {
-        audioBytes[i] = binary.charCodeAt(i);
-      }
+      audioBytes    = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) audioBytes[i] = binary.charCodeAt(i);
       audioMimeType = body.mime_type ?? "audio/webm";
     }
 
-    // ── Send to OpenAI Whisper ─────────────────────────────────────────────────
-    const form = new FormData();
-    const blob = new Blob([audioBytes], { type: audioMimeType });
-
-    // Whisper needs the filename extension to infer format
-    const ext = audioMimeType.includes("webm") ? "webm"
-              : audioMimeType.includes("mp4")  ? "mp4"
-              : audioMimeType.includes("wav")  ? "wav"
+    const ext = audioMimeType.includes("mp4")  ? "mp4"
               : audioMimeType.includes("ogg")  ? "ogg"
+              : audioMimeType.includes("wav")  ? "wav"
+              : audioMimeType.includes("m4a")  ? "m4a"
               : "webm";
 
-    form.append("file", blob, `audio.${ext}`);
-    form.append("model", "whisper-1");
-    form.append("language", "ar");                    // Primary language hint
-    form.append("prompt", WHISPER_SAUDI_PROMPT);      // Dialect priming
-    form.append("response_format", "json");
+    console.log(`[stt] model=${sttModel} ext=${ext} bytes=${audioBytes.length}`);
 
-    const whisperRes = await fetch("https://api.openai.com/v1/audio/transcriptions", {
-      method: "POST",
-      headers: { "Authorization": `Bearer ${openaiKey}` },
-      body: form,
-    });
+    // ── Helper: call OpenAI transcription ──────────────────────────────────
+    const transcribe = async (model: string, forceAr: boolean): Promise<string> => {
+      const form = new FormData();
+      form.append("file",            new Blob([audioBytes], { type: audioMimeType }), `audio.${ext}`);
+      form.append("model",           model);
+      form.append("prompt",          SAUDI_PROMPT);
+      form.append("response_format", "json");
+      // KEY FIX: DO NOT force language="ar" for gpt-4o-transcribe.
+      // Saudi speakers mix Arabic + English — auto-detect handles this correctly.
+      // whisper-1 benefits from explicit "ar" hint for better dialect handling.
+      if (forceAr) form.append("language", "ar");
 
-    if (!whisperRes.ok) {
-      const err = await whisperRes.text();
-      throw new Error(`Whisper API error (${whisperRes.status}): ${err}`);
+      const res = await fetch("https://api.openai.com/v1/audio/transcriptions", {
+        method: "POST",
+        headers: { "Authorization": `Bearer ${openaiKey}` },
+        body: form,
+      });
+      if (!res.ok) {
+        const err = await res.text().catch(() => "");
+        throw new Error(`${model} transcription failed (${res.status}): ${err.slice(0, 200)}`);
+      }
+      const data = await res.json();
+      return data.text ?? "";
+    };
+
+    // ── Primary transcription + whisper-1 fallback ─────────────────────────
+    let rawTranscript = "";
+    let engineUsed    = sttModel;
+
+    try {
+      // gpt-4o-transcribe and gpt-4o-mini-transcribe: no language lock (auto-detect)
+      // whisper-1: force "ar" for Saudi dialect
+      rawTranscript = await transcribe(sttModel, sttModel === "whisper-1");
+    } catch (primaryErr) {
+      console.warn(`[stt] ${sttModel} failed — falling back to whisper-1:`, primaryErr);
+      try {
+        rawTranscript = await transcribe("whisper-1", true);
+        engineUsed    = "whisper-1-fallback";
+      } catch (fallbackErr) {
+        throw new Error(`All STT models failed: ${fallbackErr}`);
+      }
     }
 
-    const { text: rawTranscript } = await whisperRes.json();
-
-    // ── Post-process: detect language + normalize vocabulary ───────────────────
-    const detectedLang = detectLanguage(rawTranscript);
+    // ── Post-process ───────────────────────────────────────────────────────
+    const detectedLang   = detectLanguage(rawTranscript);
     const normalizedText = normalizeSaudiDialect(rawTranscript);
 
-    console.log(`Whisper transcript: "${rawTranscript}" → normalized: "${normalizedText}" (${detectedLang})`);
+    console.log(`[stt] "${rawTranscript.slice(0, 80)}" → lang=${detectedLang} engine=${engineUsed}`);
 
     return new Response(
       JSON.stringify({
-        text:        normalizedText,     // Use this for GPT
-        raw:         rawTranscript,      // Original Whisper output
-        language:    detectedLang,       // "ar" | "en" | "mixed"
-        chars:       normalizedText.length,
-        engine:      "whisper-1-saudi",
+        text:     normalizedText,
+        raw:      rawTranscript,
+        language: detectedLang,
+        chars:    normalizedText.length,
+        engine:   engineUsed,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );

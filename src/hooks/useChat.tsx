@@ -125,9 +125,12 @@ export const useChat = () => {
   const [loading, setLoading] = useState(false);
   const [sessionsLoading, setSessionsLoading] = useState(false);
   const [speaking, setSpeaking] = useState(false);
-  const [speakingIntensity, setSpeakingIntensity] = useState(0); // 0..1 — TTS audio amplitude for avatar lip-sync
+  const [speakingIntensity, setSpeakingIntensity] = useState(0); // 0..1 for avatar lip-sync
   const [pendingFunction, setPendingFunction] = useState<any>(null);
   const [awaitingConfirmation, setAwaitingConfirmation] = useState(false);
+  // User's cloned ElevenLabs voice ID — loaded from profile on first TTS call
+  const [voiceCloneId, setVoiceCloneId] = useState<string | null>(null);
+  const voiceCloneLoadedRef = useRef(false);
 
   // ── Refs for TTS audio pipeline (sentence-level streaming + lip-sync) ───────
   const ttsAudioCtxRef  = useRef<AudioContext | null>(null);
@@ -366,6 +369,23 @@ export const useChat = () => {
     const ttsUrl      = `${supabaseUrl}/functions/v1/elevenlabs-tts`;
     const lang        = /[\u0600-\u06FF]/.test(text) ? 'ar' : 'en';
 
+    // Lazy-load user's cloned voice ID from profile (once per session)
+    let activeVoiceId: string | undefined = voiceCloneId ?? undefined;
+    if (!voiceCloneLoadedRef.current && session?.user?.id) {
+      voiceCloneLoadedRef.current = true;
+      try {
+        const { data: profile } = await (supabase as any)
+          .from('profiles')
+          .select('elevenlabs_voice_id')
+          .eq('user_id', session.user.id)
+          .maybeSingle();
+        if (profile?.elevenlabs_voice_id) {
+          setVoiceCloneId(profile.elevenlabs_voice_id);
+          activeVoiceId = profile.elevenlabs_voice_id;
+        }
+      } catch { /* non-fatal \u2014 use default voice */ }
+    }
+
     const sentences = splitIntoVoiceSentences(text.trim());
     if (!sentences.length) { setSpeaking(false); return; }
 
@@ -378,7 +398,7 @@ export const useChat = () => {
         const res = await fetch(ttsUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}`, ...(anonKey ? { apikey: anonKey } : {}) },
-          body: JSON.stringify({ text, emotion, voice_mode: voiceMode, language: lang }),
+          body: JSON.stringify({ text, emotion, voice_mode: voiceMode, language: lang, ...(activeVoiceId ? { voice_id: activeVoiceId } : {}) }),
           signal: abort.signal,
         });
         if (res.ok && !abort.signal.aborted) {
@@ -419,7 +439,7 @@ export const useChat = () => {
             'Authorization': `Bearer ${session.access_token}`,
             ...(anonKey ? { apikey: anonKey } : {}),
           },
-          body: JSON.stringify({ text: s, emotion, voice_mode: voiceMode, language: lang }),
+          body: JSON.stringify({ text: s, emotion, voice_mode: voiceMode, language: lang, ...(activeVoiceId ? { voice_id: activeVoiceId } : {}) }),
           signal: abort.signal,
         });
         if (!res.ok || abort.signal.aborted) return null;
@@ -549,6 +569,8 @@ export const useChat = () => {
     speaking,
     speakingIntensity,
     awaitingConfirmation,
+    voiceCloneId,
+    setVoiceCloneId,
     loadSessions,
     loadMessages,
     startNewChat,
