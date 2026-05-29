@@ -1022,7 +1022,12 @@ serve(async (req) => {
     const SIMPLE_RE = /^(كيف حال|how are you|مرحب|hello|هلا|أهلا|شكراً|thank|^ok$|^تمام$|صباح|مساء|السلام)/i;
     const isSimple = SIMPLE_RE.test(String(message).trim()) && !pendingFunction;
     const model = (voice_mode || isSimple) ? "gpt-4o-mini" : "gpt-4o";
-    const trimmedContext = Array.isArray(context) ? context.slice(-8).filter((m: any) => m && m.role && m.content).map((m: any) => ({ role: m.role, content: String(m.content) })) : [];
+    // Voice mode: slim context to last 4 messages (faster inference, fewer tokens)
+    // Text mode: last 8 messages for richer context
+    const contextWindow = voice_mode ? 4 : 8;
+    const trimmedContext = Array.isArray(context)
+      ? context.slice(-contextWindow).filter((m: any) => m && m.role && m.content).map((m: any) => ({ role: m.role, content: String(m.content).slice(0, voice_mode ? 200 : 2000) }))
+      : [];
 
     // System prompt
     stage = 'build_prompt';
@@ -1212,7 +1217,7 @@ ${modeRules}
       model,
       messages,
       max_tokens: voice_mode
-        ? (responseMode === 'command' ? 80 : responseMode === 'planning' ? 250 : 150)
+        ? (responseMode === 'command' ? 60 : responseMode === 'planning' ? 120 : 100)
         : isSimple ? 350
         : responseMode === 'finance' || responseMode === 'planning' ? 1500
         : 1200,

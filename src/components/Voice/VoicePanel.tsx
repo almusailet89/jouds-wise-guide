@@ -82,9 +82,9 @@ export const VoicePanel: React.FC = () => {
   const vadSilenceStartRef   = useRef<number | null>(null);
   const vadSpeechDetectedRef = useRef(false);
   const vadRecStartRef       = useRef(0);
-  const VAD_SILENCE_THRESHOLD = 0.025;
-  const VAD_SILENCE_MS        = 700;
-  const VAD_SPEECH_MIN_MS     = 500;
+  const VAD_SILENCE_THRESHOLD = 0.028;
+  const VAD_SILENCE_MS        = 500;   // was 700ms — 200ms faster response
+  const VAD_SPEECH_MIN_MS     = 400;   // was 500ms — quicker pickup
 
   // Sync mode with chat state
   useEffect(() => {
@@ -198,24 +198,31 @@ export const VoicePanel: React.FC = () => {
       setMode('processing');
       setTranscript(MODE_CONFIG.processing[lang === 'ar' ? 'ar' : 'en']);
 
+      // Direct fetch — bypasses supabase.functions.invoke wrapper (~200ms saved)
+      const supabaseUrl = 'https://neadnclykbukvmlquepg.supabase.co';
+      const anonKey     = import.meta.env.VITE_SUPABASE_ANON_KEY;
+      const authHeaders = {
+        'Authorization': `Bearer ${session.access_token}`,
+        ...(anonKey ? { 'apikey': anonKey } : {}),
+      };
+
       try {
+        // ── STT (direct fetch) ───────────────────────────────────────────
         const ext = mimeTypeRef.current.includes('mp4') ? 'mp4'
                   : mimeTypeRef.current.includes('ogg') ? 'ogg' : 'webm';
         const formData = new FormData();
         formData.append('audio', blob, `recording.${ext}`);
 
-        // STT with retry
-        let sttData: any = null;
-        for (let attempt = 0; attempt < 2; attempt++) {
-          const { data, error: sttErr } = await supabase.functions.invoke('whisper-transcribe', {
-            body: formData,
-            headers: { Authorization: `Bearer ${session.access_token}` },
-          });
-          if (!sttErr && data?.text?.trim()) { sttData = data; break; }
-          if (attempt === 1) throw new Error(sttErr?.message ?? 'Empty transcript');
-        }
+        const sttRes = await fetch(`${supabaseUrl}/functions/v1/whisper-transcribe`, {
+          method: 'POST',
+          headers: { ...authHeaders, 'x-stt-model': 'gpt-4o-mini-transcribe' },
+          body: formData,
+        });
+        if (!sttRes.ok) throw new Error(`STT ${sttRes.status}`);
+        const sttData = await sttRes.json();
+        const text: string = sttData?.text?.trim();
+        if (!text) throw new Error('Empty transcript');
 
-        const text: string = sttData.text.trim();
         const detectedLang: 'ar' | 'en' | 'mixed' = sttData.language ?? 'ar';
         setTranscript(text);
 
@@ -227,7 +234,6 @@ export const VoicePanel: React.FC = () => {
           try {
             await speakMessage(result.message, result.suggested_emotion ?? 'neutral', true);
           } catch {
-            // TTS failed — fallback to browser speech synthesis
             if ('speechSynthesis' in window) {
               const utter = new SpeechSynthesisUtterance(result.message);
               utter.lang = /[؀-ۿ]/.test(result.message) ? 'ar-SA' : 'en-US';

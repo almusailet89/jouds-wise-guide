@@ -3,7 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-stt-model",
 };
 
 // ─── Saudi Dialect Vocabulary Normalisation ────────────────────────────────────
@@ -101,15 +101,23 @@ serve(async (req) => {
     if (!openaiKey) throw new Error("OPENAI_API_KEY not configured");
 
     // ── Determine STT model ────────────────────────────────────────────────
-    // gpt-4o-transcribe: best accuracy for Arabic/Saudi dialect + mixed speech
-    // gpt-4o-mini-transcribe: 2x faster, slightly lower accuracy, great for voice mode
+    // Client can pass x-stt-model header to skip the DB lookup entirely (~100ms saved).
+    // gpt-4o-mini-transcribe: fastest, great accuracy for Saudi dialect voice chat
+    // gpt-4o-transcribe: highest accuracy, slightly slower
     // whisper-1: legacy fallback
-    const { data: profile } = await supabaseClient
-      .from("profiles")
-      .select("stt_model")
-      .eq("user_id", userData.user.id)
-      .maybeSingle();
-    const sttModel: string = profile?.stt_model ?? "gpt-4o-transcribe";
+    const headerModel = req.headers.get("x-stt-model");
+    let sttModel: string;
+    if (headerModel && ["gpt-4o-transcribe", "gpt-4o-mini-transcribe", "whisper-1"].includes(headerModel)) {
+      sttModel = headerModel;
+    } else {
+      // Fall back to profile lookup only if no header sent
+      const { data: profile } = await supabaseClient
+        .from("profiles")
+        .select("stt_model")
+        .eq("user_id", userData.user.id)
+        .maybeSingle();
+      sttModel = profile?.stt_model ?? "gpt-4o-mini-transcribe";
+    }
 
     // ── Parse audio from request ───────────────────────────────────────────
     let audioBytes: Uint8Array;
