@@ -27,45 +27,56 @@ const corsHeaders = {
 
 const DEFAULT_VOICE_ID = "EXAVITQu4vr4xnSDxMaL"; // "Sarah" — warm, professional
 
+// ─── Voice settings tuned for Arabic + Saudi dialect ─────────────────────────
+//
+// Key insight: Arabic speech has wider pitch variance and different stress patterns
+// than English. For natural-sounding Arabic:
+//   - Lower stability (0.60-0.70) allows more natural pitch variation
+//   - Higher style (0.30-0.45) captures the warmth in Saudi speech
+//   - Speaker boost = true ensures crisp Arabic phoneme rendering
+//
+// Voice mode (real-time conversation): use turbo model, slightly lower settings
+// for speed. Text mode: use multilingual-v2 for highest quality.
+//
 const VOICE_SETTINGS: Record<string, {
   stability: number;
   similarity_boost: number;
   style: number;
   use_speaker_boost: boolean;
 }> = {
-  // Default voice mode: calm executive presence
+  // Neutral: balanced executive presence — default for most responses
   neutral: {
-    stability: 0.75,
-    similarity_boost: 0.80,
-    style: 0.20,
-    use_speaker_boost: true,
-  },
-  // Warm: slightly more expressive for personal/mood conversations
-  warm: {
-    stability: 0.68,
-    similarity_boost: 0.80,
-    style: 0.30,
-    use_speaker_boost: true,
-  },
-  // Confident: for delivering financial insights or decisive answers
-  confident: {
-    stability: 0.82,
+    stability: 0.68,       // Lower = more natural Arabic intonation
     similarity_boost: 0.82,
-    style: 0.15,
+    style: 0.28,           // Enough expressiveness to avoid robotic feel
     use_speaker_boost: true,
   },
-  // Empathetic: for sensitive topics (debt stress, mood lows)
+  // Warm: for greetings, check-ins, personal conversations
+  warm: {
+    stability: 0.60,       // Natural Arabic warmth requires more pitch freedom
+    similarity_boost: 0.80,
+    style: 0.42,           // Expressive but not over the top
+    use_speaker_boost: true,
+  },
+  // Confident: financial insights, decisive answers, action confirmations
+  confident: {
+    stability: 0.76,
+    similarity_boost: 0.84,
+    style: 0.18,           // Calm authority, minimal emotional variance
+    use_speaker_boost: true,
+  },
+  // Empathetic: stress topics, mood lows, sensitive conversations
   empathetic: {
-    stability: 0.65,
+    stability: 0.56,       // Most natural — widest pitch range
     similarity_boost: 0.78,
-    style: 0.35,
+    style: 0.48,           // Strong warmth, caring tone
     use_speaker_boost: true,
   },
 };
 
 // ─── Text pre-processing for Arabic TTS ──────────────────────────────────────
-// ElevenLabs handles Arabic well with multilingual-v2, but benefits from
-// explicit punctuation hints and removing markdown artifacts.
+// ElevenLabs multilingual-v2 handles Arabic very well but sounds more natural
+// with clean punctuation, no markdown, and slight prosody hints.
 function prepareTextForTTS(text: string): string {
   return text
     // Remove markdown
@@ -74,29 +85,40 @@ function prepareTextForTTS(text: string): string {
     .replace(/`(.+?)`/g,      "$1")
     .replace(/#{1,6}\s/g,     "")
     .replace(/\[(.+?)\]\(.+?\)/g, "$1")
-    // Remove bullet points — TTS reads them as silence
+    // Remove bullet/number prefixes — TTS voices them as "dash" or "number"
     .replace(/^[-•–*]\s+/gm, "")
     .replace(/^\d+\.\s+/gm,  "")
-    // Collapse multiple newlines → single pause marker
+    // Collapse paragraph breaks → Arabic pause marker (،)
     .replace(/\n{2,}/g, "، ")
     .replace(/\n/g, " ")
-    // Cap at 500 chars for voice — cost control + optimal response length
+    // Remove parenthetical notes that read awkwardly in speech
+    .replace(/\(.*?\)/g, "")
+    // Normalise multiple spaces
+    .replace(/\s{2,}/g, " ")
+    // Remove standalone percent signs that trip up Arabic TTS
+    .replace(/(\d)\s*%/g, "$1 بالمئة")
+    // SAR amounts — help TTS pronounce correctly
+    .replace(/(\d+(?:,\d{3})*(?:\.\d+)?)\s*ر\.س/g, "$1 ريال")
+    .replace(/SAR\s*(\d+)/gi, "$1 ريال")
     .trim()
+    // Cap at 500 chars — cost control + optimal spoken length per TTS call
     .slice(0, 500);
 }
 
-// ─── Brevity enforcer (voice mode: ≤ 200 chars ≈ 15 spoken words in Arabic) ──
+// ─── Brevity enforcer (voice mode: sentences already split client-side) ───────
+// In voice mode, text is pre-split into ≤250-char sentences by the client.
+// This function applies final cleanup without aggressive truncation.
 function enforceVoiceBrevity(text: string, voiceMode: boolean): string {
   if (!voiceMode) return prepareTextForTTS(text);
   const cleaned = prepareTextForTTS(text);
-  if (cleaned.length <= 220) return cleaned;
+  if (cleaned.length <= 260) return cleaned;
 
   // Try to cut at a natural sentence boundary
   const sentences = cleaned.split(/[.،؟!]/);
   let result = "";
   for (const s of sentences) {
     const candidate = result ? `${result}. ${s.trim()}` : s.trim();
-    if (candidate.length <= 220) result = candidate;
+    if (candidate.length <= 260) result = candidate;
     else break;
   }
   return result || cleaned.slice(0, 220);
@@ -193,8 +215,9 @@ serve(async (req) => {
       clearTimeout(timer);
 
       if (elevenRes.ok) {
-        const audio = await elevenRes.arrayBuffer();
-        return new Response(audio, {
+        // Pipe stream directly — avoids double-buffering audio in edge function memory.
+        // Client receives bytes as they arrive → faster first-byte latency per sentence.
+        return new Response(elevenRes.body, {
           headers: {
             ...corsHeaders,
             "Content-Type":      "audio/mpeg",

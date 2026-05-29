@@ -72,10 +72,19 @@ export const VoicePanel: React.FC = () => {
   const [transcript, setTranscript] = useState('');
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const chunksRef = useRef<BlobPart[]>([]);
-  const mimeTypeRef = useRef<string>('audio/webm');
-  const streamRef = useRef<MediaStream | null>(null);
-  const isProcessingRef = useRef(false);
+  const chunksRef        = useRef<BlobPart[]>([]);
+  const mimeTypeRef      = useRef<string>('audio/webm');
+  const streamRef        = useRef<MediaStream | null>(null);
+  const isProcessingRef  = useRef(false);
+  // VAD refs
+  const vadCtxRef            = useRef<AudioContext | null>(null);
+  const vadRafRef            = useRef<number | null>(null);
+  const vadSilenceStartRef   = useRef<number | null>(null);
+  const vadSpeechDetectedRef = useRef(false);
+  const vadRecStartRef       = useRef(0);
+  const VAD_SILENCE_THRESHOLD = 0.025;
+  const VAD_SILENCE_MS        = 700;
+  const VAD_SPEECH_MIN_MS     = 500;
 
   // Sync mode with chat state
   useEffect(() => {
@@ -107,12 +116,53 @@ export const VoicePanel: React.FC = () => {
     const mimeType = getBestMimeType();
     mimeTypeRef.current = mimeType;
 
+    // ── VAD: silence detection for auto-stop ─────────────────────────────
+    vadSilenceStartRef.current   = null;
+    vadSpeechDetectedRef.current = false;
+    vadRecStartRef.current       = Date.now();
+    try {
+      const vadCtx = new AudioContext();
+      vadCtxRef.current = vadCtx;
+      const src      = vadCtx.createMediaStreamSource(stream);
+      const analyser = vadCtx.createAnalyser();
+      analyser.fftSize = 64;
+      src.connect(analyser);
+      const buf = new Uint8Array(analyser.frequencyBinCount);
+
+      const vadTick = () => {
+        analyser.getByteFrequencyData(buf);
+        const avg     = buf.reduce((s, v) => s + v, 0) / buf.length / 255;
+        const now     = Date.now();
+        const elapsed = now - vadRecStartRef.current;
+
+        if (elapsed > VAD_SPEECH_MIN_MS) {
+          if (avg > VAD_SILENCE_THRESHOLD) {
+            vadSpeechDetectedRef.current = true;
+            vadSilenceStartRef.current   = null;
+          } else if (vadSpeechDetectedRef.current) {
+            if (!vadSilenceStartRef.current) { vadSilenceStartRef.current = now; }
+            else if (now - vadSilenceStartRef.current >= VAD_SILENCE_MS) {
+              stopRecording();
+              return;
+            }
+          }
+        }
+        vadRafRef.current = requestAnimationFrame(vadTick);
+      };
+      vadTick();
+    } catch { /* VAD unavailable — manual stop only */ }
+
     const mr = new MediaRecorder(stream, mimeType ? { mimeType } : {});
     mediaRecorderRef.current = mr;
 
     mr.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data); };
 
     mr.onstop = async () => {
+      // Teardown VAD
+      if (vadRafRef.current) { cancelAnimationFrame(vadRafRef.current); vadRafRef.current = null; }
+      vadCtxRef.current?.close().catch(() => {});
+      vadCtxRef.current = null;
+
       streamRef.current?.getTracks().forEach(t => t.stop());
       streamRef.current = null;
       mediaRecorderRef.current = null;

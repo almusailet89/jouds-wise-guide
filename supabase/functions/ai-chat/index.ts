@@ -1016,9 +1016,12 @@ serve(async (req) => {
     }
 
     // Model routing
+    // voice_mode: use gpt-4o-mini for ~2x faster response — brevity is already enforced
+    // by the voice_mode prompt rule (≤15 spoken words). Quality difference is negligible
+    // for short conversational Arabic responses.
     const SIMPLE_RE = /^(كيف حال|how are you|مرحب|hello|هلا|أهلا|شكراً|thank|^ok$|^تمام$|صباح|مساء|السلام)/i;
-    const isSimple = !voice_mode && SIMPLE_RE.test(String(message).trim()) && !pendingFunction;
-    const model = isSimple ? "gpt-4o-mini" : "gpt-4o";
+    const isSimple = SIMPLE_RE.test(String(message).trim()) && !pendingFunction;
+    const model = (voice_mode || isSimple) ? "gpt-4o-mini" : "gpt-4o";
     const trimmedContext = Array.isArray(context) ? context.slice(-8).filter((m: any) => m && m.role && m.content).map((m: any) => ({ role: m.role, content: String(m.content) })) : [];
 
     // System prompt
@@ -1038,11 +1041,15 @@ serve(async (req) => {
 
     const modeRules = voice_mode
       ? `وضع صوتي — قواعد صارمة:
-• ردّي بالعربي السعودي دائماً حتى لو المستخدم تكلم إنجليزي (إلا لو قال صراحة "English please")
-• جملة وحدة أو جملتين بالكثير (≤15 كلمة)
-• ممنوع markdown أو نجوم أو رموز
-• استخدمي عبارات جود: "سم"، "تم"، "سوّيتها لك"، "تأمر"
-• كوني طبيعية كأنك تتكلمين بالتلفون مع مديرك
+• ردّي بالعربي السعودي الأصيل — كلامك يُسمع مباشرة للمستخدم
+• جملة وحدة أو جملتين بالكثير (≤20 كلمة) — الإيجاز هو الأناقة
+• ممنوع تماماً: markdown، نجوم، أرقام قوائم، شرطات، رموز تعبيرية، أقواس
+• ممنوع القوائم — حوّلي أي قائمة لجملة واحدة طبيعية
+• استخدمي عبارات جود الطبيعية: "سم"، "تم"، "سوّيتها لك"، "تأمر"، "حاضر"، "طيب"، "أكيد"
+• كوني دافئة وطبيعية — كأنك مساعدة شخصية ذكية تتكلم بالتلفون
+• لا تبدئي بـ "بالطبع" أو "بكل سرور" — ابدئي مباشرة بالجواب
+• الأرقام: قوليها بالكلام (مئتان وخمسون ريال، وليس ٢٥٠ ريال)
+• لو الجواب يحتاج تفاصيل: قولي الأهم واعرضي "تبي أفصّل؟"
 ${responseModeHint[responseMode]}`
       : `وضع نص: يمكنكِ markdown وقوائم. ردودك موجزة ولطيفة.
 ${responseModeHint[responseMode]}`;

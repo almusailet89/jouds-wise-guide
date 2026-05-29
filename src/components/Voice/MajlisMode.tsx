@@ -120,6 +120,9 @@ export const MajlisMode: React.FC<MajlisModeProps> = ({ onClose }) => {
   const streamRef = useRef<MediaStream | null>(null);
   /** Prevents the mode-sync useEffect from overriding 'processing' state */
   const isProcessingRef = useRef(false);
+  /** Barge-in mic monitor runs while Jood is speaking */
+  const bargeinRafRef   = useRef<number | null>(null);
+  const bargeinCtxRef   = useRef<AudioContext | null>(null);
 
   const MODE_LABELS: Record<Mode, { label: string; sub: string }> = {
     idle:       { label: t('majlis.idle'),       sub: t('majlis.idle.sub') },
@@ -174,13 +177,92 @@ export const MajlisMode: React.FC<MajlisModeProps> = ({ onClose }) => {
     else if (mode === 'thinking' || mode === 'speaking') setMode('idle');
   }, [loading, speaking]); // eslint-disable-line
 
+  // ── Barge-in: monitor mic while Jood speaks — interrupt if user talks ────
+  // Keeps a lightweight AudioContext open during TTS playback.
+  // When mic RMS > BARGE_THRESHOLD for >= BARGE_SUSTAIN_MS → interrupt.
+  const BARGE_THRESHOLD  = 0.04;
+  const BARGE_SUSTAIN_MS = 180;
+
+  useEffect(() => {
+    if (!speaking || mode !== 'speaking') {
+      // Teardown barge-in monitor when not speaking
+      if (bargeinRafRef.current) { cancelAnimationFrame(bargeinRafRef.current); bargeinRafRef.current = null; }
+      bargeinCtxRef.current?.close().catch(() => {});
+      bargeinCtxRef.current = null;
+      return;
+    }
+
+    // Start barge-in monitor
+    let bargeActiveMs = 0;
+    let lastTick = Date.now();
+
+    const startBargein = async () => {
+      try {
+        const stream = streamRef.current?.active
+          ? streamRef.current
+          : await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+
+        const ctx = new AudioContext();
+        bargeinCtxRef.current = ctx;
+        const src = ctx.createMediaStreamSource(stream);
+        const analyser = ctx.createAnalyser();
+        analyser.fftSize = 64;
+        src.connect(analyser);
+        const buf = new Uint8Array(analyser.frequencyBinCount);
+
+        const tick = () => {
+          if (!speaking) return;
+          analyser.getByteFrequencyData(buf);
+          const avg = buf.reduce((s, v) => s + v, 0) / buf.length / 255;
+          const now = Date.now();
+          const dt  = now - lastTick;
+          lastTick  = now;
+
+          if (avg > BARGE_THRESHOLD) {
+            bargeActiveMs += dt;
+            if (bargeActiveMs >= BARGE_SUSTAIN_MS) {
+              // User is talking — interrupt Jood and start recording
+              console.log('[Barge-in] user speaking — interrupting Jood');
+              stopSpeaking();
+              setTimeout(() => startRecording(), 50);
+              return;
+            }
+          } else {
+            bargeActiveMs = Math.max(0, bargeActiveMs - dt * 0.5);
+          }
+          bargeinRafRef.current = requestAnimationFrame(tick);
+        };
+        tick();
+      } catch { /* mic unavailable — barge-in disabled silently */ }
+    };
+
+    startBargein();
+
+    return () => {
+      if (bargeinRafRef.current) { cancelAnimationFrame(bargeinRafRef.current); bargeinRafRef.current = null; }
+      bargeinCtxRef.current?.close().catch(() => {});
+      bargeinCtxRef.current = null;
+    };
+  }, [speaking, mode, stopSpeaking, startRecording]); // eslint-disable-line
+
   // ── Track latest assistant reply for display + replay ────────────────────
   useEffect(() => {
     const last = messages[messages.length - 1];
     if (last?.role === 'assistant') setLastReply(last.content);
   }, [messages]);
 
-  // ── AnalyserNode tick ─────────────────────────────────────────────────────
+  // ── VAD constants ─────────────────────────────────────────────────────────
+  // Silence below SILENCE_THRESHOLD for >= SILENCE_MS → auto-stop recording.
+  // SPEECH_MIN_MS: minimum speaking time before VAD kicks in (avoid instant stops).
+  const SILENCE_THRESHOLD = 0.025; // RMS fraction (0–1). Tune: higher = more sensitive
+  const SILENCE_MS        = 750;   // ms of sustained silence before auto-stop
+  const SPEECH_MIN_MS     = 500;   // ms before VAD even begins listening for silence
+
+  const vadSilenceStartRef  = useRef<number | null>(null);
+  const vadSpeechDetectedRef = useRef(false);
+  const vadRecStartRef       = useRef(0);
+
+  // ── AnalyserNode tick + built-in VAD ──────────────────────────────────────
   const startAnalyserLoop = useCallback((stream: MediaStream) => {
     try {
       const ctx = new AudioContext();
@@ -191,18 +273,46 @@ export const MajlisMode: React.FC<MajlisModeProps> = ({ onClose }) => {
       source.connect(analyser);
       analyserRef.current = analyser;
 
+      // Reset VAD state
+      vadSilenceStartRef.current   = null;
+      vadSpeechDetectedRef.current = false;
+      vadRecStartRef.current       = Date.now();
+
       const buf = new Uint8Array(analyser.frequencyBinCount);
       const tick = () => {
         analyser.getByteFrequencyData(buf);
         const avg = buf.reduce((s, v) => s + v, 0) / buf.length / 255;
         setIntensity(avg);
+
+        // ── VAD logic ──────────────────────────────────────────────────────
+        const now     = Date.now();
+        const elapsed = now - vadRecStartRef.current;
+
+        if (elapsed > SPEECH_MIN_MS) {
+          if (avg > SILENCE_THRESHOLD) {
+            // Voice detected
+            vadSpeechDetectedRef.current = true;
+            vadSilenceStartRef.current   = null;
+          } else if (vadSpeechDetectedRef.current) {
+            // Silence after voice
+            if (!vadSilenceStartRef.current) {
+              vadSilenceStartRef.current = now;
+            } else if (now - vadSilenceStartRef.current >= SILENCE_MS) {
+              // Sustained silence → auto-stop recording
+              console.log('[VAD] silence detected — auto-stop');
+              stopRecording();
+              return; // stop RAF
+            }
+          }
+        }
+
         rafRef.current = requestAnimationFrame(tick);
       };
       tick();
     } catch {
       // mic blocked — visualizer falls back to static animation
     }
-  }, []);
+  }, [stopRecording]); // eslint-disable-line
 
   const stopAnalyser = useCallback(() => {
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
