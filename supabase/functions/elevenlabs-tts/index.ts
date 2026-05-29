@@ -25,7 +25,7 @@ const corsHeaders = {
 // Arabic support: ElevenLabs multilingual-v2 model fully supports Arabic
 // including Saudi dialect prosody when text is in Arabic script.
 
-const DEFAULT_VOICE_ID = "EXAVITQu4vr4xnSDxMaL"; // "Sarah" — warm, professional
+const DEFAULT_VOICE_ID = "rxI4CzWiL77Roff1cjW6"; // Jood custom clone voice
 
 // ─── Voice settings tuned for Arabic + Saudi dialect ─────────────────────────
 //
