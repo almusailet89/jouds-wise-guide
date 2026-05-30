@@ -28,7 +28,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   MessageSquare, TrendingUp, Heart, Home,
-  LogOut, User, Mic, Download, Sparkles, CalendarCheck, Settings, Bell, Moon, Sun,
+  LogOut, User, Mic, Download, Sparkles, CalendarCheck, Settings, Bell, Moon, Sun, FlaskConical,
 } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { cn } from '@/lib/utils';
@@ -93,6 +93,7 @@ const buildNav = (t: (k: string) => string) => [
   { value: 'planning',  label: t('nav.planning'),  icon: CalendarCheck },
   { value: 'mood',      label: t('nav.mood'),      icon: Heart },
   { value: 'settings',  label: t('nav.settings'),  icon: Settings },
+  { value: 'test',      label: 'Test',             icon: FlaskConical },
 ];
 
 // ─── Lazy tab skeleton ────────────────────────────────────────────────────────
@@ -484,6 +485,13 @@ const Dashboard = () => {
                 </Fade>
               </Suspense>
             </ErrorBoundary>
+          </TabsContent>
+
+          {/* ── Test ─────────────────────────────────────────────────────── */}
+          <TabsContent value="test" className="p-4 mt-0">
+            <div className="flex items-center justify-center min-h-[200px]">
+              <p className="text-foreground text-lg font-semibold">Test Tab ✓</p>
+            </div>
           </TabsContent>
 
           {/* ── Settings (Insights + Memory + Security) ───────────────────── */}
