@@ -123,6 +123,11 @@ export const MajlisMode: React.FC<MajlisModeProps> = ({ onClose }) => {
   /** Barge-in mic monitor runs while Jood is speaking */
   const bargeinRafRef   = useRef<number | null>(null);
   const bargeinCtxRef   = useRef<AudioContext | null>(null);
+  // VAD refs (must be declared with all other refs — not between effects)
+  const vadSilenceStartRef   = useRef<number | null>(null);
+  const vadSpeechDetectedRef = useRef(false);
+  const vadRecStartRef       = useRef(0);
+  const welcomePlayedRef     = useRef(false);
 
   const MODE_LABELS: Record<Mode, { label: string; sub: string }> = {
     idle:       { label: t('majlis.idle'),       sub: t('majlis.idle.sub') },
@@ -133,7 +138,6 @@ export const MajlisMode: React.FC<MajlisModeProps> = ({ onClose }) => {
   };
 
   // ── Request mic permission + welcome greeting on mount ──────────────────
-  const welcomePlayedRef = useRef(false);
   const [micGranted, setMicGranted] = useState(false);
   useEffect(() => {
     if (welcomePlayedRef.current) return;
@@ -177,73 +181,8 @@ export const MajlisMode: React.FC<MajlisModeProps> = ({ onClose }) => {
     else if (mode === 'thinking' || mode === 'speaking') setMode('idle');
   }, [loading, speaking]); // eslint-disable-line
 
-  // ── Barge-in: monitor mic while Jood speaks — interrupt if user talks ────
-  // Keeps a lightweight AudioContext open during TTS playback.
-  // When mic RMS > BARGE_THRESHOLD for >= BARGE_SUSTAIN_MS → interrupt.
-  const BARGE_THRESHOLD  = 0.04;
-  const BARGE_SUSTAIN_MS = 180;
-
-  useEffect(() => {
-    if (!speaking || mode !== 'speaking') {
-      // Teardown barge-in monitor when not speaking
-      if (bargeinRafRef.current) { cancelAnimationFrame(bargeinRafRef.current); bargeinRafRef.current = null; }
-      bargeinCtxRef.current?.close().catch(() => {});
-      bargeinCtxRef.current = null;
-      return;
-    }
-
-    // Start barge-in monitor
-    let bargeActiveMs = 0;
-    let lastTick = Date.now();
-
-    const startBargein = async () => {
-      try {
-        const stream = streamRef.current?.active
-          ? streamRef.current
-          : await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-
-        const ctx = new AudioContext();
-        bargeinCtxRef.current = ctx;
-        const src = ctx.createMediaStreamSource(stream);
-        const analyser = ctx.createAnalyser();
-        analyser.fftSize = 64;
-        src.connect(analyser);
-        const buf = new Uint8Array(analyser.frequencyBinCount);
-
-        const tick = () => {
-          if (!speaking) return;
-          analyser.getByteFrequencyData(buf);
-          const avg = buf.reduce((s, v) => s + v, 0) / buf.length / 255;
-          const now = Date.now();
-          const dt  = now - lastTick;
-          lastTick  = now;
-
-          if (avg > BARGE_THRESHOLD) {
-            bargeActiveMs += dt;
-            if (bargeActiveMs >= BARGE_SUSTAIN_MS) {
-              // User is talking — interrupt Jood and start recording
-              console.log('[Barge-in] user speaking — interrupting Jood');
-              stopSpeaking();
-              setTimeout(() => startRecording(), 50);
-              return;
-            }
-          } else {
-            bargeActiveMs = Math.max(0, bargeActiveMs - dt * 0.5);
-          }
-          bargeinRafRef.current = requestAnimationFrame(tick);
-        };
-        tick();
-      } catch { /* mic unavailable — barge-in disabled silently */ }
-    };
-
-    startBargein();
-
-    return () => {
-      if (bargeinRafRef.current) { cancelAnimationFrame(bargeinRafRef.current); bargeinRafRef.current = null; }
-      bargeinCtxRef.current?.close().catch(() => {});
-      bargeinCtxRef.current = null;
-    };
-  }, [speaking, mode, stopSpeaking, startRecording]); // eslint-disable-line
+  // ── Barge-in ref — stable reference so useEffect doesn't depend on startRecording
+  const startRecordingRef = useRef<() => void>(() => {});
 
   // ── Track latest assistant reply for display + replay ────────────────────
   useEffect(() => {
@@ -252,15 +191,12 @@ export const MajlisMode: React.FC<MajlisModeProps> = ({ onClose }) => {
   }, [messages]);
 
   // ── VAD constants ─────────────────────────────────────────────────────────
-  // Silence below SILENCE_THRESHOLD for >= SILENCE_MS → auto-stop recording.
-  // SPEECH_MIN_MS: minimum speaking time before VAD kicks in (avoid instant stops).
-  const SILENCE_THRESHOLD = 0.028; // RMS fraction (0–1). Slightly higher = fewer false triggers
-  const SILENCE_MS        = 500;   // ms of sustained silence → auto-stop (was 750ms — 250ms faster)
-  const SPEECH_MIN_MS     = 400;   // ms before VAD activates (was 500ms — quicker response)
+  const SILENCE_THRESHOLD = 0.028;
+  const SILENCE_MS        = 500;
+  const SPEECH_MIN_MS     = 400;
 
-  const vadSilenceStartRef  = useRef<number | null>(null);
-  const vadSpeechDetectedRef = useRef(false);
-  const vadRecStartRef       = useRef(0);
+  // stopRecording ref — lets VAD call stopRecording without temporal dead zone
+  const stopRecordingRef = useRef<() => void>(() => {});
 
   // ── AnalyserNode tick + built-in VAD ──────────────────────────────────────
   const startAnalyserLoop = useCallback((stream: MediaStream) => {
@@ -300,7 +236,7 @@ export const MajlisMode: React.FC<MajlisModeProps> = ({ onClose }) => {
             } else if (now - vadSilenceStartRef.current >= SILENCE_MS) {
               // Sustained silence → auto-stop recording
               console.log('[VAD] silence detected — auto-stop');
-              stopRecording();
+              stopRecordingRef.current();
               return; // stop RAF
             }
           }
@@ -312,7 +248,7 @@ export const MajlisMode: React.FC<MajlisModeProps> = ({ onClose }) => {
     } catch {
       // mic blocked — visualizer falls back to static animation
     }
-  }, [stopRecording]); // eslint-disable-line
+  }, []); // no deps — uses refs for mutable state
 
   const stopAnalyser = useCallback(() => {
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
@@ -508,6 +444,12 @@ export const MajlisMode: React.FC<MajlisModeProps> = ({ onClose }) => {
     if (!mr || mr.state === 'inactive') return;
     try { mr.stop(); } catch { /* already stopped */ }
   }, []);
+
+  // Keep refs in sync for VAD and tap-to-interrupt flows
+  useEffect(() => {
+    startRecordingRef.current = startRecording;
+    stopRecordingRef.current  = stopRecording;
+  }, [startRecording, stopRecording]);
 
   // ── Press-and-hold interaction ────────────────────────────────────────────
   const handlePressDown = () => {
