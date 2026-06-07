@@ -19,7 +19,8 @@ const SettingsHub        = lazy(() => import('@/components/Settings/SettingsHub'
 const ChatInterface  = lazy(() => import('@/components/Chat/ChatInterface').then(m => ({ default: m.ChatInterface })));
 
 // Overlay / on-demand components — loaded only when actually opened
-const MajlisMode   = lazy(() => import('@/components/Voice/MajlisMode'));
+// ElevenLabs Conversational AI Agent — replaces old pipeline for real-time voice
+const MajlisMode   = lazy(() => import('@/components/Voice/MajlisModeAgent'));
 const Onboarding   = lazy(() => import('@/components/Onboarding/Onboarding'));
 const ProfileDialog = lazy(() => import('@/components/Profile/ProfileDialog'));
 // Voice panel loaded when user switches to voice mode
