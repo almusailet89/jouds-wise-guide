@@ -149,9 +149,12 @@ export const MajlisModeAgent: React.FC<MajlisModeAgentProps> = ({ onClose }) => 
       // Get signed URL (auth gateway)
       const signedUrl = await getSignedUrl();
 
-      // Start the ElevenLabs conversation
+      // Start the ElevenLabs conversation — pass user_id so webhook tools know who's talking
       const conversation = await Conversation.startSession({
         signedUrl,
+        dynamicVariables: {
+          user_id: session.user.id,
+        },
         onConnect: () => {
           console.log('[Majlis Agent] Connected');
           setConnected(true);
