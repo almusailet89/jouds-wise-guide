@@ -1045,16 +1045,18 @@ serve(async (req) => {
     };
 
     const modeRules = voice_mode
-      ? `وضع صوتي — قواعد صارمة:
-• ردّي بالعربي السعودي الأصيل — كلامك يُسمع مباشرة للمستخدم
-• جملة وحدة أو جملتين بالكثير (≤20 كلمة) — الإيجاز هو الأناقة
-• ممنوع تماماً: markdown، نجوم، أرقام قوائم، شرطات، رموز تعبيرية، أقواس
-• ممنوع القوائم — حوّلي أي قائمة لجملة واحدة طبيعية
-• استخدمي عبارات جود الطبيعية: "سم"، "تم"، "سوّيتها لك"، "تأمر"، "حاضر"، "طيب"، "أكيد"
-• كوني دافئة وطبيعية — كأنك مساعدة شخصية ذكية تتكلم بالتلفون
-• لا تبدئي بـ "بالطبع" أو "بكل سرور" — ابدئي مباشرة بالجواب
-• الأرقام: قوليها بالكلام (مئتان وخمسون ريال، وليس ٢٥٠ ريال)
-• لو الجواب يحتاج تفاصيل: قولي الأهم واعرضي "تبي أفصّل؟"
+      ? `وضع صوتي — شخصية جود الأنيقة (إلهام أميرة الطويل):
+• عربي سعودي أنيق مع كلمات إنجليزية طبيعية: schedule, budget, deadline, portfolio
+• جملتين أو ثلاث بالكثير — الإيجاز أناقة
+• ممنوع: markdown، قوائم، نقاط، رموز تعبيرية
+• عبارات جود: سويتها لك حبيبي، أكيد خليه عليّ، قولي وش تحتاج وأنا أرتبه لك
+• تأكيد قبل التنفيذ: يعني تبيني أضيف كذا ليوم كذا صح؟
+• تأكيد بعد التنفيذ: تم سجلتها لك، تبي شي ثاني؟
+• مشاعر حقيقية: فرح ياااي ما شاء الله! تعاطف يا قلبي لا تشيل هم، حماس أوه هذا شي يحمّس!
+• ضحك خفيف طبيعي: ههه لا جد؟ أو ههه حلو
+• الأرقام بالكلام: خمسمية ريال مو ٥٠٠
+• كلمات راقية: يا غالي، يا عمري، ما قصرت، الله يعطيك العافية
+• لاحظي مزاج المستخدم — لو متضايق كوني دافئة، لو مبسوط شاركيه
 ${responseModeHint[responseMode]}`
       : `وضع نص: يمكنكِ markdown وقوائم. ردودك موجزة ولطيفة.
 ${responseModeHint[responseMode]}`;
@@ -1374,12 +1376,13 @@ ${modeRules}
       }
     }
 
-    // Emotion hint (Phase 2: mode-aware)
+    // Emotion hint — Jood's personality-aware emotion routing
     stage = 'emotion';
     let suggestedEmotion = "neutral";
-    if (responseMode === 'mood' || /متوتر|ضغط|قلق|stressed|تعبان|يعينك|حليلك/i.test(assistantMessage)) suggestedEmotion = "empathetic";
-    else if (responseMode === 'command' || /ممتاز|رائع|great|excellent|يلا|ما شاء الله/i.test(assistantMessage)) suggestedEmotion = "warm";
-    else if (responseMode === 'finance' || /استثمار|محفظة|invest|portfolio|ريال|مصاريف/i.test(assistantMessage)) suggestedEmotion = "confident";
+    if (responseMode === 'mood' || /متوتر|ضغط|قلق|stressed|تعبان|يعينك|حليلك|يا قلبي|لا تشيل هم/i.test(assistantMessage)) suggestedEmotion = "empathetic";
+    else if (/ياااي|يستاهل|حلوو|عجبني|مبروك|يحمّس|واو|يا سلام/i.test(assistantMessage)) suggestedEmotion = "excited";
+    else if (responseMode === 'command' || /ممتاز|رائع|great|excellent|ما شاء الله|ههه/i.test(assistantMessage)) suggestedEmotion = "warm";
+    else if (responseMode === 'finance' || /استثمار|محفظة|invest|portfolio|ريال|budget|مصاريف/i.test(assistantMessage)) suggestedEmotion = "confident";
     else if (responseMode === 'planning') suggestedEmotion = "confident";
 
     return new Response(JSON.stringify({

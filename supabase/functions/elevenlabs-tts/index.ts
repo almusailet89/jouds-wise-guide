@@ -38,38 +38,46 @@ const DEFAULT_VOICE_ID = "rxI4CzWiL77Roff1cjW6"; // Jood custom clone voice
 // Voice mode (real-time conversation): use turbo model, slightly lower settings
 // for speed. Text mode: use multilingual-v2 for highest quality.
 //
+// Ameera Altweel-inspired voice profile — elegant, warm, bilingual feel
 const VOICE_SETTINGS: Record<string, {
   stability: number;
   similarity_boost: number;
   style: number;
   use_speaker_boost: boolean;
 }> = {
-  // Neutral: balanced executive presence — default for most responses
+  // Neutral: elegant confidence — Ameera's baseline composure
   neutral: {
-    stability: 0.68,       // Lower = more natural Arabic intonation
-    similarity_boost: 0.82,
-    style: 0.28,           // Enough expressiveness to avoid robotic feel
+    stability: 0.55,       // Lower = natural Arabic melodic flow
+    similarity_boost: 0.85,
+    style: 0.40,           // Rich expressiveness — never flat
     use_speaker_boost: true,
   },
-  // Warm: for greetings, check-ins, personal conversations
+  // Warm: greetings, celebrations, personal — ياااي ما شاء الله!
   warm: {
-    stability: 0.60,       // Natural Arabic warmth requires more pitch freedom
-    similarity_boost: 0.80,
-    style: 0.42,           // Expressive but not over the top
+    stability: 0.48,       // Most expressive — genuine excitement
+    similarity_boost: 0.82,
+    style: 0.55,           // High warmth, smile in the voice
     use_speaker_boost: true,
   },
-  // Confident: financial insights, decisive answers, action confirmations
+  // Confident: financial insights, action confirmations — composed authority
   confident: {
-    stability: 0.76,
-    similarity_boost: 0.84,
-    style: 0.18,           // Calm authority, minimal emotional variance
+    stability: 0.62,
+    similarity_boost: 0.86,
+    style: 0.30,           // Calm elegance, measured pace
     use_speaker_boost: true,
   },
-  // Empathetic: stress topics, mood lows, sensitive conversations
+  // Empathetic: support, mood lows — يا قلبي لا تشيل هم
   empathetic: {
-    stability: 0.56,       // Most natural — widest pitch range
-    similarity_boost: 0.78,
-    style: 0.48,           // Strong warmth, caring tone
+    stability: 0.45,       // Widest range — genuine caring
+    similarity_boost: 0.80,
+    style: 0.58,           // Maximum warmth, soft and present
+    use_speaker_boost: true,
+  },
+  // Excited: achievements, good news — حلوو كذا عجبني!
+  excited: {
+    stability: 0.42,       // Most dynamic — energy in the voice
+    similarity_boost: 0.82,
+    style: 0.60,           // Peak expressiveness
     use_speaker_boost: true,
   },
 };
