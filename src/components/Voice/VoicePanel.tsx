@@ -8,6 +8,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/hooks/useLanguage';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
+import { JoodOrb } from './JoodOrb';
 
 // ─── Mode types ───────────────────────────────────────────────────────────────
 type VoiceMode = 'idle' | 'listening' | 'processing' | 'thinking' | 'speaking';
@@ -282,7 +283,7 @@ export const VoicePanel: React.FC = () => {
   return (
     <div className="flex flex-col items-center gap-6 py-6 px-4">
 
-      {/* Avatar orb + mic button */}
+      {/* The Jood Orb — tap to talk */}
       <div className="relative flex items-center justify-center">
         {/* Pulse rings */}
         {isActive && [0, 1, 2].map(i => (
@@ -291,7 +292,7 @@ export const VoicePanel: React.FC = () => {
             className="absolute rounded-full border border-jood-gold-400/40"
             animate={{ scale: [1, 1.6 + i * 0.3], opacity: [0.6, 0] }}
             transition={{ duration: 2, repeat: Infinity, delay: i * 0.5, ease: 'easeOut' }}
-            style={{ width: 120, height: 120 }}
+            style={{ width: 150, height: 150 }}
           />
         ))}
 
@@ -299,17 +300,30 @@ export const VoicePanel: React.FC = () => {
           onClick={handleMicPress}
           disabled={mode === 'processing' || mode === 'thinking'}
           className={cn(
-            'relative w-28 h-28 rounded-full flex items-center justify-center transition-all shadow-luxury',
-            'select-none disabled:opacity-50 disabled:cursor-not-allowed',
-            `bg-gradient-to-br ${cfg.color}`,
-            mode === 'listening' && 'scale-110',
+            'relative rounded-full transition-all select-none',
+            'disabled:opacity-60 disabled:cursor-not-allowed',
             mode === 'idle' && 'hover:scale-105',
+            mode === 'listening' && 'scale-105',
           )}
+          aria-label={lang === 'ar' ? 'تحدث مع جود' : 'Talk to Jood'}
         >
-          {mode === 'listening'
-            ? <MicOff className="w-10 h-10 text-white" />
-            : <Mic className="w-10 h-10 text-white" />
-          }
+          <JoodOrb
+            mode={mode === 'processing' ? 'thinking' : mode}
+            intensity={0}
+            size={140}
+            withRings={false}
+          />
+          {/* Mic state hint overlaid at bottom edge of orb */}
+          <span className={cn(
+            'absolute bottom-1 left-1/2 -translate-x-1/2 rounded-full p-1.5',
+            'bg-jood-teal-900/80 border border-jood-gold-500/40 backdrop-blur-sm',
+            mode === 'listening' ? 'text-red-400' : 'text-jood-gold-300',
+          )}>
+            {mode === 'listening'
+              ? <MicOff className="w-3.5 h-3.5" />
+              : <Mic className="w-3.5 h-3.5" />
+            }
+          </span>
         </button>
       </div>
 
@@ -404,10 +418,12 @@ export const VoicePanel: React.FC = () => {
           : ''}
       </p>
 
-      {/* Engine badge */}
+      {/* Brand signature — no internal tech jargon in the product UI */}
       <div className="flex items-center gap-1.5 px-3 py-1.5 bg-muted/40 rounded-full">
         <Sparkles className="w-3 h-3 text-jood-gold-500" />
-        <span className="text-[10px] text-muted-foreground">Whisper · ElevenLabs · GPT-4o</span>
+        <span className="text-[10px] text-muted-foreground font-arabic">
+          {lang === 'ar' ? 'جود — ذكاء سعودي' : 'Jood — Saudi Intelligence'}
+        </span>
       </div>
     </div>
   );

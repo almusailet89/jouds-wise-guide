@@ -5,6 +5,7 @@ import {
   Shield, Globe, Zap, ChevronRight, Star
 } from "lucide-react";
 import { useLanguage } from "@/hooks/useLanguage";
+import { JoodOrb } from "@/components/Voice/JoodOrb";
 
 /* ─── Saudi Signal Strip ─────────────────────────────────────────── */
 function useSaudiSignal() {
@@ -157,24 +158,16 @@ export default function Index() {
             </button>
           </div>
 
-          {/* Avatar */}
+          {/* The Jood Orb — النواة — signature Saudi AI presence */}
           <div className="flex justify-center entrance entrance-delay-2">
             <div className="relative">
-              <div className="absolute inset-0 rounded-full blur-2xl scale-110 opacity-30" style={{ background: "hsl(var(--jood-gold-500))" }} />
-              <div className="relative w-64 h-64 md:w-72 md:h-72 rounded-full border-2 flex items-center justify-center animate-[avatar-breathe_4.5s_ease-in-out_infinite]"
-                style={{ borderColor: "hsl(var(--jood-gold-500) / 0.3)", background: "linear-gradient(to bottom, hsl(var(--jood-teal-700)), hsl(var(--jood-teal-900)))" }}>
-                <svg viewBox="0 0 200 240" className="w-48 h-48 md:w-56 md:h-56" fill="none">
-                  <ellipse cx="100" cy="72" rx="30" ry="32" fill="hsl(36 55% 80%)" />
-                  <path d="M65 80 Q60 60 80 50 Q100 42 120 50 Q140 60 135 80 Q120 95 100 98 Q80 95 65 80Z" fill="hsl(14 60% 18%)" />
-                  <path d="M65 80 Q60 60 80 50 Q100 42 120 50 Q140 60 135 80" stroke="hsl(36 43% 51%)" strokeWidth="1.5" fill="none" />
-                  <rect x="90" y="98" width="20" height="16" rx="4" fill="hsl(36 55% 80%)" />
-                  <path d="M50 115 Q55 108 75 110 L100 114 L125 110 Q145 108 150 115 L158 220 Q140 228 100 230 Q60 228 42 220Z" fill="hsl(14 60% 11%)" />
-                  <path d="M100 114 L100 230" stroke="hsl(36 43% 51%)" strokeWidth="1" opacity="0.5" />
-                  <path d="M50 115 Q100 114 150 115" stroke="hsl(36 43% 51%)" strokeWidth="1" fill="none" opacity="0.4" />
-                </svg>
-              </div>
-              <div className="absolute bottom-3 right-3 w-5 h-5 rounded-full border-2 border-white"
-                style={{ background: "hsl(var(--jood-gold-500))" }} />
+              <div className="absolute inset-0 rounded-full blur-3xl scale-110 opacity-25" style={{ background: "hsl(var(--jood-gold-500))" }} />
+              <JoodOrb
+                mode={micActive ? 'speaking' : 'idle'}
+                size={typeof window !== 'undefined' && window.innerWidth < 768 ? 220 : 300}
+                withRings
+                className="relative"
+              />
             </div>
           </div>
         </div>

@@ -9,6 +9,7 @@ import { AuthProvider } from "@/hooks/useAuth";
 import { SubscriptionProvider } from "@/hooks/useSubscription";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { LanguageProvider } from "@/hooks/useLanguage";
+import { JoodOrb } from "@/components/Voice/JoodOrb";
 
 /* Lazy-loaded routes — each lands in its own JS chunk */
 const Index     = lazy(() => import("./pages/Index"));
@@ -20,11 +21,10 @@ const Privacy   = lazy(() => import("./pages/Privacy"));
 const Admin     = lazy(() => import("./pages/Admin"));
 const NotFound  = lazy(() => import("./pages/NotFound"));
 
-/* Minimal fallback shown while a chunk loads */
+/* Branded fallback — the Jood orb breathes while a chunk loads */
 const PageLoader = () => (
   <div className="min-h-screen flex items-center justify-center bg-background">
-    <div className="w-8 h-8 rounded-full border-2 border-t-transparent animate-spin"
-      style={{ borderColor: "hsl(var(--jood-gold-500))", borderTopColor: "transparent" }} />
+    <JoodOrb mode="connecting" size={72} withRings={false} />
   </div>
 );
 

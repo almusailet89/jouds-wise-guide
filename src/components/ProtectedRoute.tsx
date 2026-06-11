@@ -1,6 +1,7 @@
 import { ReactNode } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
+import { JoodOrb } from '@/components/Voice/JoodOrb';
 
 interface ProtectedRouteProps {
   children: ReactNode;
@@ -11,8 +12,9 @@ export const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-primary flex items-center justify-center">
-        <div className="animate-pulse text-white text-xl">Loading JOOD AI...</div>
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-4">
+        <JoodOrb mode="connecting" size={88} withRings={false} />
+        <p className="text-muted-foreground text-sm font-arabic animate-pulse">جود AI</p>
       </div>
     );
   }

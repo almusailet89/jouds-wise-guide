@@ -7,6 +7,7 @@ import { useLanguage } from '@/hooks/useLanguage';
 import { useSubscription } from '@/hooks/useSubscription';
 import { Button } from '@/components/ui/button';
 import { HomeOverview } from '@/components/Home/HomeOverview';
+import { JoodOrb } from '@/components/Voice/JoodOrb';
 
 // Heavy tab components — loaded only when the user first visits that tab
 const FinancialDashboard = lazy(() => import('@/components/Dashboard/FinancialDashboard').then(m => ({ default: m.FinancialDashboard })));
@@ -94,7 +95,8 @@ const buildNav = (t: (k: string) => string) => [
   { value: 'planning',  label: t('nav.planning'),  icon: CalendarCheck },
   { value: 'mood',      label: t('nav.mood'),      icon: Heart },
   { value: 'settings',  label: t('nav.settings'),  icon: Settings },
-  { value: 'test',      label: 'Test',             icon: FlaskConical },
+  // Dev-only sandbox tab — never shown to production users
+  ...(import.meta.env.DEV ? [{ value: 'test', label: 'Test', icon: FlaskConical }] : []),
 ];
 
 // ─── Lazy tab skeleton ────────────────────────────────────────────────────────
@@ -318,10 +320,10 @@ const Dashboard = () => {
       <header className="border-b border-border/40 bg-card/80 backdrop-blur-sm sticky top-0 z-40">
         <div className="mx-auto px-3 py-2 max-w-screen-2xl flex items-center gap-3">
 
-          {/* Brand */}
+          {/* Brand — living orb mark */}
           <div className="flex items-center gap-2.5 flex-shrink-0">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-jood-teal-700 to-jood-teal-900 flex items-center justify-center shadow-elegant">
-              <Sparkles className="w-4 h-4 text-jood-gold-300" />
+            <div className="w-9 h-9 rounded-full overflow-hidden flex items-center justify-center shadow-elegant">
+              <JoodOrb mode="idle" size={36} withRings={false} />
             </div>
             <div>
               <h1 className="text-sm font-bold text-foreground font-arabic leading-none">جود AI</h1>
@@ -369,11 +371,12 @@ const Dashboard = () => {
               variant="ghost"
               size="sm"
               onClick={() => setMajlisOpen(true)}
-              className="h-8 gap-1.5 text-jood-gold-600 hover:text-jood-gold-700 hover:bg-jood-gold-500/10 border border-jood-gold-300/40 rounded-full px-3"
+              className="h-8 gap-1.5 text-jood-gold-600 hover:text-jood-gold-700 hover:bg-jood-gold-500/10 border border-jood-gold-300/40 rounded-full ltr:pl-1 ltr:pr-3 rtl:pr-1 rtl:pl-3"
             >
-              <Mic className="w-3.5 h-3.5" />
+              <span className="w-6 h-6 rounded-full overflow-hidden flex items-center justify-center">
+                <JoodOrb mode="idle" size={24} withRings={false} />
+              </span>
               <span className="hidden sm:inline text-xs font-arabic font-bold">{t('header.majlis')}</span>
-              <Sparkles className="w-3 h-3 text-jood-gold-500" />
             </Button>
 
             <Dialog>

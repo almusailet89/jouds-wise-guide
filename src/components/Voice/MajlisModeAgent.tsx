@@ -5,7 +5,7 @@ import { X, Mic, MicOff, Sparkles, Phone, PhoneOff } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
-import { JoodAvatar, type AvatarMode } from './JoodAvatar';
+import { JoodOrb, type OrbMode } from './JoodOrb';
 import { useLanguage } from '@/hooks/useLanguage';
 import { Conversation } from '@11labs/client';
 
@@ -304,13 +304,11 @@ export const MajlisModeAgent: React.FC<MajlisModeAgentProps> = ({ onClose }) => 
           <Sparkles className="w-4 h-4 text-jood-gold-300" />
           <span className="font-arabic text-sm font-bold">{t('header.majlis')}</span>
           {connected && (
-            <span className="text-[10px] bg-green-500/30 text-green-100 border border-green-300/30 rounded-full px-2 py-0.5 font-arabic animate-pulse">
-              {lang === 'ar' ? 'متصل' : 'Connected'}
+            <span className="text-[10px] bg-jood-gold-500/20 text-jood-gold-300 border border-jood-gold-300/30 rounded-full px-2.5 py-0.5 font-arabic">
+              <span className="inline-block w-1.5 h-1.5 rounded-full bg-jood-gold-300 animate-pulse ltr:mr-1.5 rtl:ml-1.5 align-middle" />
+              {lang === 'ar' ? 'متصلة' : 'Live'}
             </span>
           )}
-          <span className="text-[10px] bg-white/10 text-white/50 rounded-full px-2 py-0.5">
-            ElevenLabs Agent
-          </span>
         </div>
         <Button
           variant="ghost"
@@ -325,13 +323,14 @@ export const MajlisModeAgent: React.FC<MajlisModeAgentProps> = ({ onClose }) => 
       {/* ── Center: Avatar + Visualizer ──────────────────────────────────── */}
       <div className="absolute inset-0 flex flex-col items-center justify-center px-6">
 
-        {/* Pulse rings + avatar */}
+        {/* Pulse rings + the Jood Orb — النواة */}
         <div className="relative w-80 h-80 flex items-center justify-center">
           <PulseRings active={isActive} intensity={intensity} />
-          <JoodAvatar
-            mode={(mode === 'connecting' ? 'thinking' : mode === 'idle' ? 'idle' : mode) as AvatarMode}
+          <JoodOrb
+            mode={mode as OrbMode}
             intensity={intensity}
-            size={280}
+            size={260}
+            withRings
             className="relative z-10"
           />
         </div>
