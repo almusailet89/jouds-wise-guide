@@ -204,8 +204,8 @@ const MobileBottomNav: React.FC<{ activeTab: string; onTabChange: (t: string) =>
   const { t } = useLanguage();
   const NAV = buildNav(t);
   return (
-  <div className="sm:hidden fixed bottom-0 left-0 right-0 z-40 bg-card/95 backdrop-blur-md border-t border-border/40 safe-area-pb">
-    <div className="flex items-center justify-around px-1 py-1">
+  <div className="sm:hidden fixed bottom-0 left-0 right-0 z-40 bg-card/95 backdrop-blur-xl border-t border-jood-gold-500/15 shadow-[0_-4px_20px_rgba(0,0,0,0.06)] safe-area-pb">
+    <div className="flex items-center justify-around px-1 py-1.5">
       {NAV.map(({ value, label, icon: Icon }) => {
         const active = activeTab === value;
         return (
@@ -213,20 +213,22 @@ const MobileBottomNav: React.FC<{ activeTab: string; onTabChange: (t: string) =>
             key={value}
             onClick={() => onTabChange(value)}
             className={cn(
-              'flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-xl transition-all min-w-[52px]',
-              active ? 'text-jood-teal-700' : 'text-muted-foreground',
+              'relative flex flex-col items-center gap-1 px-2 py-1 rounded-xl transition-all duration-200 min-w-[52px]',
+              active ? 'text-jood-teal-700 dark:text-jood-gold-300' : 'text-muted-foreground',
             )}
           >
-            <Icon className={cn('w-5 h-5', active && 'text-jood-teal-700')} />
             <span className={cn(
-              'text-[9px] font-arabic leading-none',
-              active ? 'text-jood-teal-700 font-semibold' : 'text-muted-foreground',
+              'flex items-center justify-center w-9 h-7 rounded-full transition-all duration-200',
+              active && 'bg-jood-gold-500/12 ring-1 ring-jood-gold-500/25 shadow-[0_0_10px_rgba(184,146,74,0.15)]',
+            )}>
+              <Icon className={cn('w-[18px] h-[18px] transition-transform duration-200', active && 'scale-105')} strokeWidth={active ? 2.2 : 1.8} />
+            </span>
+            <span className={cn(
+              'text-[9px] font-arabic leading-none transition-colors',
+              active ? 'font-bold' : 'text-muted-foreground',
             )}>
               {label}
             </span>
-            {active && (
-              <span className="w-1 h-1 rounded-full bg-jood-teal-600 mt-0.5" />
-            )}
           </button>
         );
       })}

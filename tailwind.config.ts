@@ -53,16 +53,29 @@ export default {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
-        /* Direct JOOD palette */
+        /* Direct JOOD palette — full ramp so every shade renders */
         jood: {
           teal: {
             900: "hsl(var(--jood-teal-900))",
+            800: "hsl(var(--jood-teal-800))",
             700: "hsl(var(--jood-teal-700))",
+            600: "hsl(var(--jood-teal-600))",
             500: "hsl(var(--jood-teal-500))",
+            400: "hsl(var(--jood-teal-400))",
+            300: "hsl(var(--jood-teal-300))",
+            50:  "hsl(var(--jood-teal-50))",
           },
           gold: {
+            900: "hsl(var(--jood-gold-900))",
+            800: "hsl(var(--jood-gold-800))",
+            700: "hsl(var(--jood-gold-700))",
+            600: "hsl(var(--jood-gold-600))",
             500: "hsl(var(--jood-gold-500))",
+            400: "hsl(var(--jood-gold-400))",
             300: "hsl(var(--jood-gold-300))",
+            200: "hsl(var(--jood-gold-200))",
+            100: "hsl(var(--jood-gold-100))",
+            50:  "hsl(var(--jood-gold-50))",
           },
           cream: "hsl(var(--jood-cream))",
           ink:   "hsl(var(--jood-ink))",

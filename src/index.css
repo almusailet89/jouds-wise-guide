@@ -7,12 +7,25 @@
 
 @layer base {
   :root {
-    /* JOOD Teal/Gold Two-tone System */
-    --jood-teal-900:    14 60% 18%;
+    /* JOOD Teal/Gold Two-tone System — full ramp */
+    --jood-teal-900:    14 60% 18%;   /* espresso anchor — brand signature */
+    --jood-teal-800:    180 58% 16%;
     --jood-teal-700:    180 56% 22%;
+    --jood-teal-600:    180 53% 28%;
     --jood-teal-500:    180 50% 36%;
+    --jood-teal-400:    180 45% 46%;
+    --jood-teal-300:    180 40% 58%;
+    --jood-teal-50:     180 30% 95%;
+    --jood-gold-900:    36 50% 20%;
+    --jood-gold-800:    36 48% 28%;
+    --jood-gold-700:    36 47% 36%;
+    --jood-gold-600:    36 45% 44%;
     --jood-gold-500:    36 43% 51%;
+    --jood-gold-400:    36 48% 58%;
     --jood-gold-300:    36 55% 66%;
+    --jood-gold-200:    36 52% 80%;
+    --jood-gold-100:    36 50% 90%;
+    --jood-gold-50:     36 50% 96%;
     --jood-cream:       40 30% 94%;
     --jood-ink:         0 0% 10%;
     --jood-muted:       0 0% 36%;

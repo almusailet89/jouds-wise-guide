@@ -57,13 +57,14 @@ type ViewMode = 'month' | 'week' | 'day';
 type AddType = 'event' | 'task' | 'habit';
 
 // ─── Constants (static — no labels here; labels computed via t() inside component) ─
+// Soft-tinted chips — luxury palette stays inside the brand, never loud
 const CATEGORY_COLORS: Record<string, string> = {
-  personal: 'bg-jood-teal-700 text-white',
-  finance:  'bg-jood-gold-500 text-white',
-  health:   'bg-emerald-600 text-white',
-  prayer:   'bg-indigo-600 text-white',
-  family:   'bg-rose-500 text-white',
-  work:     'bg-slate-700 text-white',
+  personal: 'bg-jood-teal-500/15 text-jood-teal-700 dark:text-jood-teal-500 border border-jood-teal-500/25',
+  finance:  'bg-jood-gold-500/15 text-jood-gold-500 border border-jood-gold-500/30',
+  health:   'bg-jood-ok/12 text-jood-ok border border-jood-ok/25',
+  prayer:   'bg-jood-teal-900/10 text-jood-teal-700 dark:text-jood-gold-300 border border-jood-teal-700/25',
+  family:   'bg-jood-warn/12 text-jood-warn border border-jood-warn/25',
+  work:     'bg-foreground/8 text-foreground/80 border border-foreground/15',
 };
 const CATEGORY_KEYS = ['personal', 'finance', 'health', 'prayer', 'family', 'work'] as const;
 type CategoryKey = typeof CATEGORY_KEYS[number];
@@ -653,7 +654,7 @@ const SmartCalendar: React.FC = () => {
         <Button variant="ghost" size="sm" onClick={prevPeriod} className="h-9 w-9 p-0 flex-shrink-0">
           <ChevronRight className="w-4 h-4" />
         </Button>
-        <h2 className="text-sm font-bold font-arabic text-foreground min-w-0 flex-1 text-center truncate">
+        <h2 className="text-base font-bold font-arabic text-foreground min-w-0 flex-1 text-center truncate tracking-wide">
           {periodLabel()}
         </h2>
         <Button variant="ghost" size="sm" onClick={nextPeriod} className="h-9 w-9 p-0 flex-shrink-0">
@@ -681,14 +682,16 @@ const SmartCalendar: React.FC = () => {
         </label>
 
         {/* View mode */}
-        <div className="flex gap-0.5 p-0.5 bg-muted/40 rounded-lg border border-border/30 flex-shrink-0">
+        <div className="flex gap-0.5 p-0.5 bg-muted/40 rounded-full border border-jood-gold-500/20 flex-shrink-0">
           {([['month','LayoutGrid',LayoutGrid], ['week','Columns',Columns], ['day','AlignJustify',AlignJustify]] as const).map(([mode, , Icon]) => (
             <button
               key={mode}
               onClick={() => setViewMode(mode)}
               className={cn(
-                'p-1.5 rounded transition-colors',
-                viewMode === mode ? 'bg-card shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground',
+                'p-1.5 rounded-full transition-all duration-200',
+                viewMode === mode
+                  ? 'bg-jood-teal-900 text-jood-gold-300 shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground',
               )}
             >
               <Icon className="w-4 h-4" />
@@ -696,23 +699,23 @@ const SmartCalendar: React.FC = () => {
           ))}
         </div>
 
-        <Button onClick={() => openAdd('event')} size="sm" className="bg-jood-teal-900 hover:bg-jood-teal-700 text-white gap-1 font-arabic h-8 px-2.5 flex-shrink-0">
+        <Button onClick={() => openAdd('event')} size="sm" className="bg-gradient-to-br from-jood-teal-700 to-jood-teal-900 hover:from-jood-teal-900 hover:to-jood-teal-900 text-jood-gold-300 gap-1 font-arabic h-8 px-3 flex-shrink-0 rounded-full shadow-sm ring-1 ring-jood-gold-500/25">
           <Plus className="w-4 h-4" />
           <span className="hidden sm:inline">{t('cal.add.btn')}</span>
         </Button>
       </div>
 
       {/* ── Toolbar row 2: month pills (scrollable on mobile) ────────────────── */}
-      <div className="flex items-center gap-1 overflow-x-auto pb-1 scrollbar-hide">
+      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-hide">
         {MONTHS_SHORT.map((m, i) => (
           <button
             key={i}
             onClick={() => { setViewM(i); if (viewMode !== 'month') setViewMode('month'); }}
             className={cn(
-              'text-[10px] px-2 py-1 rounded flex-shrink-0 font-arabic transition-colors',
+              'text-[11px] px-3 py-1 rounded-full flex-shrink-0 font-arabic transition-all duration-200',
               viewM === i && viewMode === 'month'
-                ? 'bg-jood-teal-900 text-white'
-                : 'text-muted-foreground hover:bg-muted bg-muted/30',
+                ? 'bg-jood-teal-900 text-jood-gold-300 font-semibold shadow-sm ring-1 ring-jood-gold-500/30'
+                : 'text-muted-foreground hover:text-foreground hover:bg-jood-gold-500/10 border border-transparent hover:border-jood-gold-500/20',
             )}
           >
             {m}
@@ -731,10 +734,21 @@ const SmartCalendar: React.FC = () => {
           {/* Calendar grid */}
           <Card className="overflow-hidden">
             <CardContent className="p-0">
-              <div className="grid grid-cols-7 bg-muted/30 border-b border-border/40">
-                {WEEKDAYS_SHORT.map(d => (
-                  <div key={d} className="p-2 text-center text-[11px] font-arabic font-semibold text-muted-foreground">{d}</div>
-                ))}
+              <div className="grid grid-cols-7 bg-gradient-to-b from-jood-teal-900/[0.04] to-transparent border-b border-jood-gold-500/15">
+                {WEEKDAYS_SHORT.map((d, di) => {
+                  const isWeekend = di === 5 || di === 6; // Friday & Saturday — Saudi weekend
+                  return (
+                    <div
+                      key={d}
+                      className={cn(
+                        'py-2.5 text-center text-[11px] font-arabic font-semibold tracking-wide',
+                        isWeekend ? 'text-jood-gold-500' : 'text-muted-foreground',
+                      )}
+                    >
+                      {d}
+                    </div>
+                  );
+                })}
               </div>
               <div className="grid grid-cols-7">
                 {monthGrid.map((day, i) => {
@@ -746,48 +760,52 @@ const SmartCalendar: React.FC = () => {
                   const hijri = showHijri ? toHijri(day) : { day: '', month: '' };
                   const total = dots.events + dots.tasks + dots.habits;
                   const allDone = total > 0 && dots.done >= total;
+                  const isWeekend = day.getDay() === 5 || day.getDay() === 6;
 
                   return (
                     <button
                       key={i}
                       onClick={() => setSelected(day)}
                       className={cn(
-                        'relative min-h-[72px] p-1.5 border-b border-l border-border/20 text-right transition-all',
-                        'hover:bg-jood-teal-900/5 focus:outline-none',
-                        !inMonth && 'opacity-35',
-                        isSel && 'bg-jood-teal-900/10 ring-2 ring-inset ring-jood-teal-700/60',
-                        allDone && inMonth && 'bg-emerald-50/50 dark:bg-emerald-950/20',
+                        'relative min-h-[76px] p-1.5 border-b border-l border-border/15 text-right',
+                        'transition-all duration-200 hover:bg-jood-gold-500/[0.06] focus:outline-none',
+                        !inMonth && 'opacity-30',
+                        isWeekend && inMonth && !isSel && 'bg-jood-cream/40 dark:bg-jood-gold-500/[0.03]',
+                        isSel && 'bg-jood-gold-500/[0.08] ring-1 ring-inset ring-jood-gold-500/50',
+                        allDone && inMonth && 'bg-jood-ok/5',
                       )}
                     >
                       <div className="flex items-start justify-between mb-1">
                         <span className={cn(
-                          'text-sm font-semibold w-6 h-6 rounded-full flex items-center justify-center',
-                          isToday_ && 'bg-jood-gold-500 text-white text-xs',
+                          'text-sm w-6 h-6 rounded-full flex items-center justify-center transition-shadow',
+                          isToday_
+                            ? 'bg-gradient-to-br from-jood-gold-500 to-jood-gold-300 text-white text-xs font-bold shadow-[0_0_12px_rgba(184,146,74,0.45)]'
+                            : 'font-medium',
                         )}>
                           {day.getDate()}
                         </span>
                         {showHijri && hijri.day && (
-                          <span className="text-[8px] font-arabic text-muted-foreground/60 leading-none">{hijri.day}</span>
+                          <span className="text-[8px] font-arabic text-jood-gold-500/60 leading-none mt-1">{hijri.day}</span>
                         )}
                       </div>
 
                       {/* Compact event pills */}
                       <div className="space-y-0.5">
                         {getItems(day).events.slice(0, 1).map(e => (
-                          <div key={e.id} className={cn('text-[8px] px-1 py-0.5 rounded truncate font-arabic', cat(e.category).color)}>
+                          <div key={e.id} className={cn('text-[9px] px-1.5 py-0.5 rounded-md truncate font-arabic font-medium', cat(e.category).color)}>
                             {e.title}
                           </div>
                         ))}
                       </div>
 
-                      {/* Dot indicators */}
+                      {/* Indicator dots — gold for tasks, teal for habits */}
                       {(dots.tasks > 0 || dots.habits > 0) && (
-                        <div className="flex gap-0.5 mt-0.5 flex-wrap">
+                        <div className="flex gap-1 mt-1 flex-wrap">
                           {Array.from({ length: Math.min(dots.tasks, 3) }).map((_, j) => (
-                            <span key={`t${j}`} className="w-1.5 h-1.5 rounded-full bg-amber-400 inline-block" />
+                            <span key={`t${j}`} className="w-1.5 h-1.5 rounded-full bg-jood-gold-500 shadow-[0_0_4px_rgba(184,146,74,0.5)] inline-block" />
                           ))}
                           {Array.from({ length: Math.min(dots.habits, 3) }).map((_, j) => (
-                            <span key={`h${j}`} className="w-1.5 h-1.5 rounded-full bg-jood-teal-400 inline-block" />
+                            <span key={`h${j}`} className="w-1.5 h-1.5 rounded-full bg-jood-teal-500 shadow-[0_0_4px_rgba(46,138,138,0.5)] inline-block" />
                           ))}
                         </div>
                       )}
