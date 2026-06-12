@@ -122,10 +122,25 @@ async function executeFunction(functionCall: any, userId: string, supabase: any)
     case 'create_calendar_event': {
       const startsAt = args.starts_at || new Date().toISOString();
       const endsAt = args.ends_at || new Date(new Date(startsAt).getTime() + 60 * 60 * 1000).toISOString();
-      const { error } = await supabase.from('events').insert({ user_id: userId, title: args.title, description: args.description || null, starts_at: startsAt, ends_at: endsAt, start_at: startsAt, end_at: endsAt, all_day: args.all_day ?? false, category: args.category || 'personal', location: args.location || null, source: 'jood_ai' });
+
+      // Conflict guard — warn instead of silently double-booking
+      if (!args.force) {
+        const { data: clash } = await supabase.from('events')
+          .select('title, starts_at')
+          .eq('user_id', userId)
+          .lt('starts_at', endsAt)
+          .gt('ends_at', startsAt)
+          .limit(2);
+        if (clash?.length) {
+          const clashTime = new Date(clash[0].starts_at).toLocaleString('ar-SA', { hour: '2-digit', minute: '2-digit' });
+          return { kind: 'event', summary: `⚠️ تنبيه: عندك تعارض مع "${clash[0].title}" الساعة ${clashTime}. تبيني أسجّله رغم التعارض، أو نلقى وقت ثاني؟`, data: { ...args, conflict: true } };
+        }
+      }
+
+      const { error } = await supabase.from('events').insert({ user_id: userId, title: args.title, description: args.description || null, starts_at: startsAt, ends_at: endsAt, start_at: startsAt, end_at: endsAt, all_day: args.all_day ?? false, category: args.category || 'personal', location: args.location || null, reminder_min: args.reminder_min ?? 15, source: 'jood_ai' });
       if (error) throw new Error(`create_calendar_event: ${error.message}`);
       const evtFmt = new Date(startsAt).toLocaleString('ar-SA', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-      return { kind: 'event', summary: `✓ سجّلت موعد "${args.title}" يوم ${evtFmt}`, data: args };
+      return { kind: 'event', summary: `✓ سجّلت موعد "${args.title}" يوم ${evtFmt}${args.location ? ` في ${args.location}` : ''}`, data: args };
     }
     case 'compose_email':
       return { kind: 'email_draft', summary: `مسودة إيميل لـ ${args.to} جاهزة`, data: { to: args.to, subject: args.subject, body: args.body } };

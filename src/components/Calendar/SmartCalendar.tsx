@@ -24,6 +24,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/hooks/useLanguage';
 import { useTasks, Task } from '@/hooks/useDatabase';
 import { cn } from '@/lib/utils';
+import { EmptyState } from '@/components/ui/empty-state';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface EventRow {
@@ -619,12 +620,16 @@ const SmartCalendar: React.FC = () => {
           </div>
         )}
 
-        {/* Empty state */}
+        {/* Empty state — Jood's invitation */}
         {totalItems === 0 && (
-          <div className="text-center py-6 text-muted-foreground">
-            <CalIcon className="w-8 h-8 mx-auto mb-2 opacity-30" />
-            <p className="text-xs font-arabic">{t('cal.empty.day')}</p>
-          </div>
+          <EmptyState
+            orbSize={72}
+            title={t('cal.empty.day')}
+            hint={dir === 'rtl'
+              ? 'قول لجود: «احجزي لي اجتماع بكرة الساعة عشر» وبتسويها لك'
+              : 'Tell Jood: "book me a meeting tomorrow at 10" and she will handle it'}
+            className="py-4"
+          />
         )}
 
         {/* Quick add row */}

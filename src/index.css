@@ -53,7 +53,7 @@
     --destructive-foreground: 0 0% 100%;
     --border:               40 20% 86%;
     --input:                40 20% 86%;
-    --ring:                 180 50% 36%;
+    --ring:                 36 43% 51%;  /* gold focus — luxury signature */
 
     /* Charts — teal ramp + gold */
     --chart-1: 14 60% 18%;
@@ -112,7 +112,7 @@
     --destructive-foreground: 40 30% 94%;
     --border:               14 40% 20%;
     --input:                14 40% 20%;
-    --ring:                 180 50% 36%;
+    --ring:                 36 43% 51%;  /* gold focus — luxury signature */
     --chart-1: 180 50% 46%;
     --chart-2: 180 56% 34%;
     --chart-3: 14 60% 28%;
