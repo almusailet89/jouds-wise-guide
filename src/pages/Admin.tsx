@@ -32,6 +32,12 @@ interface SystemStats {
   active_subscriptions: number;
   total_conversations: number;
   storage_usage: string;
+  /* Founder metrics — from admin-stats edge function (service role) */
+  new_users_7d?: number;
+  active_users_7d?: number;
+  messages_7d?: number;
+  voice_events_30d?: number;
+  mrr_sar?: number;
 }
 
 const Admin = () => {
@@ -159,6 +165,21 @@ const Admin = () => {
         total_conversations: conversationCount || 0,
         storage_usage: storageLabel,
       });
+
+      // Founder metrics via service-role edge function (RLS blocks these from browser)
+      const { data: adminStats } = await supabase.functions.invoke('admin-stats');
+      if (adminStats?.users) {
+        setStats(prev => ({
+          ...prev,
+          total_users: adminStats.users.total ?? prev.total_users,
+          new_users_7d: adminStats.users.new_7d,
+          active_users_7d: adminStats.users.active_7d,
+          messages_7d: adminStats.usage?.messages_7d,
+          voice_events_30d: adminStats.usage?.voice_events_30d,
+          active_subscriptions: adminStats.revenue?.active_subscriptions ?? prev.active_subscriptions,
+          mrr_sar: adminStats.revenue?.mrr_sar,
+        }));
+      }
     } catch (error) {
       console.error('Error fetching stats:', error);
     }
@@ -277,6 +298,28 @@ const Admin = () => {
                   <div className="text-2xl font-bold text-white">{stats.storage_usage}</div>
                 </CardContent>
               </Card>
+            </div>
+
+            {/* Founder metrics — growth, engagement, revenue */}
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+              {[
+                { label: 'New Users (7d)',      value: stats.new_users_7d },
+                { label: 'Active Users (7d)',   value: stats.active_users_7d },
+                { label: 'Messages (7d)',       value: stats.messages_7d },
+                { label: 'Voice Bookings (30d)',value: stats.voice_events_30d },
+                { label: 'MRR (SAR)',           value: stats.mrr_sar, gold: true },
+              ].map(({ label, value, gold }) => (
+                <Card key={label} className={`bg-white/10 backdrop-blur-lg ${gold ? 'border-amber-400/40' : 'border-white/20'}`}>
+                  <CardHeader className="pb-1">
+                    <CardTitle className="text-white/70 text-xs font-medium">{label}</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className={`text-xl font-bold ${gold ? 'text-amber-300' : 'text-white'}`}>
+                      {value ?? '—'}
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
             </div>
             
             <Card className="bg-white/10 backdrop-blur-lg border-white/20">

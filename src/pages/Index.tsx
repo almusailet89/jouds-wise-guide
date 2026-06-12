@@ -48,18 +48,18 @@ function useSaudiSignal() {
 
 /* ─── Features ───────────────────────────────────────────────────── */
 const features = [
-  { icon: MessageSquare, titleAr: "مساعد ذكي",    titleEn: "AI Chat",          descEn: "Natural bilingual conversations — Arabic or English, always on point." },
+  { icon: MessageSquare, titleAr: "مساعد ذكي",    titleEn: "AI Chat",          descEn: "Natural bilingual conversations in Arabic and English, always on point." },
   { icon: TrendingUp,    titleAr: "تحليل مالي",    titleEn: "Financial Advisor", descEn: "Portfolio, budget, and Zakat engine built for Saudi wealth." },
   { icon: Calendar,      titleAr: "مخطط ذكي",     titleEn: "Smart Planner",     descEn: "Prayer-aware scheduling that respects your day and your deen." },
   { icon: Heart,         titleAr: "متابعة المزاج", titleEn: "Mood Tracker",      descEn: "Gentle daily check-ins with insights that actually help." },
-  { icon: Mic,           titleAr: "صوت جود",       titleEn: "Voice — Jood",      descEn: "Premium Saudi Arabic voice. Speaks your language, your register." },
+  { icon: Mic,           titleAr: "صوت جود",       titleEn: "Jood Voice",      descEn: "Premium Saudi Arabic voice. Speaks your language, your register." },
   { icon: Brain,         titleAr: "اقتراحات ذكية", titleEn: "Smart Suggestions", descEn: "Personalised nudges based on your money, mood, and calendar." },
 ];
 
 const whyPoints = [
-  { icon: Globe,  titleEn: "Saudi-Native", descEn: "Hijri calendar, prayer times, Zakat engine, SAR — all built-in, not bolted on." },
+  { icon: Globe,  titleEn: "Saudi-Native", descEn: "Hijri calendar, prayer times, Zakat engine, SAR. All built-in, not bolted on." },
   { icon: Shield, titleEn: "PDPL-Ready",   descEn: "Data processed within Kingdom frameworks. Your information stays yours.", pdpl: true },
-  { icon: Zap,    titleEn: "One App",      descEn: "Money, time, wellness, voice — no juggling five single-purpose apps." },
+  { icon: Zap,    titleEn: "One App",      descEn: "Money, time, wellness, and voice. One app instead of five." },
 ];
 
 /* ─── Page ───────────────────────────────────────────────────────── */
@@ -104,7 +104,7 @@ export default function Index() {
           </svg>
         </div>
 
-        <div className="relative container mx-auto px-4 pt-20 pb-24 grid md:grid-cols-2 gap-12 items-center">
+        <div className="relative container mx-auto px-4 pt-10 pb-14 grid md:grid-cols-2 gap-8 items-center">
           {/* Text */}
           <div className="text-white entrance">
             <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-white/20 bg-white/10 text-xs font-medium text-white/80 mb-6">
@@ -119,11 +119,11 @@ export default function Index() {
               Pleasure to meet you. I'm Jood.
             </h1>
 
-            <p dir="rtl" className="font-arabic text-white/70 text-lg mb-2 text-right">
-              مال · وقت · حضور — في تطبيق واحد، بفهم عربي أصيل.
+            <p dir="rtl" className="font-arabic text-white/70 text-base mb-1.5 text-right">
+              مال، وقت، حضور. تطبيق واحد بفهم عربي أصيل.
             </p>
-            <p className="text-white/60 text-base mb-10">
-              Money, time, presence — one app that truly gets the Saudi way.
+            <p className="text-white/60 text-sm mb-7">
+              Money, time, and presence. One app that truly gets the Saudi way.
             </p>
 
             <div className="flex flex-col sm:flex-row gap-3">
@@ -194,16 +194,16 @@ export default function Index() {
       </div>
 
       {/* Features Grid */}
-      <section className="container mx-auto px-4 py-24">
-        <div className="text-center mb-14 entrance">
+      <section className="container mx-auto px-4 py-14">
+        <div className="text-center mb-9 entrance">
           <p className="font-medium text-sm uppercase tracking-widest mb-3" style={{ color: "hsl(var(--jood-gold-500))" }}>What Jood does</p>
           <h2 className="font-display text-3xl md:text-4xl font-semibold mb-3">Everything. In one elegant app.</h2>
-          <p dir="rtl" className="font-arabic text-muted-foreground text-lg">كل شي محتاجه — في مكان واحد</p>
+          <p dir="rtl" className="font-arabic text-muted-foreground text-lg">كل شي تحتاجه في مكان واحد</p>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           {features.map((f, i) => (
-            <div key={i} className={`jood-card p-6 entrance entrance-delay-${i + 1}`}>
-              <div className="w-10 h-10 rounded-xl flex items-center justify-center mb-4"
+            <div key={i} className={`jood-card p-5 entrance entrance-delay-${i + 1}`}>
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center mb-3"
                 style={{ background: "hsl(var(--jood-teal-900))" }}>
                 <f.icon className="w-5 h-5" style={{ color: "hsl(var(--jood-gold-500))" }} />
               </div>
@@ -216,16 +216,16 @@ export default function Index() {
       </section>
 
       {/* Why JOOD */}
-      <section className="py-24" style={{ background: "hsl(var(--jood-teal-900))" }}>
+      <section className="py-14" style={{ background: "hsl(var(--jood-teal-900))" }}>
         <div className="container mx-auto px-4">
-          <div className="text-center mb-14 entrance">
-            <h2 className="font-display text-3xl md:text-4xl font-semibold text-white mb-3">Why JOOD?</h2>
+          <div className="text-center mb-9 entrance">
+            <h2 className="font-display text-3xl md:text-4xl font-semibold text-white mb-2">Why JOOD?</h2>
             <p dir="rtl" className="font-arabic text-white/60 text-lg">مصنوعة للسعودي، بفهم سعودي</p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mx-auto">
             {whyPoints.map((w, i) => (
-              <div key={i} className={`entrance entrance-delay-${i + 1} rounded-2xl border border-white/10 bg-white/5 p-8 text-center`}>
-                <div className="w-12 h-12 rounded-full border flex items-center justify-center mx-auto mb-5"
+              <div key={i} className={`entrance entrance-delay-${i + 1} rounded-2xl border border-white/10 bg-white/5 p-6 text-center`}>
+                <div className="w-12 h-12 rounded-full border flex items-center justify-center mx-auto mb-4"
                   style={{ borderColor: "hsl(var(--jood-gold-500) / 0.4)", background: "hsl(var(--jood-gold-500) / 0.1)" }}>
                   <w.icon className="w-5 h-5" style={{ color: "hsl(var(--jood-gold-300))" }} />
                 </div>
@@ -238,32 +238,63 @@ export default function Index() {
         </div>
       </section>
 
-      {/* Pricing teaser */}
-      <section className="container mx-auto px-4 py-24 text-center">
-        <div className="max-w-md mx-auto entrance">
-          <p className="font-medium text-sm uppercase tracking-widest mb-6" style={{ color: "hsl(var(--jood-gold-500))" }}>Simple pricing</p>
-          <div className="jood-card p-8">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold mb-4"
-              style={{ background: "hsl(var(--jood-gold-500) / 0.1)", color: "hsl(var(--jood-gold-500))" }}>
-              <Star className="w-3 h-3" /> Jood Pro
+      {/* Pricing — two tiers */}
+      <section className="container mx-auto px-4 py-14 text-center">
+        <p className="font-medium text-sm uppercase tracking-widest mb-2" style={{ color: "hsl(var(--jood-gold-500))" }}>Simple pricing</p>
+        <p dir="rtl" className="font-arabic text-muted-foreground text-sm mb-8">ابدأ سبعة أيام مجاناً بدون بطاقة</p>
+
+        <div className="grid sm:grid-cols-2 gap-5 max-w-2xl mx-auto entrance">
+          {/* Essential */}
+          <div className="jood-card p-6 text-center flex flex-col">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold mb-3 mx-auto"
+              style={{ background: "hsl(var(--jood-teal-500) / 0.1)", color: "hsl(var(--jood-teal-700))" }}>
+              Jood Essential
             </div>
-            <p className="font-tajawal font-bold text-5xl mb-1">
-              29 <span className="text-2xl font-medium text-muted-foreground">SAR</span>
+            <p className="font-tajawal font-bold text-4xl mb-0.5">
+              29 <span className="text-lg font-medium text-muted-foreground">SAR</span>
             </p>
-            <p className="text-muted-foreground text-sm mb-2">/ month</p>
-            <p dir="rtl" className="font-arabic text-muted-foreground text-sm mb-8">ابدأ ٧ أيام مجّانًا — بدون بطاقة</p>
-            <button onClick={() => navigate('/pricing')} className="jood-btn-primary w-full text-base py-4">
-              ابدئي التجربة المجّانية <ChevronRight className="w-4 h-4" />
+            <p className="text-muted-foreground text-xs mb-4">/ month</p>
+            <ul dir="rtl" className="font-arabic text-[13px] text-muted-foreground space-y-1.5 text-right mb-5 flex-1">
+              <li>محادثة ذكية غير محدودة، عربي وإنجليزي</li>
+              <li>عشرون دقيقة مجلس صوتي شهرياً</li>
+              <li>التقويم والمالية والمزاج والعادات</li>
+              <li>الموجز اليومي من جود</li>
+            </ul>
+            <button onClick={() => navigate('/pricing')} className="jood-btn-outline w-full text-sm py-3">
+              ابدأ التجربة
             </button>
-            <p className="mt-4 text-xs text-muted-foreground">7-day free trial · Cancel anytime</p>
+          </div>
+
+          {/* Signature — highlighted */}
+          <div className="jood-card p-6 text-center flex flex-col relative"
+            style={{ borderColor: "hsl(var(--jood-gold-500) / 0.45)", boxShadow: "0 8px 32px rgba(184,146,74,0.18)" }}>
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold mb-3 mx-auto"
+              style={{ background: "hsl(var(--jood-gold-500) / 0.12)", color: "hsl(var(--jood-gold-600))" }}>
+              <Star className="w-3 h-3" /> Jood Signature
+            </div>
+            <p className="font-tajawal font-bold text-4xl mb-0.5">
+              33 <span className="text-lg font-medium text-muted-foreground">SAR</span>
+            </p>
+            <p className="text-muted-foreground text-xs mb-4">/ month</p>
+            <ul dir="rtl" className="font-arabic text-[13px] text-muted-foreground space-y-1.5 text-right mb-5 flex-1">
+              <li>كل مزايا Essential</li>
+              <li>ستون دقيقة مجلس صوتي شهرياً</li>
+              <li>ذكاء متقدم للمحادثات النصية</li>
+              <li>ذاكرة موسعة وخصوصية معززة</li>
+              <li>أولوية في الدعم والمزايا الجديدة</li>
+            </ul>
+            <button onClick={() => navigate('/pricing')} className="jood-btn-primary w-full text-sm py-3">
+              ابدأ التجربة <ChevronRight className="w-4 h-4" />
+            </button>
           </div>
         </div>
+        <p className="mt-5 text-xs text-muted-foreground">7-day free trial · Cancel anytime</p>
       </section>
 
       {/* Footer */}
       <footer className="border-t border-border/40 bg-card/40">
-        <div className="container mx-auto px-4 py-10">
-          <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+        <div className="container mx-auto px-4 py-7">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-4">
             <div>
               <span className="font-tajawal font-bold text-lg" style={{ color: "hsl(var(--jood-teal-900))" }}>
                 JOOD<span style={{ color: "hsl(var(--jood-gold-500))" }} className="mx-0.5">·</span>AI
@@ -276,7 +307,7 @@ export default function Index() {
               <button onClick={() => navigate('/pricing')} className="hover:text-foreground transition-colors">Pricing</button>
             </div>
           </div>
-          <div className="mt-8 pt-6 border-t border-border/30 flex flex-col md:flex-row items-center justify-between gap-3 text-xs text-muted-foreground">
+          <div className="mt-5 pt-4 border-t border-border/30 flex flex-col md:flex-row items-center justify-between gap-3 text-xs text-muted-foreground">
             <p>© {new Date().getFullYear()} JOOD AI. All rights reserved.</p>
             <p>PDPL-compliant · SDAIA AI Ethics · CITC licensed (pending)</p>
           </div>
