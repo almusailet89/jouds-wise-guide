@@ -2,295 +2,166 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSubscription, SUBSCRIPTION_PLANS } from '@/hooks/useSubscription';
 import { useAuth } from '@/hooks/useAuth';
+import { useLanguage } from '@/hooks/useLanguage';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Check, Star, Crown, Sparkles } from 'lucide-react';
+import { Check, Star, ArrowRight, ChevronRight } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { JoodOrb } from '@/components/Voice/JoodOrb';
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Pricing — two tiers, same luxury language as the landing page
+// ═══════════════════════════════════════════════════════════════════════════════
 
 export default function Pricing() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { subscription, createCheckout, isSubscribed } = useSubscription();
   const { toast } = useToast();
+  const { lang, dir } = useLanguage();
   const [loading, setLoading] = useState<string | null>(null);
+  const ar = lang === 'ar';
 
   const handleSubscribe = async (priceId: string, planName: string) => {
-    if (!user) {
-      navigate('/auth');
-      return;
-    }
-
+    if (!user) { navigate('/auth'); return; }
     try {
       setLoading(priceId);
       const checkoutUrl = await createCheckout(priceId);
       window.open(checkoutUrl, '_blank');
-      
       toast({
-        title: "Redirecting to checkout",
-        description: `Setting up your ${planName} subscription...`,
+        title: ar ? 'جاري تحويلك للدفع' : 'Redirecting to checkout',
+        description: ar ? `تجهيز اشتراك ${planName}...` : `Setting up your ${planName} subscription...`,
       });
     } catch (error) {
       console.error('Checkout error:', error);
       toast({
-        title: "Checkout Error",
-        description: "Failed to create checkout session. Please try again.",
-        variant: "destructive",
+        title: ar ? 'خطأ في الدفع' : 'Checkout Error',
+        description: ar ? 'تعذر إنشاء جلسة الدفع، حاول مرة ثانية' : 'Failed to create checkout session. Please try again.',
+        variant: 'destructive',
       });
     } finally {
       setLoading(null);
     }
   };
 
-  const isCurrentPlan = (planKey: string) => {
-    return subscription?.plan === planKey && isSubscribed;
-  };
+  const plans = [
+    { key: 'essential', plan: SUBSCRIPTION_PLANS.essential, featured: false },
+    { key: 'signature', plan: SUBSCRIPTION_PLANS.signature, featured: true },
+  ];
 
   return (
-    <div className="min-h-screen bg-gradient-primary">
+    <div className="min-h-screen bg-background text-foreground" dir={dir}>
+
       {/* Header */}
-      <header className="border-b border-white/10 bg-card/10 backdrop-blur-sm">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-gradient-elegant flex items-center justify-center">
-                <Crown className="w-5 h-5 text-white" />
-              </div>
-              <div>
-                <h1 className="text-xl font-bold text-white">JOOD AI</h1>
-                <p className="text-white/70 text-sm">Your Elegant Financial Secretary</p>
-              </div>
-            </div>
-            
-            <Button 
-              variant="outline" 
-              onClick={() => navigate('/dashboard')}
-              className="bg-white/10 border-white/20 text-white hover:bg-white/20"
-            >
-              Back to Dashboard
-            </Button>
-          </div>
+      <header className="sticky top-0 z-50 border-b border-border/40 backdrop-blur-md bg-background/80">
+        <div className="container mx-auto px-4 h-14 flex items-center justify-between">
+          <button onClick={() => navigate('/')} className="font-tajawal font-bold text-lg tracking-wide" style={{ color: 'hsl(var(--jood-teal-900))' }}>
+            JOOD<span style={{ color: 'hsl(var(--jood-gold-500))' }} className="mx-0.5">·</span>AI
+          </button>
+          <Button variant="ghost" size="sm" onClick={() => navigate(user ? '/dashboard' : '/auth')} className="text-sm gap-1.5">
+            {user ? (ar ? 'لوحتي' : 'Dashboard') : (ar ? 'تسجيل الدخول' : 'Sign In')}
+            <ArrowRight className="w-3.5 h-3.5 rtl:rotate-180" />
+          </Button>
         </div>
       </header>
 
-      {/* Main Content */}
-      <main className="container mx-auto px-4 py-16">
-        {/* Hero Section */}
-        <div className="text-center mb-16">
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 text-white mb-6">
-            <Sparkles className="w-4 h-4" />
-            <span className="text-sm font-medium">✨ Unlock the Full Power of JOOD AI ✨</span>
-          </div>
-          
-          <h1 className="text-5xl font-bold text-white mb-6">
-            Choose Your Plan
-          </h1>
-          <p className="text-xl text-white/80 max-w-2xl mx-auto mb-8">
-            Transform your financial life with AI-powered insights, personalized guidance, and elegant simplicity.
-          </p>
-
-          {/* Free Trial Banner */}
-          <div className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-gradient-elegant text-white mb-8">
-            <Star className="w-5 h-5" />
-            <span className="font-semibold">7-day free trial for all new users</span>
-            <Star className="w-5 h-5" />
-          </div>
+      {/* Hero strip */}
+      <section className="text-center pt-10 pb-8 px-4">
+        <div className="flex justify-center mb-4">
+          <JoodOrb mode="idle" size={84} withRings={false} />
         </div>
+        <p className="font-medium text-xs uppercase tracking-widest mb-2" style={{ color: 'hsl(var(--jood-gold-500))' }}>
+          {ar ? 'الأسعار' : 'Simple pricing'}
+        </p>
+        <h1 className="font-display text-2xl md:text-3xl font-semibold mb-2">
+          {ar ? 'اختر خطتك مع جود' : 'Choose your plan with Jood'}
+        </h1>
+        <p className="font-arabic text-muted-foreground text-sm">
+          {ar ? 'ابدأ سبعة أيام مجاناً بدون بطاقة، وألغِ متى ما تبي' : 'Start 7 days free, no card needed. Cancel anytime.'}
+        </p>
+      </section>
 
-        {/* Pricing Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto mb-16">
-          {/* Monthly Plan */}
-          <Card className={`relative overflow-hidden transition-all duration-300 ${
-            isCurrentPlan('monthly') 
-              ? 'bg-gradient-elegant border-white/30 shadow-elegant' 
-              : 'bg-card/80 backdrop-blur border-white/10 hover:border-white/20'
-          }`}>
-            {isCurrentPlan('monthly') && (
-              <div className="absolute top-4 right-4">
-                <Badge className="bg-white text-primary">Current Plan</Badge>
-              </div>
-            )}
-            
-            <CardHeader className="text-center pb-4">
-              <CardTitle className="text-2xl font-bold text-foreground">
-                {SUBSCRIPTION_PLANS.monthly.name}
-              </CardTitle>
-              <div className="flex items-center justify-center gap-2 mt-4">
-                <span className="text-4xl font-bold text-primary">$5</span>
-                <span className="text-muted-foreground">/ month</span>
-              </div>
-              <CardDescription className="mt-2">
-                Cancel anytime • Full access to all features
-              </CardDescription>
-            </CardHeader>
-            
-            <CardContent className="space-y-6">
-              <ul className="space-y-3">
-                {SUBSCRIPTION_PLANS.monthly.features.map((feature, index) => (
-                  <li key={index} className="flex items-center gap-3">
-                    <Check className="w-5 h-5 text-primary flex-shrink-0" />
-                    <span className="text-foreground">{feature}</span>
-                  </li>
-                ))}
-              </ul>
-              
-              <Button
-                onClick={() => handleSubscribe(SUBSCRIPTION_PLANS.monthly.priceId, SUBSCRIPTION_PLANS.monthly.name)}
-                disabled={loading === SUBSCRIPTION_PLANS.monthly.priceId || isCurrentPlan('monthly')}
-                className="w-full bg-primary hover:bg-primary/90 text-white"
-                size="lg"
+      {/* Plans */}
+      <section className="container mx-auto px-4 pb-16">
+        <div className="grid sm:grid-cols-2 gap-5 max-w-2xl mx-auto">
+          {plans.map(({ key, plan, featured }) => {
+            const current = subscription?.plan === key && isSubscribed;
+            return (
+              <div
+                key={key}
+                className="jood-card p-6 flex flex-col relative"
+                style={featured ? {
+                  borderColor: 'hsl(var(--jood-gold-500) / 0.45)',
+                  boxShadow: '0 8px 32px rgba(184,146,74,0.18)',
+                } : undefined}
               >
-                {loading === SUBSCRIPTION_PLANS.monthly.priceId ? (
-                  "Processing..."
-                ) : isCurrentPlan('monthly') ? (
-                  "Current Plan"
-                ) : (
-                  "Start Free Trial"
+                {featured && (
+                  <div className="absolute -top-3 inset-x-0 flex justify-center">
+                    <span className="px-3 py-0.5 rounded-full text-[10px] font-bold text-white shadow-sm"
+                      style={{ background: 'hsl(var(--jood-gold-500))' }}>
+                      {ar ? 'الأفضل قيمة' : 'Best value'}
+                    </span>
+                  </div>
                 )}
-              </Button>
-            </CardContent>
-          </Card>
 
-          {/* Annual Plan */}
-          <Card className={`relative overflow-hidden transition-all duration-300 ${
-            isCurrentPlan('annual') 
-              ? 'bg-gradient-elegant border-white/30 shadow-elegant' 
-              : 'bg-card/80 backdrop-blur border-white/10 hover:border-white/20'
-          }`}>
-            <div className="absolute -top-2 -right-2">
-              <div className="bg-gradient-elegant text-white px-4 py-2 rounded-bl-lg text-sm font-semibold">
-                Save 20%
-              </div>
-            </div>
-            
-            {isCurrentPlan('annual') && (
-              <div className="absolute top-4 left-4">
-                <Badge className="bg-white text-primary">Current Plan</Badge>
-              </div>
-            )}
-            
-            <CardHeader className="text-center pb-4 mt-4">
-              <CardTitle className="text-2xl font-bold text-foreground">
-                {SUBSCRIPTION_PLANS.annual.name}
-              </CardTitle>
-              <div className="flex items-center justify-center gap-2 mt-4">
-                <span className="text-4xl font-bold text-primary">$49</span>
-                <span className="text-muted-foreground">/ year</span>
-              </div>
-              <CardDescription className="mt-2">
-                Priority feature updates & early access
-              </CardDescription>
-            </CardHeader>
-            
-            <CardContent className="space-y-6">
-              <ul className="space-y-3">
-                {SUBSCRIPTION_PLANS.annual.features.map((feature, index) => (
-                  <li key={index} className="flex items-center gap-3">
-                    <Check className="w-5 h-5 text-primary flex-shrink-0" />
-                    <span className="text-foreground">{feature}</span>
-                  </li>
-                ))}
-              </ul>
-              
-              <Button
-                onClick={() => handleSubscribe(SUBSCRIPTION_PLANS.annual.priceId, SUBSCRIPTION_PLANS.annual.name)}
-                disabled={loading === SUBSCRIPTION_PLANS.annual.priceId || isCurrentPlan('annual')}
-                className="w-full bg-gradient-elegant hover:bg-gradient-elegant/90 text-white shadow-elegant"
-                size="lg"
-              >
-                {loading === SUBSCRIPTION_PLANS.annual.priceId ? (
-                  "Processing..."
-                ) : isCurrentPlan('annual') ? (
-                  "Current Plan"
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold mb-4 mx-auto"
+                  style={featured
+                    ? { background: 'hsl(var(--jood-gold-500) / 0.12)', color: 'hsl(var(--jood-gold-600))' }
+                    : { background: 'hsl(var(--jood-teal-500) / 0.1)', color: 'hsl(var(--jood-teal-700))' }}>
+                  {featured && <Star className="w-3 h-3" />}
+                  {ar ? plan.nameAr : plan.name}
+                </div>
+
+                <p className="font-tajawal font-bold text-4xl text-center mb-0.5">
+                  {plan.price.replace('SAR ', '')}
+                  <span className="text-lg font-medium text-muted-foreground mx-1.5">SAR</span>
+                </p>
+                <p className="text-muted-foreground text-xs text-center mb-5">
+                  / {ar ? 'شهرياً' : 'month'}
+                </p>
+
+                <ul className="space-y-2.5 mb-6 flex-1">
+                  {(ar ? plan.featuresAr : plan.features).map((f, i) => (
+                    <li key={i} className="flex items-start gap-2 text-[13px] font-arabic text-muted-foreground">
+                      <Check className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: 'hsl(var(--jood-gold-500))' }} />
+                      {f}
+                    </li>
+                  ))}
+                </ul>
+
+                {current ? (
+                  <div className="text-center text-sm font-semibold py-3 rounded-full"
+                    style={{ background: 'hsl(var(--jood-ok) / 0.1)', color: 'hsl(var(--jood-ok))' }}>
+                    {ar ? 'خطتك الحالية' : 'Your current plan'}
+                  </div>
                 ) : (
-                  "👉 Subscribe Now — Start Free Trial"
+                  <button
+                    onClick={() => handleSubscribe(plan.priceId, plan.name)}
+                    disabled={loading === plan.priceId}
+                    className={`${featured ? 'jood-btn-primary' : 'jood-btn-outline'} w-full text-sm py-3 disabled:opacity-50`}
+                  >
+                    {loading === plan.priceId
+                      ? (ar ? 'لحظة...' : 'One moment...')
+                      : (ar ? 'ابدأ التجربة المجانية' : 'Start free trial')}
+                    <ChevronRight className="w-4 h-4 rtl:rotate-180" />
+                  </button>
                 )}
-              </Button>
-            </CardContent>
-          </Card>
+              </div>
+            );
+          })}
         </div>
 
-        {/* Benefits Section */}
-        <Card className="bg-card/80 backdrop-blur border-white/10 max-w-4xl mx-auto">
-          <CardHeader className="text-center">
-            <CardTitle className="text-2xl font-bold text-foreground mb-4">
-              What You Get with JOOD AI
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-4">
-                <div className="flex items-start gap-3">
-                  <Check className="w-5 h-5 text-primary mt-1 flex-shrink-0" />
-                  <div>
-                    <h4 className="font-semibold text-foreground">Personal Financial Dashboard</h4>
-                    <p className="text-muted-foreground text-sm">Track income, expenses, savings, and investments in one elegant interface</p>
-                  </div>
-                </div>
-                
-                <div className="flex items-start gap-3">
-                  <Check className="w-5 h-5 text-primary mt-1 flex-shrink-0" />
-                  <div>
-                    <h4 className="font-semibold text-foreground">Smart Alerts on Stocks & Crypto</h4>
-                    <p className="text-muted-foreground text-sm">Get notified about important market movements and opportunities</p>
-                  </div>
-                </div>
-                
-                <div className="flex items-start gap-3">
-                  <Check className="w-5 h-5 text-primary mt-1 flex-shrink-0" />
-                  <div>
-                    <h4 className="font-semibold text-foreground">Task & Schedule Planner</h4>
-                    <p className="text-muted-foreground text-sm">AI-powered task management with intelligent reminders</p>
-                  </div>
-                </div>
-              </div>
-              
-              <div className="space-y-4">
-                <div className="flex items-start gap-3">
-                  <Check className="w-5 h-5 text-primary mt-1 flex-shrink-0" />
-                  <div>
-                    <h4 className="font-semibold text-foreground">Lifestyle Tracking</h4>
-                    <p className="text-muted-foreground text-sm">Monitor hobbies, wellness, and personal goals</p>
-                  </div>
-                </div>
-                
-                <div className="flex items-start gap-3">
-                  <Check className="w-5 h-5 text-primary mt-1 flex-shrink-0" />
-                  <div>
-                    <h4 className="font-semibold text-foreground">AI-Powered Insights</h4>
-                    <p className="text-muted-foreground text-sm">Jood speaks like ChatGPT with personalized financial wisdom</p>
-                  </div>
-                </div>
-                
-                <div className="flex items-start gap-3">
-                  <Check className="w-5 h-5 text-primary mt-1 flex-shrink-0" />
-                  <div>
-                    <h4 className="font-semibold text-foreground">Export & Share</h4>
-                    <p className="text-muted-foreground text-sm">Export reports (PDF/CSV) and create TikTok content</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        <p className="text-center mt-6 text-xs text-muted-foreground">
+          {ar ? 'تجربة سبعة أيام مجانية، إلغاء بأي وقت، الأسعار بالريال السعودي' : '7-day free trial · Cancel anytime · Prices in Saudi Riyal'}
+        </p>
+      </section>
 
-        {/* CTA Section */}
-        <div className="text-center mt-16">
-          <p className="text-white/80 mb-6">
-            No risk — cancel anytime before trial ends
-          </p>
-          
-          {!user && (
-            <Button
-              onClick={() => navigate('/auth')}
-              size="lg"
-              className="bg-gradient-elegant hover:bg-gradient-elegant/90 text-white shadow-elegant"
-            >
-              Get Started — Sign Up Now
-            </Button>
-          )}
+      {/* Footer strip */}
+      <footer className="border-t border-border/40 py-6 text-center text-xs text-muted-foreground">
+        <div className="flex justify-center gap-4">
+          <button onClick={() => navigate('/terms')} className="hover:text-foreground transition-colors">{ar ? 'الشروط' : 'Terms'}</button>
+          <button onClick={() => navigate('/privacy')} className="hover:text-foreground transition-colors">{ar ? 'الخصوصية' : 'Privacy'}</button>
         </div>
-      </main>
+      </footer>
     </div>
   );
 }

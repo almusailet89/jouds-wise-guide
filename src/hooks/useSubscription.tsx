@@ -38,34 +38,49 @@ export const useSubscription = () => {
 
 // Subscription plans configuration
 export const SUBSCRIPTION_PLANS = {
-  monthly: {
-    priceId: 'price_1S8Q78DlAGsKyGn8RSlTXQqf',
-    productId: 'prod_T4ZFUH0E3zOUQt',
-    name: 'Monthly Plan',
-    price: '$5',
+  essential: {
+    priceId: 'price_1ThaOCDlAGsKyGn8Yhngai7G',
+    productId: 'prod_UgyKt4z60eYzOG',
+    name: 'Jood Essential',
+    nameAr: 'جود الأساسية',
+    price: 'SAR 59',
     interval: 'month',
     features: [
-      'Personal financial dashboard',
-      'Smart alerts on stocks & crypto',
-      'Task & schedule planner',
-      'Lifestyle tracking',
-      'AI-powered insights',
+      'Unlimited bilingual chat, Arabic and English',
+      '20 Majlis voice minutes monthly',
+      'Calendar, finance, mood, and habits',
+      'Daily brief from Jood',
       'Export reports (PDF/CSV)',
+    ],
+    featuresAr: [
+      'محادثة ذكية غير محدودة، عربي وإنجليزي',
+      'عشرون دقيقة مجلس صوتي شهرياً',
+      'التقويم والمالية والمزاج والعادات',
+      'الموجز اليومي من جود',
+      'تصدير التقارير',
     ]
   },
-  annual: {
-    priceId: 'price_1S8Q7ZDlAGsKyGn8w97rsZ5B',
-    productId: 'prod_T4ZGrCpawATPr7',
-    name: 'Annual Plan',
-    price: '$49',
-    interval: 'year',
-    savings: 'Save 20%',
+  signature: {
+    priceId: 'price_1ThaODDlAGsKyGn8vSc0vlhI',
+    productId: 'prod_UgyKkOjWK4BZpB',
+    name: 'Jood Signature',
+    nameAr: 'جود المميزة',
+    price: 'SAR 89',
+    interval: 'month',
+    savings: 'Best value',
     features: [
-      'All Monthly Plan features',
-      'Priority feature updates',
-      'Early access to new features',
-      'Premium support',
-      'TikTok export functionality',
+      'Everything in Essential',
+      '60 Majlis voice minutes monthly',
+      'Premium intelligence for text chat',
+      'Extended memory and enhanced privacy',
+      'Priority support and early features',
+    ],
+    featuresAr: [
+      'كل مزايا الأساسية',
+      'ستون دقيقة مجلس صوتي شهرياً',
+      'ذكاء متقدم للمحادثات النصية',
+      'ذاكرة موسعة وخصوصية معززة',
+      'أولوية في الدعم والمزايا الجديدة',
     ]
   }
 };

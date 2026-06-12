@@ -251,7 +251,7 @@ export default function Index() {
               Jood Essential
             </div>
             <p className="font-tajawal font-bold text-4xl mb-0.5">
-              29 <span className="text-lg font-medium text-muted-foreground">SAR</span>
+              59 <span className="text-lg font-medium text-muted-foreground">SAR</span>
             </p>
             <p className="text-muted-foreground text-xs mb-4">/ month</p>
             <ul dir="rtl" className="font-arabic text-[13px] text-muted-foreground space-y-1.5 text-right mb-5 flex-1">
@@ -273,7 +273,7 @@ export default function Index() {
               <Star className="w-3 h-3" /> Jood Signature
             </div>
             <p className="font-tajawal font-bold text-4xl mb-0.5">
-              33 <span className="text-lg font-medium text-muted-foreground">SAR</span>
+              89 <span className="text-lg font-medium text-muted-foreground">SAR</span>
             </p>
             <p className="text-muted-foreground text-xs mb-4">/ month</p>
             <ul dir="rtl" className="font-arabic text-[13px] text-muted-foreground space-y-1.5 text-right mb-5 flex-1">
