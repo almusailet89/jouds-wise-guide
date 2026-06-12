@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Heart, TrendingUp, Calendar, BarChart3, Loader2 } from "lucide-react";
 import { useMoodLogs } from '@/hooks/useDatabase';
 import { useLanguage } from '@/hooks/useLanguage';
+import { EmptyState } from '@/components/ui/empty-state';
 
 // mood_score 1-5 mapped to Arabic + emoji
 const MOOD_OPTIONS = [
@@ -154,9 +155,14 @@ const MoodTracker: React.FC = () => {
               <Loader2 className="w-6 h-6 animate-spin text-jood-teal-500" />
             </div>
           ) : moodLogs.length === 0 ? (
-            <p className="text-center text-muted-foreground text-sm font-arabic py-6">
-              {t('mood.no.logs')}
-            </p>
+            <EmptyState
+              orbSize={72}
+              title={t('mood.no.logs')}
+              hint={lang === 'ar'
+                ? 'قول لجود وش شعورك اليوم وبتسجّله لك مع ملاحظة'
+                : 'Tell Jood how you feel today and she will log it for you'}
+              className="py-2"
+            />
           ) : (
             <div className="space-y-2">
               {moodLogs.slice(0, 10).map(log => {

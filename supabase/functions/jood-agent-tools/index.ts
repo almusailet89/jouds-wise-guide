@@ -244,6 +244,7 @@ serve(async (req) => {
           category: parameters.category ?? "personal",
           all_day: parameters.all_day ?? false,
           reminder_min: parameters.reminder_min ?? 15,
+          recurrence: parameters.recurrence ?? null, // daily | weekly | monthly | yearly
           source: "jood_voice",
         });
         result = error

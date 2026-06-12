@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { PieChart as PieIcon } from 'lucide-react';
 import type { FinancialEntry } from '@/hooks/useFinancialDashboard';
 import { useLanguage } from '@/hooks/useLanguage';
+import { EmptyState } from '@/components/ui/empty-state';
 
 // ─── Category display names (Arabic) ─────────────────────────────────────────
 const CAT_AR: Record<string, string> = {
@@ -35,8 +36,10 @@ const CAT_EN: Record<string, string> = {
 };
 
 const COLORS = [
-  '#0d5c63', '#d97706', '#8b5cf6', '#ef4444',
-  '#10b981', '#f59e0b', '#3b82f6', '#6b7280',
+  'hsl(var(--jood-teal-700))', 'hsl(var(--jood-gold-500))',
+  'hsl(var(--jood-teal-500))', 'hsl(var(--jood-warn))',
+  'hsl(var(--jood-gold-300))', 'hsl(var(--jood-teal-300))',
+  'hsl(var(--jood-gold-700))', 'hsl(var(--jood-muted))',
 ];
 
 interface SpendingBreakdownChartProps {
@@ -136,12 +139,13 @@ export const SpendingBreakdownChart: React.FC<SpendingBreakdownChartProps> = ({ 
             </ResponsiveContainer>
           </div>
         ) : (
-          <div className="h-64 flex flex-col items-center justify-center text-center gap-2">
-            <PieIcon className="w-10 h-10 text-muted-foreground/40" />
-            <p className="font-arabic text-sm text-muted-foreground">{t('chart.spending.empty')}</p>
-            <p className="font-arabic text-xs text-muted-foreground/60">
-              {t('chart.spending.empty.hint')}
-            </p>
+          <div className="h-64 flex items-center justify-center">
+            <EmptyState
+              orbSize={80}
+              title={t('chart.spending.empty')}
+              hint={t('chart.spending.empty.hint')}
+              className="py-0"
+            />
           </div>
         )}
       </CardContent>

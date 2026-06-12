@@ -16,7 +16,7 @@ import {
 import {
   ChevronLeft, ChevronRight, Plus, Calendar as CalIcon, Moon,
   Trash2, Repeat, MapPin, Bell, Sparkles, Check, Flame, CheckSquare,
-  LayoutGrid, Columns, AlignJustify, Star,
+  LayoutGrid, Columns, AlignJustify, Star, AlertTriangle,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -990,12 +990,55 @@ const SmartCalendar: React.FC = () => {
               </div>
               <div>
                 <Label className="font-arabic text-xs">{t('cal.field.location')}</Label>
-                <Input value={eventForm.location} onChange={e => setEventForm(f => ({ ...f, location: e.target.value }))} className="font-arabic text-sm mt-1" />
+                <Input value={eventForm.location} onChange={e => setEventForm(f => ({ ...f, location: e.target.value }))} placeholder={dir === 'rtl' ? 'المكتب، البرج، أونلاين…' : 'Office, online…'} className="font-arabic text-sm mt-1" />
               </div>
-              <label className="flex items-center justify-between text-xs font-arabic">
-                {t('cal.field.allday')}
-                <Switch checked={eventForm.all_day} onCheckedChange={v => setEventForm(f => ({ ...f, all_day: v }))} />
-              </label>
+              <div>
+                <Label className="font-arabic text-xs">{dir === 'rtl' ? 'ملاحظة' : 'Note'}</Label>
+                <Textarea
+                  value={eventForm.description}
+                  onChange={e => setEventForm(f => ({ ...f, description: e.target.value }))}
+                  placeholder={dir === 'rtl' ? 'تفاصيل، أجندة، أشياء لازم تجهزها…' : 'Details, agenda, things to prepare…'}
+                  className="font-arabic text-sm mt-1 min-h-[60px] resize-none"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-2 items-end">
+                <div>
+                  <Label className="font-arabic text-xs">{dir === 'rtl' ? 'تذكير قبل الموعد' : 'Remind me before'}</Label>
+                  <Select value={String(eventForm.reminder_min)} onValueChange={v => setEventForm(f => ({ ...f, reminder_min: Number(v) }))}>
+                    <SelectTrigger className="mt-1 font-arabic text-sm h-9"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="5" className="font-arabic">{dir === 'rtl' ? '٥ دقائق' : '5 min'}</SelectItem>
+                      <SelectItem value="15" className="font-arabic">{dir === 'rtl' ? '١٥ دقيقة' : '15 min'}</SelectItem>
+                      <SelectItem value="30" className="font-arabic">{dir === 'rtl' ? '٣٠ دقيقة' : '30 min'}</SelectItem>
+                      <SelectItem value="60" className="font-arabic">{dir === 'rtl' ? 'ساعة' : '1 hour'}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <label className="flex items-center justify-between text-xs font-arabic h-9 px-1">
+                  {t('cal.field.allday')}
+                  <Switch checked={eventForm.all_day} onCheckedChange={v => setEventForm(f => ({ ...f, all_day: v }))} />
+                </label>
+              </div>
+
+              {/* Conflict warning — live check against loaded events */}
+              {(() => {
+                if (!eventForm.date || !eventForm.time || eventForm.all_day) return null;
+                const start = new Date(`${eventForm.date}T${eventForm.time}`);
+                const end = new Date(start.getTime() + 3600000);
+                const clash = events.find(ev => {
+                  const rs = ev.starts_at ?? ev.start_at;
+                  if (!rs) return false;
+                  const es = new Date(rs);
+                  const ee = new Date(ev.ends_at ?? ev.end_at ?? es.getTime() + 3600000);
+                  return es < end && ee > start;
+                });
+                return clash ? (
+                  <div className="flex items-center gap-2 text-xs font-arabic px-3 py-2 rounded-xl bg-jood-warn/10 border border-jood-warn/30 text-jood-warn">
+                    <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" />
+                    {dir === 'rtl' ? `تعارض مع «${clash.title}»` : `Conflicts with "${clash.title}"`}
+                  </div>
+                ) : null;
+              })()}
             </div>
           )}
 

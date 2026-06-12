@@ -90,9 +90,9 @@ export const MonthlyFlowChart: React.FC<MonthlyFlowChartProps> = ({ data, curren
                 />
                 <Tooltip content={<CustomTooltip />} cursor={{ fill: 'hsl(var(--muted))', opacity: 0.3 }} />
                 <Legend content={<CustomLegend />} />
-                <Bar dataKey="income"  name={t('chart.flow.income')}  fill="#0d5c63" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="expense" name={t('chart.flow.expense')} fill="#ef4444" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="savings" name={t('chart.flow.savings')} fill="#10b981" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="income"  name={t('chart.flow.income')}  fill="hsl(var(--jood-teal-700))" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="expense" name={t('chart.flow.expense')} fill="hsl(var(--jood-warn))" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="savings" name={t('chart.flow.savings')} fill="hsl(var(--jood-gold-500))" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>

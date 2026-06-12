@@ -5,6 +5,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useProfile } from '@/hooks/useProfile';
 import { useLanguage } from '@/hooks/useLanguage';
 import { useSubscription } from '@/hooks/useSubscription';
+import { useEventReminders } from '@/hooks/useEventReminders';
 import { Button } from '@/components/ui/button';
 import { HomeOverview } from '@/components/Home/HomeOverview';
 import { JoodOrb } from '@/components/Voice/JoodOrb';
@@ -244,6 +245,7 @@ const Dashboard = () => {
   const { theme, setTheme } = useTheme();
   const { t, lang, dir } = useLanguage();
   const { hasPaymentIssue, openCustomerPortal } = useSubscription();
+  useEventReminders(); // fires event reminders (browser notification + toast) while app is open
   const NAV = buildNav(t);
   const [activeTab, setActiveTab] = useState('home');
   const [profileOpen, setProfileOpen] = useState(false);
