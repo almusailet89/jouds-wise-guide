@@ -149,16 +149,20 @@ Rules:
     .is('dismissed_at', null)
     .lt('created_at', threeDaysAgo);
 
-  const rows = recs.map(r => ({
-    user_id: userId,
-    kind: r.kind ?? 'planning',
-    title: r.title ?? '',
-    body: r.body ?? null,
-    cta_label: r.cta_label ?? null,
-    cta_target: r.cta_target ?? null,
-    confidence: Math.min(1, Math.max(0, r.confidence ?? 0.7)),
-    priority: Math.min(10, Math.max(1, Math.round(r.priority ?? 5))),
-  }));
+  const rows = recs.map(r => {
+    const kind = r.kind ?? 'planning';
+    return {
+      user_id: userId,
+      scope: kind,  // required not-null column
+      kind,
+      title: r.title ?? '',
+      body: r.body ?? null,
+      cta_label: r.cta_label ?? null,
+      cta_target: r.cta_target ?? null,
+      confidence: Math.min(1, Math.max(0, r.confidence ?? 0.7)),
+      priority: Math.min(10, Math.max(1, Math.round(r.priority ?? 5))),
+    };
+  });
 
   if (rows.length > 0) {
     await supabase.from('ai_recommendations').insert(rows);
