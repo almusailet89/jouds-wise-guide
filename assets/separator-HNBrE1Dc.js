@@ -1,0 +1,1 @@
+import{r as p,j as l,x as a}from"./vendor-radix-CquO0ixQ.js";import{e as m}from"./index-Damb9rAe.js";const x=p.forwardRef(({className:o,orientation:r="horizontal",decorative:s=!0,...t},e)=>l.jsx(a,{ref:e,decorative:s,orientation:r,className:m("shrink-0 bg-border",r==="horizontal"?"h-[1px] w-full":"h-full w-[1px]",o),...t}));x.displayName=a.displayName;export{x as S};
