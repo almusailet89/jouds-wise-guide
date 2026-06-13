@@ -251,8 +251,7 @@ export const MorningBrief: React.FC<Props> = ({ onActionClick }) => {
               <Button
                 onClick={handleShare}
                 size="sm"
-                variant="outline"
-                className="gap-1.5 font-arabic text-xs border-white/20 text-white/70 hover:bg-white/10 hover:text-white flex-1"
+                className="gap-1.5 font-arabic text-xs bg-jood-gold-500/90 hover:bg-jood-gold-400 text-jood-teal-900 font-bold shadow-md flex-1"
               >
                 <Share2 className="w-3.5 h-3.5" />
                 {lang === 'ar' ? 'شارك اليوم' : 'Share Brief'}
