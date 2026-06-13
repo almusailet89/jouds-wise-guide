@@ -128,51 +128,32 @@ export const AIRecommendations: React.FC<AIRecommendationsProps> = ({ onNavigate
       .update({ dismissed_at: null }).eq('id', id);
   };
 
-  // ── Generate fresh recommendations via edge function ────────────────────────
-  const generate = async () => {
+  // ── Generate via dedicated edge function ────────────────────────────────────
+  const generate = async (silent = false) => {
     if (!user) return;
     setGenerating(true);
     try {
-      // Try edge function first
-      const { error } = await supabase.functions.invoke('ai-chat', {
-        body: {
-          mode: 'recommend',
-          user_id: user.id,
-          message: 'ولّدي ٣ توصيات جديدة بناءً على آخر أنشطتي (مالي، صحة، تخطيط، روحي).',
-        },
-      });
-
-      // Fallback: insert sample recommendations so the UI never feels empty
-      if (error) {
-        const samples: Partial<Recommendation>[] = [
-          {
-            kind: 'finance', title: 'راجعي مصروفات هذا الأسبوع',
-            body: 'لاحظت ارتفاعاً بنسبة ١٢٪ في الإنفاق على المطاعم مقارنة بالأسبوع الماضي.',
-            cta_label: 'افتحي المالية', cta_target: 'financial', confidence: 0.82, priority: 5,
-          },
-          {
-            kind: 'spiritual', title: 'حان وقت تجديد النية',
-            body: 'مضى أسبوعان على آخر تحقق من الزكاة — لنحدّث المبلغ المستحق.',
-            cta_label: 'احسبي الزكاة', cta_target: 'financial', confidence: 0.78, priority: 4,
-          },
-          {
-            kind: 'health', title: 'تذكير: تتبع مزاجك اليوم',
-            body: 'تسجيلاتك الأخيرة تُظهر انتظاماً — استمري لتثبيت العادة!',
-            cta_label: 'تسجيل المزاج', cta_target: 'mood', confidence: 0.71, priority: 3,
-          },
-        ];
-        await (supabase as any).from('ai_recommendations')
-          .insert(samples.map(s => ({ ...s, user_id: user.id })));
-      }
-
+      const { error } = await supabase.functions.invoke('generate-recommendations');
+      if (error) throw error;
       await load();
-      toast({ title: t('rec.toast.generated'), description: t('rec.toast.generated.desc') });
+      if (!silent) toast({ title: t('rec.toast.generated'), description: t('rec.toast.generated.desc') });
     } catch (err) {
-      toast({ title: t('rec.toast.failed'), description: String(err), variant: 'destructive' });
+      if (!silent) toast({ title: t('rec.toast.failed'), description: String(err), variant: 'destructive' });
     } finally {
       setGenerating(false);
     }
   };
+
+  // ── Auto-refresh: generate on first load or if newest rec is > 7 days old ──
+  useEffect(() => {
+    if (!user || loading) return;
+    const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+    const newest = items[0]?.created_at ? new Date(items[0].created_at).getTime() : 0;
+    if (Date.now() - newest > WEEK_MS) {
+      generate(true);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, user]);
 
   // ─── Render ────────────────────────────────────────────────────────────────
   return (
