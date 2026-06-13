@@ -6,9 +6,11 @@ import { useProfile } from '@/hooks/useProfile';
 import { useLanguage } from '@/hooks/useLanguage';
 import { useSubscription } from '@/hooks/useSubscription';
 import { useEventReminders } from '@/hooks/useEventReminders';
+import { useRoles } from '@/hooks/useRoles';
 import { Button } from '@/components/ui/button';
 import { HomeOverview } from '@/components/Home/HomeOverview';
 import { JoodOrb } from '@/components/Voice/JoodOrb';
+import { useNavigate } from 'react-router-dom';
 
 // Heavy tab components — loaded only when the user first visits that tab
 const FinancialDashboard = lazy(() => import('@/components/Dashboard/FinancialDashboard').then(m => ({ default: m.FinancialDashboard })));
@@ -31,7 +33,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   MessageSquare, TrendingUp, Heart, Home,
-  LogOut, User, Mic, Download, Sparkles, CalendarCheck, Settings, Bell, Moon, Sun, FlaskConical,
+  LogOut, Mic, Download, Sparkles, CalendarCheck, Settings, Bell, Moon, Sun, FlaskConical, ShieldCheck,
 } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { cn } from '@/lib/utils';
@@ -245,6 +247,8 @@ const Dashboard = () => {
   const { theme, setTheme } = useTheme();
   const { t, lang, dir } = useLanguage();
   const { hasPaymentIssue, openCustomerPortal } = useSubscription();
+  const { isAdmin } = useRoles();
+  const navigate = useNavigate();
   useEventReminders(); // fires event reminders (browser notification + toast) while app is open
   const NAV = buildNav(t);
   const [activeTab, setActiveTab] = useState('home');
@@ -350,6 +354,20 @@ const Dashboard = () => {
 
           {/* Right actions */}
           <div className="flex items-center gap-2 mr-auto">
+            {/* Admin control centre — visible to admins only */}
+            {isAdmin() && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => navigate('/admin')}
+                className="h-8 gap-1.5 text-jood-gold-600 hover:text-jood-gold-700 hover:bg-jood-gold-500/10 border border-jood-gold-300/40 rounded-full ltr:pl-2 ltr:pr-3 rtl:pr-2 rtl:pl-3"
+                title="Admin Control Centre"
+              >
+                <ShieldCheck className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline text-xs font-semibold">Admin</span>
+              </Button>
+            )}
+
             {/* Dark mode toggle */}
             <Button
               variant="ghost"

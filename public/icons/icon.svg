@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Background: brand teal -->
+  <rect width="512" height="512" rx="114" fill="#0E4E4E"/>
+
+  <!-- Jood orb: deep teal sphere -->
+  <defs>
+    <radialGradient id="orb" cx="42%" cy="35%" r="60%">
+      <stop offset="0%" stop-color="#1a7a6e"/>
+      <stop offset="55%" stop-color="#0E4E4E"/>
+      <stop offset="100%" stop-color="#062e2e"/>
+    </radialGradient>
+    <radialGradient id="glow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#b89240" stop-opacity="0.25"/>
+      <stop offset="100%" stop-color="#b89240" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <!-- Soft gold ambient glow -->
+  <circle cx="256" cy="256" r="170" fill="url(#glow)"/>
+
+  <!-- Main sphere -->
+  <circle cx="256" cy="256" r="148" fill="url(#orb)"/>
+
+  <!-- Gold wave lines — signature Jood orb detail -->
+  <g opacity="0.85">
+    <!-- Wave 1 -->
+    <path d="M120 248 Q160 232 200 248 Q240 264 280 248 Q320 232 360 248 Q380 256 392 256"
+          stroke="#b89240" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+    <!-- Wave 2 -->
+    <path d="M128 264 Q168 248 208 264 Q248 280 288 264 Q328 248 368 264 Q382 272 390 270"
+          stroke="#d4a84b" stroke-width="2.5" fill="none" stroke-linecap="round" opacity="0.7"/>
+    <!-- Wave 3 -->
+    <path d="M136 280 Q176 268 216 280 Q256 292 296 280 Q336 268 370 280"
+          stroke="#b89240" stroke-width="2" fill="none" stroke-linecap="round" opacity="0.5"/>
+    <!-- Wave 4 highlight -->
+    <path d="M140 232 Q180 220 220 232 Q260 244 300 232 Q340 220 372 232"
+          stroke="#e8c47a" stroke-width="2" fill="none" stroke-linecap="round" opacity="0.4"/>
+  </g>
+
+  <!-- Specular highlight -->
+  <ellipse cx="218" cy="205" rx="38" ry="22" fill="white" opacity="0.09" transform="rotate(-20 218 205)"/>
+</svg>

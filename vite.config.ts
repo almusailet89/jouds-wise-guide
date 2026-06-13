@@ -2,15 +2,65 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
 import { componentTagger } from "lovable-tagger";
+import { VitePWA } from "vite-plugin-pwa";
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
-  base: mode === "production" ? "/jouds-wise-guide/" : "/",
+  base: "/",
   server: {
     host: "::",
     port: 8080,
   },
-  plugins: [react(), mode === "development" && componentTagger()].filter(Boolean),
+  plugins: [
+    react(),
+    mode === "development" && componentTagger(),
+    VitePWA({
+      registerType: "autoUpdate",
+      // Service worker lives at /sw.js — no extra path prefix needed
+      filename: "sw.js",
+      manifest: false, // We ship our own /public/manifest.json
+      workbox: {
+        // Cache strategy: network-first for API/auth calls, cache-first for assets
+        runtimeCaching: [
+          {
+            // Supabase API — network-first, 10s timeout, fallback to cache
+            urlPattern: /^https:\/\/.*\.supabase\.co\//,
+            handler: "NetworkFirst",
+            options: {
+              cacheName: "supabase-api",
+              networkTimeoutSeconds: 10,
+              expiration: { maxEntries: 50, maxAgeSeconds: 300 },
+            },
+          },
+          {
+            // External data APIs (prayer times, weather, exchange rates)
+            urlPattern: /^https:\/\/(api\.aladhan\.com|api\.open-meteo\.com|open\.er-api\.com)\//,
+            handler: "StaleWhileRevalidate",
+            options: {
+              cacheName: "external-apis",
+              expiration: { maxEntries: 20, maxAgeSeconds: 3600 },
+            },
+          },
+          {
+            // Google Fonts + any CDN fonts
+            urlPattern: /^https:\/\/fonts\.(googleapis|gstatic)\.com\//,
+            handler: "CacheFirst",
+            options: {
+              cacheName: "fonts",
+              expiration: { maxEntries: 10, maxAgeSeconds: 60 * 60 * 24 * 365 },
+            },
+          },
+        ],
+        globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
+        navigateFallback: "/index.html",
+        // Don't cache the admin route in SW — always network
+        navigateFallbackDenylist: [/^\/admin/],
+      },
+      devOptions: {
+        enabled: false, // Keep dev uncluttered; SW only activates in prod build
+      },
+    }),
+  ].filter(Boolean),
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
