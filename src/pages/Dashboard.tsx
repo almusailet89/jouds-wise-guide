@@ -502,22 +502,36 @@ const Dashboard = () => {
             </ErrorBoundary>
           </TabsContent>
 
-          {/* ── Recommendations + Mood ───────────────────────────────────── */}
+          {/* ── Recommendations + Mood sidebar ───────────────────────────── */}
           <TabsContent value="recommendations" className="p-4 mt-0">
             <ErrorBoundary fallbackLabel={t('error.load.mood')} lang={lang}>
               <Suspense fallback={<TabSkeleton />}>
                 <Fade>
-                  <div className="space-y-6">
-                    {/* Compact mood logger at top */}
-                    <div>
-                      <h3 className="text-base font-bold font-arabic mb-3 text-foreground flex items-center gap-2">
-                        <Heart className="w-4 h-4 text-rose-500 flex-shrink-0" />
-                        {t('tab.mood') || 'تتبع المزاج'}
-                      </h3>
-                      <MoodTracker />
+                  <div className="flex gap-6 items-start">
+                    {/* Main: AI Recommendations */}
+                    <div className="flex-1 min-w-0">
+                      <AIRecommendations onNavigate={setActiveTab} />
                     </div>
-                    {/* AI Recommendations */}
-                    <AIRecommendations onNavigate={setActiveTab} />
+                    {/* Sidebar: Mood tracker */}
+                    <div className="hidden lg:block w-80 flex-shrink-0">
+                      <div className="sticky top-4">
+                        <h3 className="text-sm font-bold font-arabic mb-3 text-foreground flex items-center gap-2">
+                          <Heart className="w-4 h-4 text-rose-500 flex-shrink-0" />
+                          {t('tab.mood') || 'تتبع المزاج'}
+                        </h3>
+                        <MoodTracker />
+                      </div>
+                    </div>
+                    {/* Mobile: Mood below recommendations */}
+                    <div className="lg:hidden w-full" style={{ display: 'none' }} />
+                  </div>
+                  {/* Mobile mood tracker — below on small screens */}
+                  <div className="mt-6 lg:hidden">
+                    <h3 className="text-sm font-bold font-arabic mb-3 text-foreground flex items-center gap-2">
+                      <Heart className="w-4 h-4 text-rose-500 flex-shrink-0" />
+                      {t('tab.mood') || 'تتبع المزاج'}
+                    </h3>
+                    <MoodTracker />
                   </div>
                 </Fade>
               </Suspense>
