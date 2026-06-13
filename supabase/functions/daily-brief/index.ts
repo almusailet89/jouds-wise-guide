@@ -161,10 +161,6 @@ serve(async (req) => {
     const { greeting: greetingAr } = timeBasedGreeting('ar');
     const { greeting: greetingEn } = timeBasedGreeting('en');
 
-    // ── Build bilingual prompt (always generates AR + EN) ─────────────────
-    const { greeting: greetingAr } = timeBasedGreeting('ar');
-    const { greeting: greetingEn } = timeBasedGreeting('en');
-
     // ── Build context strings from real data ───────────────────────────────
     // Next prayer
     let prayerLineAr = '';
