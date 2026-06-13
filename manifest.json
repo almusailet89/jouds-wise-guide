@@ -1,0 +1,60 @@
+{
+  "name": "JOOD AI — مساعدتك الذكية",
+  "short_name": "JOOD AI",
+  "description": "مساعدتك الشخصية الذكية السعودية الأولى — تخطيط مالي، إدارة مهام، تتبع العادات، وأكثر",
+  "lang": "ar",
+  "dir": "rtl",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "theme_color": "#0E4E4E",
+  "background_color": "#3d2a00",
+  "categories": ["productivity", "finance", "lifestyle"],
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/screenshots/home.png",
+      "sizes": "390x844",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "الصفحة الرئيسية — JOOD AI Home"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "محادثة جود",
+      "short_name": "Chat",
+      "description": "ابدأ محادثة مع جود مباشرة",
+      "url": "/dashboard?tab=chat",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "لوحة المالية",
+      "short_name": "Finance",
+      "description": "تابع وضعك المالي",
+      "url": "/dashboard?tab=financial",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
+    }
+  ],
+  "prefer_related_applications": false
+}
