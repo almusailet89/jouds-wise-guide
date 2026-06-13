@@ -900,6 +900,59 @@ serve(async (req) => {
       );
     }
 
+    // ── Rate limiting — per-user per-hour AI request cap ────────────────────
+    stage = 'rate_limit';
+    try {
+      const windowHour = new Date();
+      windowHour.setMinutes(0, 0, 0);
+      const windowKey = windowHour.toISOString();
+
+      // Fetch role to determine limit (Essential=60, Signature=200, admin=unlimited)
+      const { data: roleRow } = await supabaseClient
+        .from('user_roles').select('role').eq('user_id', userId).maybeSingle();
+      const isAdminUser = roleRow?.role === 'admin' || roleRow?.role === 'moderator';
+
+      // Fetch plan via subscriptions table (subscription status)
+      const { data: subRow } = await supabaseClient
+        .from('subscriptions_moyasar').select('plan_id, status').eq('user_id', userId).eq('status', 'active').maybeSingle();
+      // Default to essential limits; Signature plan gets higher limit
+      const isSignature = subRow?.plan_id?.includes('Signature') || subRow?.plan_id?.includes('vSc0');
+      const hourlyLimit = isAdminUser ? Infinity : isSignature ? 200 : 60;
+
+      if (hourlyLimit !== Infinity) {
+        // Upsert counter — increment atomically
+        const { data: counter } = await supabaseClient
+          .from('usage_counters')
+          .select('ai_requests')
+          .eq('user_id', userId)
+          .eq('window_hour', windowKey)
+          .maybeSingle();
+
+        const currentCount = counter?.ai_requests ?? 0;
+        if (currentCount >= hourlyLimit) {
+          return new Response(
+            JSON.stringify({
+              error: 'rate_limited',
+              message: isSignature
+                ? 'لقد تجاوزتِ حد ٢٠٠ طلب في الساعة. يُعاد تعيين الحد بداية الساعة التالية.'
+                : 'لقد تجاوزتِ حد ٦٠ طلباً في الساعة. ترقَّي إلى Signature للحصول على ٢٠٠ طلب/ساعة.',
+              limit: hourlyLimit,
+              used: currentCount,
+              resets_at: new Date(windowHour.getTime() + 3600000).toISOString(),
+            }),
+            { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        // Increment counter (upsert)
+        await supabaseClient.from('usage_counters').upsert({
+          user_id: userId,
+          window_hour: windowKey,
+          ai_requests: currentCount + 1,
+        }, { onConflict: 'user_id,window_hour' });
+      }
+    } catch { /* non-fatal — never block request on rate limit error */ }
+
     // Profile + memory taxonomy (parallel for speed) — non-fatal
     stage = 'profile';
     let userContext = "مستخدم سعودي";

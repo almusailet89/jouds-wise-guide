@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Sparkles, TrendingUp, Heart, Target, Moon, X, Check,
-  ChevronRight, Brain, Loader2, RefreshCcw,
+  ChevronRight, Brain, Loader2, RefreshCcw, SmilePlus,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -32,11 +32,12 @@ interface Recommendation {
 
 // ─── Kind config ──────────────────────────────────────────────────────────────
 const KINDS = [
-  { value: 'all',       label: 'الكل',      icon: Sparkles, color: 'text-jood-gold-500' },
+  { value: 'all',       label: 'الكل',      icon: Sparkles,  color: 'text-jood-gold-500' },
   { value: 'finance',   label: 'مالية',     icon: TrendingUp, color: 'text-jood-teal-700' },
-  { value: 'health',    label: 'صحة',       icon: Heart,    color: 'text-rose-500' },
-  { value: 'planning',  label: 'تخطيط',     icon: Target,   color: 'text-indigo-600' },
-  { value: 'spiritual', label: 'روحية',     icon: Moon,     color: 'text-emerald-600' },
+  { value: 'health',    label: 'صحة',       icon: Heart,     color: 'text-rose-500' },
+  { value: 'planning',  label: 'تخطيط',     icon: Target,    color: 'text-indigo-600' },
+  { value: 'spiritual', label: 'روحية',     icon: Moon,      color: 'text-emerald-600' },
+  { value: 'mood',      label: 'المزاج',    icon: SmilePlus, color: 'text-amber-500' },
 ] as const;
 
 const kindConfig = (v: string) => KINDS.find(k => k.value === v) ?? KINDS[0];
@@ -100,6 +101,7 @@ export const AIRecommendations: React.FC<AIRecommendationsProps> = ({ onNavigate
       health: active.filter(i => i.kind === 'health').length,
       planning: active.filter(i => i.kind === 'planning').length,
       spiritual: active.filter(i => i.kind === 'spiritual').length,
+      mood: active.filter(i => i.kind === 'mood').length,
     };
   }, [items]);
 

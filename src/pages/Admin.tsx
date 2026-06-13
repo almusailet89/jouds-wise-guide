@@ -35,16 +35,19 @@ interface UserData {
   profile?: { display_name?: string; base_currency?: string };
   role?: { role: string };
 }
-interface SupportTicket {
-  id: string; user_email: string; user_name: string;
-  subject: string; status: 'open' | 'in_progress' | 'resolved';
-  last_message: string; created_at: string; unread: number;
-  messages: { role: 'user' | 'jood' | 'admin'; content: string; ts: string }[];
-}
 interface DiscountCode {
   id: string; code: string; type: 'percent' | 'fixed';
-  value: number; uses: number; max_uses: number | null;
-  expires_at: string | null; active: boolean;
+  value: number; used_count: number; max_uses: number | null;
+  expires_at: string | null; active: boolean; created_by: string | null;
+}
+interface DbTicket {
+  id: string; user_id: string; subject: string;
+  status: 'open' | 'in_progress' | 'resolved';
+  created_at: string; updated_at: string; user_name?: string;
+}
+interface DbMessage {
+  id: string; ticket_id: string; sender_role: 'user' | 'jood' | 'admin';
+  content: string; created_at: string;
 }
 interface BillingInterval { key: string; label: string; months: number; discount: number; enabled: boolean; }
 
@@ -61,42 +64,6 @@ const NAV = [
   { key: 'legal',     label: 'Legal',        icon: FileText },
 ];
 
-// ─── Mock support tickets (replace with Supabase table later) ─────────────────
-const MOCK_TICKETS: SupportTicket[] = [
-  {
-    id: 't1', user_email: 'sara@example.com', user_name: 'سارة الغامدي',
-    subject: 'مشكلة في الاشتراك', status: 'open', unread: 2,
-    last_message: 'لم تُعالَج المدفوعات بشكل صحيح',
-    created_at: new Date(Date.now() - 3600000).toISOString(),
-    messages: [
-      { role: 'user', content: 'مرحباً، واجهت مشكلة في تجديد اشتراكي', ts: new Date(Date.now() - 3700000).toISOString() },
-      { role: 'jood', content: 'أهلاً بكِ سارة! أنا جود، مساعدة الدعم. دعيني أتحقق من حسابك. هل يمكنك مشاركة رسالة الخطأ التي ظهرت؟', ts: new Date(Date.now() - 3650000).toISOString() },
-      { role: 'user', content: 'لم تُعالَج المدفوعات بشكل صحيح', ts: new Date(Date.now() - 3600000).toISOString() },
-    ],
-  },
-  {
-    id: 't2', user_email: 'khalid@example.com', user_name: 'خالد العتيبي',
-    subject: 'سؤال عن ميزة الزكاة', status: 'in_progress', unread: 0,
-    last_message: 'شكراً جزيلاً على التوضيح!',
-    created_at: new Date(Date.now() - 86400000).toISOString(),
-    messages: [
-      { role: 'user', content: 'كيف تحسب جود الزكاة؟', ts: new Date(Date.now() - 86400000).toISOString() },
-      { role: 'jood', content: 'تحسب جود الزكاة بناءً على النصاب الذهبي (85 جرام ذهب) وتطبّق 2.5% على كل الثروات التي مرّ عليها الحول. هل تريد تفصيل الحساب؟', ts: new Date(Date.now() - 86200000).toISOString() },
-      { role: 'user', content: 'شكراً جزيلاً على التوضيح!', ts: new Date(Date.now() - 86000000).toISOString() },
-    ],
-  },
-  {
-    id: 't3', user_email: 'nora@example.com', user_name: 'نورة الشمري',
-    subject: 'طلب استرداد', status: 'resolved', unread: 0,
-    last_message: 'تم استرداد المبلغ بنجاح',
-    created_at: new Date(Date.now() - 172800000).toISOString(),
-    messages: [
-      { role: 'user', content: 'أريد استرداد رسوم الاشتراك', ts: new Date(Date.now() - 172800000).toISOString() },
-      { role: 'admin', content: 'تم معالجة طلب الاسترداد. سيُرجع المبلغ خلال 5-7 أيام عمل.', ts: new Date(Date.now() - 172600000).toISOString() },
-      { role: 'user', content: 'تم استرداد المبلغ بنجاح', ts: new Date(Date.now() - 172000000).toISOString() },
-    ],
-  },
-];
 
 // ─── Default billing intervals ─────────────────────────────────────────────────
 const DEFAULT_INTERVALS: BillingInterval[] = [
@@ -216,20 +183,77 @@ const UsersTab = ({ users, loading, onAssignRole }: { users: UserData[]; loading
 
 // ─── Support tab ──────────────────────────────────────────────────────────────
 const SupportTab = () => {
-  const [tickets] = useState<SupportTicket[]>(MOCK_TICKETS);
-  const [selected, setSelected] = useState<SupportTicket | null>(null);
+  const [tickets, setTickets] = useState<DbTicket[]>([]);
+  const [selected, setSelected] = useState<DbTicket | null>(null);
+  const [msgs, setMsgs] = useState<DbMessage[]>([]);
   const [reply, setReply] = useState('');
-  const [msgs, setMsgs] = useState<SupportTicket['messages']>([]);
+  const [loadingTickets, setLoadingTickets] = useState(true);
+  const [loadingMsgs, setLoadingMsgs] = useState(false);
+  const [sending, setSending] = useState(false);
+
+  const loadTickets = useCallback(async () => {
+    setLoadingTickets(true);
+    const { data: ticketRows } = await supabase
+      .from('support_tickets')
+      .select('*')
+      .order('updated_at', { ascending: false });
+    if (!ticketRows) { setLoadingTickets(false); return; }
+
+    const userIds = [...new Set(ticketRows.map(t => t.user_id))];
+    const { data: profiles } = await supabase
+      .from('profiles')
+      .select('user_id, display_name')
+      .in('user_id', userIds);
+
+    setTickets(ticketRows.map(t => ({
+      ...t,
+      user_name: profiles?.find(p => p.user_id === t.user_id)?.display_name ?? 'Unknown',
+    })));
+    setLoadingTickets(false);
+  }, []);
+
+  const loadMessages = useCallback(async (ticketId: string) => {
+    setLoadingMsgs(true);
+    const { data } = await supabase
+      .from('support_messages')
+      .select('*')
+      .eq('ticket_id', ticketId)
+      .order('created_at', { ascending: true });
+    setMsgs(data ?? []);
+    setLoadingMsgs(false);
+  }, []);
+
+  useEffect(() => { loadTickets(); }, [loadTickets]);
 
   useEffect(() => {
-    if (selected) setMsgs(selected.messages);
-  }, [selected]);
+    if (selected) loadMessages(selected.id);
+  }, [selected, loadMessages]);
 
-  const sendReply = () => {
-    if (!reply.trim() || !selected) return;
-    setMsgs(prev => [...prev, { role: 'admin', content: reply.trim(), ts: new Date().toISOString() }]);
+  const sendReply = async () => {
+    if (!reply.trim() || !selected || sending) return;
+    setSending(true);
+    const { error } = await supabase.from('support_messages').insert({
+      ticket_id: selected.id,
+      sender_role: 'admin',
+      content: reply.trim(),
+    });
+    if (error) { toast.error('Failed to send reply'); setSending(false); return; }
+    // mark ticket in_progress if it was open
+    if (selected.status === 'open') {
+      await supabase.from('support_tickets').update({ status: 'in_progress' }).eq('id', selected.id);
+      setTickets(prev => prev.map(t => t.id === selected.id ? { ...t, status: 'in_progress' } : t));
+      setSelected(s => s ? { ...s, status: 'in_progress' } : s);
+    }
     setReply('');
+    setSending(false);
+    loadMessages(selected.id);
     toast.success('Reply sent');
+  };
+
+  const updateStatus = async (ticketId: string, status: string) => {
+    await supabase.from('support_tickets').update({ status }).eq('id', ticketId);
+    setTickets(prev => prev.map(t => t.id === ticketId ? { ...t, status: status as DbTicket['status'] } : t));
+    if (selected?.id === ticketId) setSelected(s => s ? { ...s, status: status as DbTicket['status'] } : s);
   };
 
   const statusColor = (s: string) =>
@@ -243,22 +267,25 @@ const SupportTab = () => {
         <p className="text-white/50 text-xs mb-1">
           {tickets.filter(t => t.status !== 'resolved').length} open · {tickets.length} total
         </p>
-        {tickets.map(t => (
+        {loadingTickets ? (
+          <p className="text-white/30 text-sm text-center py-8">Loading…</p>
+        ) : tickets.length === 0 ? (
+          <p className="text-white/30 text-sm text-center py-8">No support tickets yet</p>
+        ) : tickets.map(t => (
           <button key={t.id} onClick={() => setSelected(t)}
             className={cn(
               'text-left rounded-lg px-3 py-3 border transition-colors',
               selected?.id === t.id ? 'bg-white/12 border-jood-gold-500/30' : 'bg-white/5 border-white/8 hover:bg-white/8',
             )}
           >
-            <div className="flex items-start justify-between gap-2 mb-1">
-              <p className="text-white text-sm font-medium leading-tight">{t.user_name}</p>
-              {t.unread > 0 && <span className="bg-red-500 text-white text-[9px] font-bold rounded-full px-1.5 py-0.5 flex-shrink-0">{t.unread}</span>}
+            <p className="text-white text-sm font-medium leading-tight mb-1">{t.user_name}</p>
+            <p className="text-white/50 text-xs mb-2 truncate">{t.subject}</p>
+            <div className="flex items-center justify-between">
+              <Badge className={cn('text-[9px] px-1.5 py-0', statusColor(t.status))}>
+                {t.status.replace('_', ' ')}
+              </Badge>
+              <span className="text-white/25 text-[10px]">{new Date(t.updated_at).toLocaleDateString()}</span>
             </div>
-            <p className="text-white/50 text-xs mb-1.5 truncate">{t.subject}</p>
-            <p className="text-white/30 text-xs truncate mb-2">{t.last_message}</p>
-            <Badge className={cn('text-[9px] px-1.5 py-0', statusColor(t.status))}>
-              {t.status.replace('_', ' ')}
-            </Badge>
           </button>
         ))}
       </div>
@@ -274,9 +301,9 @@ const SupportTab = () => {
             <div className="px-4 py-3 border-b border-white/10 flex items-center justify-between">
               <div>
                 <p className="text-white font-semibold text-sm">{selected.user_name}</p>
-                <p className="text-white/40 text-xs">{selected.user_email} · {selected.subject}</p>
+                <p className="text-white/40 text-xs">{selected.subject}</p>
               </div>
-              <Select defaultValue={selected.status}>
+              <Select value={selected.status} onValueChange={v => updateStatus(selected.id, v)}>
                 <SelectTrigger className="w-32 h-7 bg-white/5 border-white/15 text-white text-xs">
                   <SelectValue />
                 </SelectTrigger>
@@ -289,26 +316,32 @@ const SupportTab = () => {
             </div>
 
             <ScrollArea className="flex-1 px-4 py-3">
-              <div className="space-y-3">
-                {msgs.map((m, i) => (
-                  <div key={i} className={cn('flex', m.role === 'user' ? 'justify-start' : 'justify-end')}>
-                    <div className={cn(
-                      'max-w-[80%] rounded-2xl px-3 py-2 text-sm',
-                      m.role === 'user' ? 'bg-white/10 text-white' :
-                      m.role === 'jood' ? 'bg-jood-teal-900/60 text-white border border-jood-teal-700/30' :
-                      'bg-amber-600/30 text-amber-100 border border-amber-500/30',
-                    )}>
-                      {m.role !== 'user' && (
-                        <p className="text-[9px] font-bold mb-1 opacity-60 uppercase tracking-wide">
-                          {m.role === 'jood' ? '🤖 Jood AI' : '👤 Admin'}
-                        </p>
-                      )}
-                      <p className="leading-relaxed">{m.content}</p>
-                      <p className="text-[9px] opacity-40 mt-1">{new Date(m.ts).toLocaleTimeString()}</p>
+              {loadingMsgs ? (
+                <p className="text-white/30 text-sm text-center py-8">Loading…</p>
+              ) : msgs.length === 0 ? (
+                <p className="text-white/30 text-sm text-center py-8">No messages yet</p>
+              ) : (
+                <div className="space-y-3">
+                  {msgs.map(m => (
+                    <div key={m.id} className={cn('flex', m.sender_role === 'user' ? 'justify-start' : 'justify-end')}>
+                      <div className={cn(
+                        'max-w-[80%] rounded-2xl px-3 py-2 text-sm',
+                        m.sender_role === 'user' ? 'bg-white/10 text-white' :
+                        m.sender_role === 'jood' ? 'bg-jood-teal-900/60 text-white border border-jood-teal-700/30' :
+                        'bg-amber-600/30 text-amber-100 border border-amber-500/30',
+                      )}>
+                        {m.sender_role !== 'user' && (
+                          <p className="text-[9px] font-bold mb-1 opacity-60 uppercase tracking-wide">
+                            {m.sender_role === 'jood' ? '🤖 JOOD AI' : '👤 Admin'}
+                          </p>
+                        )}
+                        <p className="leading-relaxed">{m.content}</p>
+                        <p className="text-[9px] opacity-40 mt-1">{new Date(m.created_at).toLocaleTimeString()}</p>
+                      </div>
                     </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </ScrollArea>
 
             <div className="px-4 py-3 border-t border-white/10 flex gap-2">
@@ -319,7 +352,7 @@ const SupportTab = () => {
                 placeholder="Reply as admin…"
                 className="flex-1 bg-white/5 border-white/15 text-white placeholder-white/30 text-sm"
               />
-              <Button size="sm" onClick={sendReply}
+              <Button size="sm" onClick={sendReply} disabled={sending}
                 className="bg-jood-gold-500 hover:bg-jood-gold-600 text-white px-3">
                 <Send className="w-4 h-4" />
               </Button>
@@ -426,29 +459,53 @@ const PackagesTab = ({ intervals, setIntervals }: {
 
 // ─── Discounts tab ────────────────────────────────────────────────────────────
 const DiscountsTab = () => {
-  const [codes, setCodes] = useState<DiscountCode[]>([
-    { id: 'd1', code: 'WELCOME20', type: 'percent', value: 20, uses: 47, max_uses: 100, expires_at: '2026-12-31', active: true },
-    { id: 'd2', code: 'JOOD50SAR', type: 'fixed', value: 50, uses: 12, max_uses: null, expires_at: null, active: true },
-    { id: 'd3', code: 'LAUNCH15', type: 'percent', value: 15, uses: 100, max_uses: 100, expires_at: '2026-07-01', active: false },
-  ]);
+  const { user } = useAuth();
+  const [codes, setCodes] = useState<DiscountCode[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({ code: '', type: 'percent', value: 20, max_uses: '', expires_at: '' });
+
+  const loadCodes = useCallback(async () => {
+    setLoading(true);
+    const { data } = await supabase
+      .from('discount_codes')
+      .select('*')
+      .order('created_at', { ascending: false });
+    setCodes(data ?? []);
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { loadCodes(); }, [loadCodes]);
 
   const generate = () => {
     const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
     return Array.from({ length: 8 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
   };
 
-  const create = () => {
+  const create = async () => {
     if (!form.code.trim()) { toast.error('Enter a code'); return; }
-    const newCode: DiscountCode = {
-      id: Date.now().toString(), code: form.code.toUpperCase(),
-      type: form.type as 'percent' | 'fixed', value: Number(form.value),
-      uses: 0, max_uses: form.max_uses ? Number(form.max_uses) : null,
-      expires_at: form.expires_at || null, active: true,
-    };
-    setCodes(prev => [newCode, ...prev]);
-    setForm({ code: '', type: 'percent', value: 20, max_uses: '', expires_at: '' });
-    toast.success(`Code ${newCode.code} created`);
+    setSaving(true);
+    const { data, error } = await supabase.from('discount_codes').insert({
+      code: form.code.toUpperCase(),
+      type: form.type,
+      value: Number(form.value),
+      max_uses: form.max_uses ? Number(form.max_uses) : null,
+      expires_at: form.expires_at || null,
+      created_by: user?.id ?? null,
+    }).select().single();
+    if (error) {
+      toast.error(error.code === '23505' ? 'Code already exists' : 'Failed to create code');
+    } else {
+      setCodes(prev => [data, ...prev]);
+      setForm({ code: '', type: 'percent', value: 20, max_uses: '', expires_at: '' });
+      toast.success(`Code ${data.code} created`);
+    }
+    setSaving(false);
+  };
+
+  const toggleActive = async (id: string, active: boolean) => {
+    await supabase.from('discount_codes').update({ active }).eq('id', id);
+    setCodes(prev => prev.map(c => c.id === id ? { ...c, active } : c));
   };
 
   return (
@@ -497,8 +554,8 @@ const DiscountsTab = () => {
                 className="bg-white/5 border-white/15 text-white text-sm" />
             </div>
             <div className="col-span-2 flex items-end">
-              <Button onClick={create} className="w-full bg-jood-gold-500 hover:bg-jood-gold-600 text-white">
-                <Plus className="w-4 h-4 mr-1" /> Create Code
+              <Button onClick={create} disabled={saving} className="w-full bg-jood-gold-500 hover:bg-jood-gold-600 text-white">
+                <Plus className="w-4 h-4 mr-1" /> {saving ? 'Creating…' : 'Create Code'}
               </Button>
             </div>
           </div>
@@ -506,28 +563,33 @@ const DiscountsTab = () => {
       </Card>
 
       {/* Code list */}
-      <div className="space-y-2">
-        {codes.map(c => (
-          <div key={c.id} className={cn('flex items-center justify-between px-4 py-3 rounded-lg border', c.active ? 'bg-white/5 border-white/10' : 'bg-white/2 border-white/5 opacity-50')}>
-            <div className="flex items-center gap-3">
-              <code className="text-amber-300 font-bold font-mono text-sm bg-amber-500/10 px-2 py-0.5 rounded">{c.code}</code>
-              <span className="text-white/60 text-sm">
-                {c.type === 'percent' ? `${c.value}% off` : `SAR ${c.value} off`}
-              </span>
-              {c.expires_at && <span className="text-white/30 text-xs">Expires {c.expires_at}</span>}
+      {loading ? (
+        <p className="text-white/30 text-sm text-center py-8">Loading…</p>
+      ) : codes.length === 0 ? (
+        <p className="text-white/30 text-sm text-center py-8">No discount codes yet — create your first one above.</p>
+      ) : (
+        <div className="space-y-2">
+          {codes.map(c => (
+            <div key={c.id} className={cn('flex items-center justify-between px-4 py-3 rounded-lg border', c.active ? 'bg-white/5 border-white/10' : 'bg-white/2 border-white/5 opacity-50')}>
+              <div className="flex items-center gap-3">
+                <code className="text-amber-300 font-bold font-mono text-sm bg-amber-500/10 px-2 py-0.5 rounded">{c.code}</code>
+                <span className="text-white/60 text-sm">
+                  {c.type === 'percent' ? `${c.value}% off` : `SAR ${c.value} off`}
+                </span>
+                {c.expires_at && <span className="text-white/30 text-xs">Expires {new Date(c.expires_at).toLocaleDateString()}</span>}
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="text-white/40 text-xs">{c.used_count}{c.max_uses ? `/${c.max_uses}` : ''} uses</span>
+                <Switch checked={c.active} onCheckedChange={v => toggleActive(c.id, v)} />
+                <Button size="icon" variant="ghost" className="h-7 w-7 text-white/30 hover:text-white"
+                  onClick={() => { navigator.clipboard.writeText(c.code); toast.success('Copied!'); }}>
+                  <Copy className="w-3.5 h-3.5" />
+                </Button>
+              </div>
             </div>
-            <div className="flex items-center gap-3">
-              <span className="text-white/40 text-xs">{c.uses}{c.max_uses ? `/${c.max_uses}` : ''} uses</span>
-              <Switch checked={c.active}
-                onCheckedChange={v => setCodes(prev => prev.map(x => x.id === c.id ? { ...x, active: v } : x))} />
-              <Button size="icon" variant="ghost" className="h-7 w-7 text-white/30 hover:text-white"
-                onClick={() => { navigator.clipboard.writeText(c.code); toast.success('Copied!'); }}>
-                <Copy className="w-3.5 h-3.5" />
-              </Button>
-            </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 };

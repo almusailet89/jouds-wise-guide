@@ -1,9 +1,8 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Brain, BookHeart, Shield, Link2, Bell, CalendarDays, Mic2 } from 'lucide-react';
+import { BookHeart, Shield, Link2, Bell, CalendarDays, Mic2, UserCog } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useLanguage } from '@/hooks/useLanguage';
-import AIRecommendations from '@/components/Recommendations/AIRecommendations';
 import MemoryCenter from '@/components/Memory/MemoryCenter';
 import SecurityCenter from '@/components/Security/SecurityCenter';
 import IntegrationsHub from '@/components/Settings/IntegrationsHub';
@@ -11,7 +10,7 @@ import CalendarSettings from '@/components/Settings/CalendarSettings';
 import NotificationPrefs from '@/components/Notifications/NotificationPrefs';
 import VoiceSettings from '@/components/Settings/VoiceSettings';
 
-type SettingsTab = 'insights' | 'voice' | 'memory' | 'calendar' | 'security' | 'integrations' | 'notifications';
+type SettingsTab = 'profile' | 'voice' | 'memory' | 'calendar' | 'security' | 'integrations' | 'notifications';
 
 interface SettingsHubProps {
   onNavigate?: (tab: string) => void;
@@ -19,10 +18,10 @@ interface SettingsHubProps {
 
 const SettingsHub: React.FC<SettingsHubProps> = ({ onNavigate }) => {
   const { t, lang } = useLanguage();
-  const [active, setActive] = useState<SettingsTab>('insights');
+  const [active, setActive] = useState<SettingsTab>('profile');
 
   const TABS: { value: SettingsTab; label: string; icon: React.ElementType }[] = [
-    { value: 'insights',      label: t('settings.tab.insights'),      icon: Brain },
+    { value: 'profile',       label: lang === 'ar' ? 'الحساب' : 'Account',  icon: UserCog },
     { value: 'voice',         label: lang === 'ar' ? 'الصوت' : 'Voice', icon: Mic2 },
     { value: 'calendar',      label: t('settings.tab.calendar'),      icon: CalendarDays },
     { value: 'memory',        label: t('settings.tab.memory'),        icon: BookHeart },
@@ -63,7 +62,12 @@ const SettingsHub: React.FC<SettingsHubProps> = ({ onNavigate }) => {
           exit={{ opacity: 0 }}
           transition={{ duration: 0.2 }}
         >
-          {active === 'insights'      && <AIRecommendations onNavigate={onNavigate ?? (() => {})} />}
+          {active === 'profile'       && (
+            <div className="text-center py-8 text-muted-foreground text-sm font-arabic">
+              <UserCog className="w-8 h-8 mx-auto mb-2 opacity-40" />
+              {lang === 'ar' ? 'انقر على صورتك في الشريط العلوي لتعديل ملفك الشخصي' : 'Click your avatar in the top bar to edit your profile'}
+            </div>
+          )}
           {active === 'voice'         && <VoiceSettings />}
           {active === 'calendar'      && <CalendarSettings />}
           {active === 'memory'        && <MemoryCenter />}

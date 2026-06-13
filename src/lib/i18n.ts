@@ -4,11 +4,12 @@ export type Lang = 'ar' | 'en';
 const strings: Record<Lang, Record<string, string>> = {
   ar: {
     // Nav
-    'nav.home':      'الرئيسية',
-    'nav.chat':      'جود AI',
-    'nav.financial': 'المالية',
-    'nav.planning':  'تخطيطي',
-    'nav.mood':      'المزاج',
+    'nav.home':            'الرئيسية',
+    'nav.chat':            'جود AI',
+    'nav.financial':       'المالية',
+    'nav.planning':        'تخطيطي',
+    'nav.mood':            'المزاج',
+    'nav.recommendations': 'توصيات',
     'nav.settings':  'الإعدادات',
 
     // Header
@@ -258,6 +259,7 @@ const strings: Record<Lang, Record<string, string>> = {
     'rec.cat.health':      'صحة',
     'rec.cat.planning':    'تخطيط',
     'rec.cat.spiritual':   'روحية',
+    'rec.cat.mood':        'المزاج',
 
     // Mood
     'mood.title':       'كيف حالك اليوم؟',
@@ -849,11 +851,12 @@ const strings: Record<Lang, Record<string, string>> = {
 
   en: {
     // Nav
-    'nav.home':      'Home',
-    'nav.chat':      'Jood AI',
-    'nav.financial': 'Finance',
-    'nav.planning':  'Planning',
-    'nav.mood':      'Mood',
+    'nav.home':            'Home',
+    'nav.chat':            'Jood AI',
+    'nav.financial':       'Finance',
+    'nav.planning':        'Planning',
+    'nav.mood':            'Mood',
+    'nav.recommendations': 'Insights',
     'nav.settings':  'Settings',
 
     // Header
@@ -1103,6 +1106,7 @@ const strings: Record<Lang, Record<string, string>> = {
     'rec.cat.health':      'Health',
     'rec.cat.planning':    'Planning',
     'rec.cat.spiritual':   'Spiritual',
+    'rec.cat.mood':        'Mood',
 
     // Mood
     'mood.title':       'How are you today?',

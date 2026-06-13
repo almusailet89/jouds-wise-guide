@@ -13,11 +13,12 @@ import { JoodOrb } from '@/components/Voice/JoodOrb';
 import { useNavigate } from 'react-router-dom';
 
 // Heavy tab components — loaded only when the user first visits that tab
-const FinancialDashboard = lazy(() => import('@/components/Dashboard/FinancialDashboard').then(m => ({ default: m.FinancialDashboard })));
-const MoodTracker        = lazy(() => import('@/components/Mood/MoodTracker'));
-const ExportPanel        = lazy(() => import('@/components/Export/ExportPanel').then(m => ({ default: m.ExportPanel })));
-const PlanningHub        = lazy(() => import('@/components/Planning/PlanningHub'));
-const SettingsHub        = lazy(() => import('@/components/Settings/SettingsHub'));
+const FinancialDashboard  = lazy(() => import('@/components/Dashboard/FinancialDashboard').then(m => ({ default: m.FinancialDashboard })));
+const MoodTracker         = lazy(() => import('@/components/Mood/MoodTracker'));
+const ExportPanel         = lazy(() => import('@/components/Export/ExportPanel').then(m => ({ default: m.ExportPanel })));
+const PlanningHub         = lazy(() => import('@/components/Planning/PlanningHub'));
+const SettingsHub         = lazy(() => import('@/components/Settings/SettingsHub'));
+const AIRecommendations   = lazy(() => import('@/components/Recommendations/AIRecommendations').then(m => ({ default: m.AIRecommendations })));
 
 // Chat tab — react-markdown + react-syntax-highlighter are heavy; load on demand
 const ChatInterface  = lazy(() => import('@/components/Chat/ChatInterface').then(m => ({ default: m.ChatInterface })));
@@ -33,7 +34,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   MessageSquare, TrendingUp, Heart, Home,
-  LogOut, Mic, Download, Sparkles, CalendarCheck, Settings, Bell, Moon, Sun, FlaskConical, ShieldCheck,
+  LogOut, Mic, Download, Sparkles, CalendarCheck, Settings, Bell, Moon, Sun, FlaskConical, ShieldCheck, Brain,
 } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { cn } from '@/lib/utils';
@@ -96,8 +97,8 @@ const buildNav = (t: (k: string) => string) => [
   { value: 'chat',      label: t('nav.chat'),      icon: MessageSquare },
   { value: 'financial', label: t('nav.financial'), icon: TrendingUp },
   { value: 'planning',  label: t('nav.planning'),  icon: CalendarCheck },
-  { value: 'mood',      label: t('nav.mood'),      icon: Heart },
-  { value: 'settings',  label: t('nav.settings'),  icon: Settings },
+  { value: 'recommendations', label: t('nav.recommendations') || 'توصيات', icon: Brain },
+  { value: 'settings',        label: t('nav.settings'),  icon: Settings },
   // Dev-only sandbox tab — never shown to production users
   ...(import.meta.env.DEV ? [{ value: 'test', label: 'Test', icon: FlaskConical }] : []),
 ];
@@ -273,7 +274,7 @@ const Dashboard = () => {
   React.useEffect(() => {
     const handler = (e: Event) => {
       const tab = (e as CustomEvent).detail?.tab;
-      if (tab && ['home','chat','financial','planning','mood','settings'].includes(tab)) {
+      if (tab && ['home','chat','financial','planning','recommendations','mood','settings'].includes(tab)) {
         setActiveTab(tab);
       }
     };
@@ -501,13 +502,23 @@ const Dashboard = () => {
             </ErrorBoundary>
           </TabsContent>
 
-          {/* ── Mood ─────────────────────────────────────────────────────── */}
-          <TabsContent value="mood" className="p-4 mt-0">
+          {/* ── Recommendations + Mood ───────────────────────────────────── */}
+          <TabsContent value="recommendations" className="p-4 mt-0">
             <ErrorBoundary fallbackLabel={t('error.load.mood')} lang={lang}>
               <Suspense fallback={<TabSkeleton />}>
                 <Fade>
-                  <h2 className="text-xl font-bold font-arabic mb-4 text-foreground">{t('tab.mood')}</h2>
-                  <MoodTracker />
+                  <div className="space-y-6">
+                    {/* Compact mood logger at top */}
+                    <div>
+                      <h3 className="text-base font-bold font-arabic mb-3 text-foreground flex items-center gap-2">
+                        <Heart className="w-4 h-4 text-rose-500 flex-shrink-0" />
+                        {t('tab.mood') || 'تتبع المزاج'}
+                      </h3>
+                      <MoodTracker />
+                    </div>
+                    {/* AI Recommendations */}
+                    <AIRecommendations onNavigate={setActiveTab} />
+                  </div>
                 </Fade>
               </Suspense>
             </ErrorBoundary>
