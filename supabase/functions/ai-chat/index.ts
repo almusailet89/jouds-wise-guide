@@ -19,7 +19,7 @@ const DIRECT_EXECUTE = new Set([
   // read tools — Jood sees everything in the app
   'get_portfolio', 'get_financial_summary', 'get_tasks',
   'get_upcoming_events', 'get_habits', 'get_goals',
-  'get_wallet_balance', 'get_recent_moods', 'get_daily_plan',
+  'get_wallet_balance', 'get_recent_moods', 'get_daily_plan', 'refresh_daily_brief',
 ]);
 
 const MEMORY_CATEGORIES = [
@@ -73,6 +73,7 @@ const functionTools = [
 
   // ── Composite tools — smarter aggregation ────────────────────────────────────
   { type: "function", function: { name: "get_daily_plan", description: "Get a complete daily plan: today's tasks + events + active habits + recent mood in one call. Trigger: 'رتبي يومي', 'برنامجي اليوم', 'وش عندي اليوم', 'يومي', 'خلّيني أعرف يومي', 'plan my day', 'what's my day', 'daily plan', 'morning briefing', 'صباح الخير وش عندي'. ALWAYS use this instead of calling get_tasks+get_upcoming_events separately when user asks about their day.", parameters: { type: "object", properties: { include_mood: { type: "boolean", description: "Include recent mood context. Default true." } }, required: [] } } },
+  { type: "function", function: { name: "refresh_daily_brief", description: "Force-refresh the Daily Brief card on the home screen with the latest calendar, tasks, and data. Trigger: 'يا جود حدثي الجدول', 'يا جود رتبي يومي', 'حدّثي الموجز', 'حدثي', 'update my schedule', 'refresh my brief', 'update the brief', 'ما عندي شي اليوم؟ حدثي'.", parameters: { type: "object", properties: {}, required: [] } } },
 
   // ── READ tools — Jood sees everything ──────────────────────────────────────
   { type: "function", function: { name: "get_portfolio", description: "Show the user's investment portfolio — stocks, crypto, real estate holdings, P&L. Trigger: 'اعرضي محفظتي', 'وش عندي استثمارات', 'كم سعر السهم', 'أسهمي', 'كريبتو', 'أرباحي', 'خسائري', 'كم ربحت', 'وش وضع الأسهم', 'show my portfolio', 'my investments', 'المحفظة', 'how are my stocks', 'crypto holdings', 'P&L', 'returns', 'asset allocation'. Also when user asks 'وش وضعي المالي بالكامل' call this + get_financial_summary.", parameters: { type: "object", properties: {}, required: [] } } },
@@ -653,6 +654,30 @@ async function executeFunction(functionCall: any, userId: string, supabase: any)
         summary: `خل نشوف يومك:\n\n${sections.join('\n\n')}${moodNote}`,
         data: { tasks, events, habits: todayHabits, moods, overdue, counts: { tasks: tasks.length, events: events.length, habits: todayHabits.length, overdue: overdue.length } },
       };
+    }
+
+    case 'refresh_daily_brief': {
+      try {
+        const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
+        const res = await fetch(`${supabaseUrl}/functions/v1/daily-brief`, {
+          method: 'POST',
+          headers: {
+            'Authorization': req.headers.get('Authorization') ?? '',
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ force: true }),
+        });
+        const refreshed = await res.json();
+        const greeting = refreshed?.brief?.greeting ?? '';
+        return {
+          kind: 'task',
+          summary: `✅ تم تحديث موجز اليوم.\n${greeting ? `"${greeting}"` : ''}`,
+          data: { refreshed: true, brief: refreshed?.brief ?? null },
+          client_action: { type: 'refresh_daily_brief' },
+        };
+      } catch {
+        return { kind: 'task', summary: 'تعذّر تحديث الموجز الآن، حاولي مرة ثانية.', data: {} };
+      }
     }
 
     case 'get_portfolio': {

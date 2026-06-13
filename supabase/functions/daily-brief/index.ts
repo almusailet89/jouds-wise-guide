@@ -108,8 +108,10 @@ serve(async (req) => {
     }
 
     const today = riyadhDate();
+    const riyadhHour = (new Date().getUTCHours() + 3) % 24;
+    const period = riyadhHour < 12 ? 'morning' : 'midday';
 
-    // ── Return existing brief if already generated for today in this language
+    // ── Return existing brief only if same period today ────────────────────
     if (!force) {
       const { data: existing } = await supabase
         .from('daily_briefs')
@@ -118,186 +120,176 @@ serve(async (req) => {
         .eq('brief_date', today)
         .maybeSingle();
 
-      // Serve cache — brief is now always bilingual, no lang check needed
-      if (existing) {
+      if (existing && (existing as any).meta?.period === period) {
         return new Response(JSON.stringify({ brief: existing, cached: true }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
     }
 
-    // ── Gather context ─────────────────────────────────────────────────────
-    const [profileRes, memoriesRes, eventsRes, financeRes, prayer] = await Promise.all([
-      supabase.from('profiles').select('display_name, base_currency, risk_profile').eq('user_id', user.id).maybeSingle(),
-      supabase.rpc('get_user_memories_for_prompt', { p_user_id: user.id, p_limit: 10 }),
-      supabase.from('events').select('title, start_at').eq('user_id', user.id)
-        .gte('start_at', `${today}T00:00:00`).lte('start_at', `${today}T23:59:59`).limit(5),
-      supabase.from('financial_data').select('type, amount, currency, category, created_at')
-        .eq('user_id', user.id).order('created_at', { ascending: false }).limit(10),
+    // ── Gather context from real app data ──────────────────────────────────
+    const [profileRes, memoriesRes, eventsRes, tasksRes, financeRes, prayer] = await Promise.all([
+      supabase.from('profiles').select('display_name, base_currency').eq('user_id', user.id).maybeSingle(),
+      supabase.rpc('get_user_memories_for_prompt', { p_user_id: user.id, p_limit: 8 }),
+      supabase.from('events').select('title, start_at, end_at')
+        .eq('user_id', user.id)
+        .gte('start_at', `${today}T00:00:00`)
+        .lte('start_at', `${today}T23:59:59`)
+        .order('start_at')
+        .limit(8),
+      supabase.from('tasks').select('title, due_date, priority, status')
+        .eq('user_id', user.id)
+        .neq('status', 'completed')
+        .lte('due_date', today)
+        .order('priority', { ascending: false })
+        .limit(5),
+      supabase.from('financial_data').select('type, amount, currency, category, description, created_at')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(5),
       fetchPrayerTimes(),
     ]);
 
     const profile   = profileRes.data;
     const memories  = (memoriesRes.data ?? []) as any[];
     const events    = eventsRes.data ?? [];
+    const tasks     = tasksRes.data ?? [];
     const recentFin = financeRes.data ?? [];
 
-    const { greeting, partOfDay } = timeBasedGreeting(lang);
-    const hijri       = hijriToday(lang);
     const displayName = profile?.display_name?.trim() || '';
-
-    // Finance snapshot
-    let totalIncome  = 0;
-    let totalExpense = 0;
-    for (const e of recentFin) {
-      const amt = Number(e.amount) || 0;
-      if (e.type === 'income')  totalIncome  += amt;
-      if (e.type === 'expense') totalExpense += amt;
-    }
-
-    // Memory string
-    const memoryLines = memories.length
-      ? memories.map((m: any) => `- (${m.kind}) ${m.content}`).join('\n')
-      : lang === 'en' ? '(No memories yet — first meeting)' : '(لا توجد ذكريات بعد — أول لقاء)';
-
-    // Prayer line
-    let prayerLine = '';
-    if (prayer) {
-      const utc = new Date();
-      const nowMin = ((utc.getUTCHours() + 3) % 24) * 60 + utc.getUTCMinutes();
-      const order: Array<[string, string]> = lang === 'en'
-        ? [['Fajr', prayer.Fajr], ['Dhuhr', prayer.Dhuhr], ['Asr', prayer.Asr], ['Maghrib', prayer.Maghrib], ['Isha', prayer.Isha]]
-        : [['الفجر', prayer.Fajr], ['الظهر', prayer.Dhuhr], ['العصر', prayer.Asr], ['المغرب', prayer.Maghrib], ['العشاء', prayer.Isha]];
-      const next = order.find(([, t]) => {
-        if (!t) return false;
-        const [h, m] = t.split(':').map(Number);
-        return h * 60 + m > nowMin;
-      });
-      if (next) prayerLine = lang === 'en'
-        ? `Next prayer: ${next[0]} at ${next[1]}`
-        : `الصلاة القادمة: ${next[0]} الساعة ${next[1]}`;
-    }
-
-    // Events line
-    const eventLine = events.length
-      ? lang === 'en'
-        ? `Today's events: ${events.map((e: any) => e.title).join(', ')}`
-        : `اليوم لديكِ: ${events.map((e: any) => e.title).join('، ')}`
-      : '';
-
-    // Finance line
-    const currency = profile?.base_currency ?? 'SAR';
-    const financeLine = (totalIncome || totalExpense)
-      ? lang === 'en'
-        ? `Recent finances — income: ${totalIncome.toFixed(0)} / expenses: ${totalExpense.toFixed(0)} ${currency}`
-        : `آخر التحركات المالية — دخل: ${totalIncome.toFixed(0)} / مصروف: ${totalExpense.toFixed(0)} ${currency}`
-      : '';
+    const currency    = profile?.base_currency ?? 'SAR';
+    const { greeting: greetingAr } = timeBasedGreeting('ar');
+    const { greeting: greetingEn } = timeBasedGreeting('en');
 
     // ── Build bilingual prompt (always generates AR + EN) ─────────────────
     const { greeting: greetingAr } = timeBasedGreeting('ar');
     const { greeting: greetingEn } = timeBasedGreeting('en');
 
-    const SYSTEM_PROMPT = `You are Jood — a premium Saudi AI executive assistant. Generate a short bilingual daily brief (Arabic + English) for the user. Always output BOTH languages.
-
-Rules:
-- Arabic: warm, personal, 30-50 words, no lists
-- English: direct, executive, 25-40 words, no lists
-- Connect user memories to today naturally — do NOT say "I remember"
-- Suggest one clear closing action
-- Temperature/weather if available — include it naturally
-- No Hijri date — keep it clean and timeless
-
-Output valid JSON in exactly this format:
-{
-  "greeting_ar": "${greetingAr}${displayName ? `، ${displayName}` : ''}",
-  "greeting_en": "${greetingEn}${displayName ? `, ${displayName}` : ''}",
-  "content_ar": "Arabic brief without greeting (2-3 sentences)",
-  "content_en": "English brief without greeting (2-3 sentences)",
-  "highlights": [{"kind": "prayer|finance|memory|event|tip", "text_ar": "...", "text_en": "..."}],
-  "action_ar": "Arabic closing action suggestion",
-  "action_en": "English closing action suggestion"
-}`;
-
-    // Build prayer highlights for both languages
+    // ── Build context strings from real data ───────────────────────────────
+    // Next prayer
     let prayerLineAr = '';
     let prayerLineEn = '';
     if (prayer) {
-      const utc2 = new Date();
-      const nowMin2 = ((utc2.getUTCHours() + 3) % 24) * 60 + utc2.getUTCMinutes();
-      const orderAr: Array<[string, string]> = [['الفجر', prayer.Fajr], ['الظهر', prayer.Dhuhr], ['العصر', prayer.Asr], ['المغرب', prayer.Maghrib], ['العشاء', prayer.Isha]];
-      const orderEn: Array<[string, string]> = [['Fajr', prayer.Fajr], ['Dhuhr', prayer.Dhuhr], ['Asr', prayer.Asr], ['Maghrib', prayer.Maghrib], ['Isha', prayer.Isha]];
-      const nextAr = orderAr.find(([, t]) => { if (!t) return false; const [h, m] = t.split(':').map(Number); return h * 60 + m > nowMin2; });
-      const nextEn = orderEn.find(([, t]) => { if (!t) return false; const [h, m] = t.split(':').map(Number); return h * 60 + m > nowMin2; });
-      if (nextAr) prayerLineAr = `الصلاة القادمة: ${nextAr[0]} ${nextAr[1]}`;
-      if (nextEn) prayerLineEn = `Next prayer: ${nextEn[0]} at ${nextEn[1]}`;
+      const nowMin = ((new Date().getUTCHours() + 3) % 24) * 60 + new Date().getUTCMinutes();
+      const slots: Array<[string, string, string]> = [
+        ['الفجر','Fajr',prayer.Fajr],['الظهر','Dhuhr',prayer.Dhuhr],
+        ['العصر','Asr',prayer.Asr],['المغرب','Maghrib',prayer.Maghrib],['العشاء','Isha',prayer.Isha],
+      ];
+      const next = slots.find(([,,t]) => { if(!t) return false; const [h,m]=t.split(':').map(Number); return h*60+m > nowMin; });
+      if (next) { prayerLineAr = `${next[0]} ${next[2]}`; prayerLineEn = `${next[1]} at ${next[2]}`; }
     }
 
-    const USER_PROMPT = `User context (bilingual brief needed):
+    // Events: "title at HH:MM" sorted
+    const eventsData = events.map((e: any) => {
+      const time = e.start_at ? new Date(e.start_at).toLocaleTimeString('ar-SA', { hour:'2-digit', minute:'2-digit', hour12: false, timeZone:'Asia/Riyadh' }) : '';
+      return time ? `${e.title} (${time})` : e.title;
+    });
 
-Name: ${displayName || '(not introduced yet)'}
-Time of day: ${partOfDay}
-${prayerLineEn ? `Prayer: ${prayerLineEn}` : ''}
-Currency: ${currency}
+    // Tasks overdue or due today
+    const taskData = tasks.map((t: any) => t.title);
 
-Memories:
-${memoryLines}
+    // Finance: only notable (large amounts or alerts)
+    const financeData = recentFin.slice(0, 3).map((f: any) =>
+      `${f.type === 'expense' ? 'مصروف' : f.type === 'income' ? 'دخل' : f.type}: ${f.amount} ${currency}${f.description ? ` (${f.description})` : ''}`
+    );
 
-${eventLine}
-${financeLine}
+    // User name from memories if not in profile
+    const nameFromMemory = memories.find((m: any) => m.kind === 'identity')?.content ?? '';
 
-Generate the bilingual JSON brief now.`;
+    const hasAnyData = eventsData.length > 0 || taskData.length > 0;
+
+    // ── Fallback if no real data ───────────────────────────────────────────
+    if (!hasAnyData && taskData.length === 0) {
+      const nameLabel = displayName || '';
+      const fallbackAr = `${greetingAr}${nameLabel ? `، ${nameLabel}` : ''}. ما عندك مواعيد أو مهام مسجلة اليوم. إذا تبغى أرتب يومك، ناديني: يا جود، وبجهز لك جدول واضح.`;
+      const fallbackEn = `${greetingEn}${nameLabel ? `, ${nameLabel}` : ''}. No events or tasks recorded for today. Say "Hey Jood, organise my day" and I'll set things up.`;
+      const fallbackRow = {
+        user_id: user.id, brief_date: today,
+        greeting: `${greetingAr}${nameLabel ? `، ${nameLabel}` : ''}`,
+        content: 'ما عندك مواعيد أو مهام مسجلة اليوم.',
+        highlights: [] as any[],
+        suggested_action: 'إذا تبغى أرتب يومك، ناديني: يا جود',
+        meta: { model:'fallback', period, prayer_ar: prayerLineAr, prayer_en: prayerLineEn,
+                greeting_en: `${greetingEn}${nameLabel ? `, ${nameLabel}` : ''}`,
+                content_en: "No events or tasks recorded for today.",
+                action_en: 'Say "Hey Jood, organise my day"', full_ar: fallbackAr, full_en: fallbackEn },
+      };
+      await supabase.from('daily_briefs').upsert(fallbackRow, { onConflict: 'user_id,brief_date' });
+      return new Response(JSON.stringify({ brief: { ...fallbackRow, id: null }, cached: false }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // ── Prompt ─────────────────────────────────────────────────────────────
+    const CTA_AR = 'إذا تبغى أعدل أي شيء، ناديني: يا جود، وبحدّث لك جدولك.';
+    const CTA_EN = 'To update anything, just say: "Hey Jood" and I\'ll adjust your schedule.';
+
+    const SYSTEM_PROMPT = `You are Jood — a Saudi AI executive secretary. Write a concise bilingual daily brief using ONLY the data provided. Never invent events, tasks, or advice.
+
+Rules:
+- Arabic content: max 60 words, no bullet lists, natural Saudi Arabic, secretary tone
+- English content: max 45 words, direct, executive
+- Only mention what is in the context — if no events/tasks, say so plainly
+- DO NOT say "I remember" or reference memories explicitly
+- The brief must end with exactly these CTAs (append them to content):
+  AR: "${CTA_AR}"
+  EN: "${CTA_EN}"
+
+Output valid JSON:
+{
+  "greeting_ar": "${greetingAr}${displayName ? `، ${displayName}` : ''}",
+  "greeting_en": "${greetingEn}${displayName ? `, ${displayName}` : ''}",
+  "content_ar": "brief in Arabic ending with CTA",
+  "content_en": "brief in English ending with CTA",
+  "highlights": [{"kind":"prayer|finance|event|task","text_ar":"...","text_en":"..."}]
+}`;
+
+    const USER_PROMPT = `Live data for today (${today}):
+
+EVENTS (calendar): ${eventsData.length ? eventsData.join(' | ') : 'none'}
+TASKS DUE: ${taskData.length ? taskData.join(' | ') : 'none'}
+FINANCE (recent): ${financeData.length ? financeData.join(' | ') : 'none'}
+NEXT PRAYER: ${prayerLineAr || 'none'}
+USER NAME: ${displayName || nameFromMemory || '(unknown)'}
+PERIOD: ${period}
+
+Write the bilingual brief now. Use only the data above.`;
 
     // ── Call OpenAI ────────────────────────────────────────────────────────
     const aiRes = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${openAIApiKey}`,
-        'Content-Type': 'application/json',
-      },
+      headers: { 'Authorization': `Bearer ${openAIApiKey}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
         model: 'gpt-4o-mini',
-        messages: [
-          { role: 'system', content: SYSTEM_PROMPT },
-          { role: 'user',   content: USER_PROMPT },
-        ],
+        messages: [{ role: 'system', content: SYSTEM_PROMPT }, { role: 'user', content: USER_PROMPT }],
         response_format: { type: 'json_object' },
-        temperature: 0.7,
-        max_tokens: 600,
+        temperature: 0.4,
+        max_tokens: 500,
       }),
     });
 
-    if (!aiRes.ok) {
-      const errText = await aiRes.text();
-      throw new Error(`OpenAI failed: ${errText}`);
-    }
+    if (!aiRes.ok) throw new Error(`OpenAI failed: ${await aiRes.text()}`);
 
     const aiJson = await aiRes.json();
-    const raw    = aiJson.choices?.[0]?.message?.content ?? '{}';
     let parsed: any;
-    try { parsed = JSON.parse(raw); } catch {
+    try { parsed = JSON.parse(aiJson.choices?.[0]?.message?.content ?? '{}'); } catch {
       throw new Error('Brief generator returned non-JSON');
     }
 
     const briefRow = {
       user_id:          user.id,
       brief_date:       today,
-      // Primary fields — Arabic (default display language)
-      greeting:         parsed.greeting_ar  ?? `${greetingAr}${displayName ? `، ${displayName}` : ''}`,
-      content:          parsed.content_ar   ?? 'موجز اليوم غير متاح.',
+      greeting:         parsed.greeting_ar ?? `${greetingAr}${displayName ? `، ${displayName}` : ''}`,
+      content:          parsed.content_ar  ?? 'موجز اليوم غير متاح.',
       highlights:       Array.isArray(parsed.highlights) ? parsed.highlights : [],
-      suggested_action: parsed.action_ar    ?? null,
+      suggested_action: CTA_AR,
       meta: {
-        model:         'gpt-4o-mini',
-        memories_used: memories.length,
-        events_today:  events.length,
-        has_prayer:    !!prayer,
-        part_of_day:   partOfDay,
-        prayer_ar:     prayerLineAr,
-        prayer_en:     prayerLineEn,
-        // English bilingual fields
-        greeting_en:   parsed.greeting_en  ?? `${greetingEn}${displayName ? `, ${displayName}` : ''}`,
-        content_en:    parsed.content_en   ?? "Today's brief is unavailable.",
-        action_en:     parsed.action_en    ?? null,
+        model: 'gpt-4o-mini', period,
+        events_today: events.length, tasks_today: tasks.length,
+        prayer_ar: prayerLineAr, prayer_en: prayerLineEn,
+        greeting_en: parsed.greeting_en ?? `${greetingEn}${displayName ? `, ${displayName}` : ''}`,
+        content_en:  parsed.content_en  ?? "Today's brief is unavailable.",
+        action_en:   CTA_EN,
       },
     };
 

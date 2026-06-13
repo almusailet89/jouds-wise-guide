@@ -129,7 +129,11 @@ const ActionCard: React.FC<{ card: { kind: string; summary: string; data: Record
     if (card.kind === 'navigate' && card.data?.navigate_to) {
       window.dispatchEvent(new CustomEvent('jood:navigate', { detail: { tab: card.data.navigate_to } }));
     }
-  }, [card.kind, card.data?.navigate_to]);
+    // Refresh daily brief card when Jood updates the schedule
+    if (card.data?.client_action?.type === 'refresh_daily_brief') {
+      window.dispatchEvent(new CustomEvent('jood:refresh_brief'));
+    }
+  }, [card.kind, card.data?.navigate_to, card.data?.client_action?.type]);
 
   if (card.kind === 'navigate') return null; // Navigation cards don't render visually
 

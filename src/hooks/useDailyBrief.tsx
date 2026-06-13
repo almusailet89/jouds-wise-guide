@@ -51,11 +51,23 @@ export const useDailyBrief = (lang: Lang = 'ar') => {
     }
   }, [session, lang]);
 
-  // ── Auto-load on mount ─────────────────────────────────────────────────
+  // ── Auto-load on mount — force if wrong period ────────────────────────
   useEffect(() => {
     if (!session) return;
-    generate(false);
+    // Check if the cached brief matches the current period (morning/midday)
+    const riyadhHour = (new Date().getUTCHours() + 3) % 24;
+    const currentPeriod = riyadhHour < 12 ? 'morning' : 'midday';
+    const cachedPeriod  = (brief as any)?.meta?.period;
+    const needsRefresh  = !cachedPeriod || cachedPeriod !== currentPeriod;
+    generate(needsRefresh);
   }, [session]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Listen for chat-triggered refresh ─────────────────────────────────
+  useEffect(() => {
+    const handler = () => generate(true);
+    window.addEventListener('jood:refresh_brief', handler);
+    return () => window.removeEventListener('jood:refresh_brief', handler);
+  }, [generate]);
 
   // ── Re-generate when language changes ─────────────────────────────────
   useEffect(() => {
