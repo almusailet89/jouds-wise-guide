@@ -118,9 +118,8 @@ serve(async (req) => {
         .eq('brief_date', today)
         .maybeSingle();
 
-      // Only serve cache if the stored brief is in the same language
-      const cachedLang = (existing as any)?.meta?.lang ?? 'ar';
-      if (existing && cachedLang === lang) {
+      // Serve cache — brief is now always bilingual, no lang check needed
+      if (existing) {
         return new Response(JSON.stringify({ brief: existing, cached: true }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
@@ -194,84 +193,59 @@ serve(async (req) => {
         : `آخر التحركات المالية — دخل: ${totalIncome.toFixed(0)} / مصروف: ${totalExpense.toFixed(0)} ${currency}`
       : '';
 
-    // ── Build bilingual prompts ────────────────────────────────────────────
-    const SYSTEM_PROMPT = lang === 'en'
-      ? `You are Jood — a smart Saudi executive assistant. Write a personal daily brief for the user in the style of a premium executive assistant. Reply ONLY in English.
+    // ── Build bilingual prompt (always generates AR + EN) ─────────────────
+    const { greeting: greetingAr } = timeBasedGreeting('ar');
+    const { greeting: greetingEn } = timeBasedGreeting('en');
 
-Brief rules:
-1. Start with a time-appropriate greeting (${greeting})${displayName ? ` followed by the user's name (${displayName})` : ''}
-2. Naturally mention the Hijri date if available
-3. Connect a memory to a useful action for today — this is what makes the brief special
-4. Suggest one clear action at the end (a question or call to action)
-5. No markdown or lists — natural connected sentences
-6. Length: 40-70 words only — a brief, not a report
-7. Tone: warm, professional, confident — not overly formal
-8. Do NOT say "I remember" — use the information implicitly and naturally
+    const SYSTEM_PROMPT = `You are Jood — a premium Saudi AI executive assistant. Generate a short bilingual daily brief (Arabic + English) for the user. Always output BOTH languages.
 
-Output JSON in exactly this format:
+Rules:
+- Arabic: warm, personal, 30-50 words, no lists
+- English: direct, executive, 25-40 words, no lists
+- Connect user memories to today naturally — do NOT say "I remember"
+- Suggest one clear closing action
+- Temperature/weather if available — include it naturally
+- No Hijri date — keep it clean and timeless
+
+Output valid JSON in exactly this format:
 {
-  "greeting": "${greeting}${displayName ? `, ${displayName}` : ''}",
-  "content": "Full brief text without the greeting (4-6 sentences)",
-  "highlights": [
-    {"kind": "prayer|finance|memory|event|tip", "text": "..."}
-  ],
-  "suggested_action": "One practical action suggestion"
-}`
-      : `أنتِ جود — مساعدة تنفيذية سعودية ذكية. مهمتكِ كتابة موجز يومي شخصي للمستخدمة بأسلوب مساعدتها التنفيذية الراقية. أجيبي باللغة العربية فقط.
-
-قواعد الموجز:
-1. ابدئي بتحية حسب الوقت (${greeting})${displayName ? ` متبوعة باسم المستخدمة (${displayName})` : ''}
-2. اذكري التاريخ الهجري بشكل طبيعي إذا كان متاحاً
-3. اربطي معلومة من الذاكرة بإجراء مفيد اليوم — هذا ما يميّز الموجز
-4. اقترحي إجراءً واحداً واضحاً في النهاية (سؤال أو دعوة للفعل)
-5. لا تستخدمي markdown أو قوائم — جمل متصلة طبيعية
-6. الطول: ٤٠-٧٠ كلمة فقط — موجز لا تقرير
-7. النبرة: دافئة، احترافية، واثقة — لا تكوني رسمية بشكل مفرط
-8. لا تقولي "أتذكر" أو "تذكرتُ" — استخدمي المعلومات بشكل ضمني وطبيعي
-
-أخرجي JSON بالشكل التالي بدقة:
-{
-  "greeting": "${greeting}${displayName ? `، ${displayName}` : ''}",
-  "content": "نص الموجز الكامل بدون التحية (٤-٦ جمل)",
-  "highlights": [
-    {"kind": "prayer|finance|memory|event|tip", "text": "..."}
-  ],
-  "suggested_action": "اقتراح إجراء واحد عملي"
+  "greeting_ar": "${greetingAr}${displayName ? `، ${displayName}` : ''}",
+  "greeting_en": "${greetingEn}${displayName ? `, ${displayName}` : ''}",
+  "content_ar": "Arabic brief without greeting (2-3 sentences)",
+  "content_en": "English brief without greeting (2-3 sentences)",
+  "highlights": [{"kind": "prayer|finance|memory|event|tip", "text_ar": "...", "text_en": "..."}],
+  "action_ar": "Arabic closing action suggestion",
+  "action_en": "English closing action suggestion"
 }`;
 
-    const USER_PROMPT = lang === 'en'
-      ? `Current context:
+    // Build prayer highlights for both languages
+    let prayerLineAr = '';
+    let prayerLineEn = '';
+    if (prayer) {
+      const utc2 = new Date();
+      const nowMin2 = ((utc2.getUTCHours() + 3) % 24) * 60 + utc2.getUTCMinutes();
+      const orderAr: Array<[string, string]> = [['الفجر', prayer.Fajr], ['الظهر', prayer.Dhuhr], ['العصر', prayer.Asr], ['المغرب', prayer.Maghrib], ['العشاء', prayer.Isha]];
+      const orderEn: Array<[string, string]> = [['Fajr', prayer.Fajr], ['Dhuhr', prayer.Dhuhr], ['Asr', prayer.Asr], ['Maghrib', prayer.Maghrib], ['Isha', prayer.Isha]];
+      const nextAr = orderAr.find(([, t]) => { if (!t) return false; const [h, m] = t.split(':').map(Number); return h * 60 + m > nowMin2; });
+      const nextEn = orderEn.find(([, t]) => { if (!t) return false; const [h, m] = t.split(':').map(Number); return h * 60 + m > nowMin2; });
+      if (nextAr) prayerLineAr = `الصلاة القادمة: ${nextAr[0]} ${nextAr[1]}`;
+      if (nextEn) prayerLineEn = `Next prayer: ${nextEn[0]} at ${nextEn[1]}`;
+    }
 
-Time: ${partOfDay} — ${greeting}
-${hijri ? `Hijri date: ${hijri}` : ''}
-${prayerLine}
+    const USER_PROMPT = `User context (bilingual brief needed):
 
-${displayName ? `User's name: ${displayName}` : "(User hasn't introduced themselves yet)"}
-Profile: ${profile?.risk_profile ?? 'unset'} risk · Currency: ${currency}
+Name: ${displayName || '(not introduced yet)'}
+Time of day: ${partOfDay}
+${prayerLineEn ? `Prayer: ${prayerLineEn}` : ''}
+Currency: ${currency}
 
-User memories:
+Memories:
 ${memoryLines}
 
 ${eventLine}
 ${financeLine}
 
-Write the daily brief now.`
-      : `السياق الحالي:
-
-الوقت: ${partOfDay} — ${greeting}
-${hijri ? `التاريخ الهجري: ${hijri}` : ''}
-${prayerLine}
-
-${displayName ? `اسم المستخدمة: ${displayName}` : '(لم تُعرّف عن نفسها بعد)'}
-الملف: ${profile?.risk_profile ?? 'غير محدد'} risk · العملة: ${currency}
-
-ذكريات المستخدمة:
-${memoryLines}
-
-${eventLine}
-${financeLine}
-
-اكتبي الموجز اليومي الآن.`;
+Generate the bilingual JSON brief now.`;
 
     // ── Call OpenAI ────────────────────────────────────────────────────────
     const aiRes = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -307,18 +281,23 @@ ${financeLine}
     const briefRow = {
       user_id:          user.id,
       brief_date:       today,
-      greeting:         parsed.greeting       ?? `${greeting}${displayName ? (lang === 'en' ? `, ${displayName}` : `، ${displayName}`) : ''}`,
-      content:          parsed.content        ?? (lang === 'en' ? "Today's brief is unavailable." : 'موجز اليوم غير متاح.'),
+      // Primary fields — Arabic (default display language)
+      greeting:         parsed.greeting_ar  ?? `${greetingAr}${displayName ? `، ${displayName}` : ''}`,
+      content:          parsed.content_ar   ?? 'موجز اليوم غير متاح.',
       highlights:       Array.isArray(parsed.highlights) ? parsed.highlights : [],
-      suggested_action: parsed.suggested_action ?? null,
+      suggested_action: parsed.action_ar    ?? null,
       meta: {
-        model: 'gpt-4o-mini',
-        lang,
+        model:         'gpt-4o-mini',
         memories_used: memories.length,
         events_today:  events.length,
         has_prayer:    !!prayer,
-        hijri,
         part_of_day:   partOfDay,
+        prayer_ar:     prayerLineAr,
+        prayer_en:     prayerLineEn,
+        // English bilingual fields
+        greeting_en:   parsed.greeting_en  ?? `${greetingEn}${displayName ? `, ${displayName}` : ''}`,
+        content_en:    parsed.content_en   ?? "Today's brief is unavailable.",
+        action_en:     parsed.action_en    ?? null,
       },
     };
 

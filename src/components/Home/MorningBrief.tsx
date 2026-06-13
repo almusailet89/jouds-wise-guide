@@ -1,18 +1,19 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import {
-  Sparkles, Volume2, RefreshCw, X, ArrowLeft, ArrowRight,
+  Sparkles, Volume2, RefreshCw, X, Share2,
   Bell, Wallet, BookHeart, Calendar, Lightbulb, Loader2,
+  ThumbsUp, CloudSun,
 } from 'lucide-react';
 import { useDailyBrief, type BriefHighlight } from '@/hooks/useDailyBrief';
 import { useChat } from '@/hooks/useChat';
 import { useLanguage } from '@/hooks/useLanguage';
+import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 
-// ─── Highlight icon mapping ─────────────────────────────────────────────────
-const HIGHLIGHT_ICON: Record<string, React.ComponentType<{ className?: string }>> = {
+const ICON: Record<string, React.ComponentType<{ className?: string }>> = {
   prayer:  Bell,
   finance: Wallet,
   memory:  BookHeart,
@@ -20,205 +21,254 @@ const HIGHLIGHT_ICON: Record<string, React.ComponentType<{ className?: string }>
   tip:     Lightbulb,
 };
 
-const HIGHLIGHT_COLOR: Record<string, string> = {
-  prayer:  'text-emerald-600 bg-emerald-500/10',
-  finance: 'text-amber-600 bg-amber-500/10',
-  memory:  'text-rose-600 bg-rose-500/10',
-  event:   'text-blue-600 bg-blue-500/10',
-  tip:     'text-jood-gold-600 bg-jood-gold-500/10',
-};
+interface Props { onActionClick?: () => void; }
 
-// ═══════════════════════════════════════════════════════════════════════════
-interface MorningBriefProps {
-  onActionClick?: () => void; // open chat with the suggested action
-}
-
-export const MorningBrief: React.FC<MorningBriefProps> = ({ onActionClick }) => {
-  const { t, dir, lang } = useLanguage();
+export const MorningBrief: React.FC<Props> = ({ onActionClick }) => {
+  const { lang } = useLanguage();
+  const { toast } = useToast();
   const { brief, loading, error, generate, markRead, markSpoken, dismiss } = useDailyBrief(lang);
-  const fa = lang === 'ar' ? 'font-arabic' : '';
-  const { speakMessage, speaking } = useChat();
+  const { speakMessage, speaking, stopSpeaking } = useChat();
+  const [weather, setWeather] = useState<string | null>(null);
 
-  // Mark as read when brief becomes visible
+  // Mark as read
   useEffect(() => {
     if (brief && !brief.read_at) {
-      const t = setTimeout(() => markRead(), 1500);
-      return () => clearTimeout(t);
+      const tid = setTimeout(() => markRead(), 1500);
+      return () => clearTimeout(tid);
     }
   }, [brief, markRead]);
 
-  // ── Listen handler — TTS the greeting + content (+ action) ──────────────
+  // Fetch Riyadh temperature (lightweight)
+  useEffect(() => {
+    fetch('https://api.open-meteo.com/v1/forecast?latitude=24.69&longitude=46.72&current=temperature_2m&wind_speed_unit=ms')
+      .then(r => r.json())
+      .then(d => {
+        const t = d?.current?.temperature_2m;
+        if (t !== undefined) setWeather(`${Math.round(t)}°C`);
+      })
+      .catch(() => {});
+  }, []);
+
+  // ── Voice: read brief with Jood voice ───────────────────────────────────────
   const handleListen = async () => {
-    if (!brief || speaking) return;
-    const fullText = [
+    if (speaking) { stopSpeaking(); return; }
+    if (!brief) return;
+    markSpoken();
+    // Always read in Arabic (primary Jood voice language)
+    const text = [
       brief.greeting,
       brief.content,
-      brief.suggested_action ?? '',
+      brief.suggested_action,
+      lang === 'ar'
+        ? 'لأي تعديل أو إضافة، كلّميني.'
+        : 'For any adjustments or additions, just ask me.',
     ].filter(Boolean).join('. ');
-    markSpoken();
-    await speakMessage(fullText, 'warm', false);
+    await speakMessage(text, 'warm', false);
   };
 
-  // ── Loading state ───────────────────────────────────────────────────────
+  // ── Share: WhatsApp or native share ─────────────────────────────────────────
+  const handleShare = async () => {
+    if (!brief) return;
+    const meta = (brief as any).meta ?? {};
+    const greetingEn = meta.greeting_en ?? brief.greeting;
+    const contentEn  = meta.content_en  ?? brief.content;
+    const actionEn   = meta.action_en   ?? brief.suggested_action ?? '';
+
+    const text = [
+      `📋 *JOOD AI Daily Brief*`,
+      ``,
+      `*${brief.greeting}*`,
+      brief.content,
+      brief.suggested_action ? `→ ${brief.suggested_action}` : '',
+      ``,
+      `*${greetingEn}*`,
+      contentEn,
+      actionEn ? `→ ${actionEn}` : '',
+      ``,
+      `— JOOD AI`,
+    ].filter(l => l !== undefined).join('\n');
+
+    // Try WhatsApp deep link (works on mobile)
+    const waUrl = `https://wa.me/?text=${encodeURIComponent(text)}`;
+
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: 'JOOD AI Daily Brief', text });
+        return;
+      } catch { /* user cancelled or not supported, fall through */ }
+    }
+    // Fallback: open WhatsApp web
+    window.open(waUrl, '_blank', 'noopener');
+    toast({ title: lang === 'ar' ? 'تم فتح واتساب' : 'Opening WhatsApp', description: lang === 'ar' ? 'شارك موجزك اليومي' : 'Share your daily brief' });
+  };
+
   if (loading && !brief) {
     return (
-      <Card className="p-6 bg-gradient-to-br from-jood-teal-700/5 via-card to-jood-gold-500/5 border-jood-gold-300/30">
-        <div className="flex items-center gap-3 text-muted-foreground">
-          <Loader2 className="w-4 h-4 animate-spin text-jood-gold-500" />
-          <span className={cn(fa, 'text-sm')}>{t('brief.loading')}</span>
+      <Card className="p-5 bg-gradient-to-br from-jood-teal-900 via-jood-teal-800 to-jood-teal-900 border-jood-gold-500/30">
+        <div className="flex items-center gap-2 text-jood-gold-300/70">
+          <Loader2 className="w-4 h-4 animate-spin" />
+          <span className="text-xs font-arabic">{lang === 'ar' ? 'جود تُعِدّ موجزك…' : 'Jood is preparing your brief…'}</span>
         </div>
       </Card>
     );
   }
 
-  // ── Error state (unobtrusive — feature degrades silently) ───────────────
-  if (error && !brief) {
-    return null;
-  }
+  if ((error && !brief) || !brief) return null;
 
-  if (!brief) return null;
+  const meta       = (brief as any).meta ?? {};
+  const greetingEn = meta.greeting_en ?? '';
+  const contentEn  = meta.content_en  ?? '';
+  const actionEn   = meta.action_en   ?? '';
+  const prayerAr   = meta.prayer_ar   ?? '';
+  const prayerEn   = meta.prayer_en   ?? '';
 
-  // ──────────────────────────────────────────────────────────────────────
   return (
     <AnimatePresence>
       <motion.div
-        initial={{ opacity: 0, y: -12 }}
+        initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.98 }}
-        transition={{ duration: 0.5, ease: 'easeOut' }}
-        layout
+        exit={{ opacity: 0, scale: 0.97 }}
+        transition={{ duration: 0.4, ease: 'easeOut' }}
       >
-        <Card className={cn(
-          'relative overflow-hidden p-5 md:p-6',
-          'bg-gradient-to-br from-jood-teal-900 via-jood-teal-700 to-jood-teal-900',
-          'border-jood-gold-500/30 shadow-luxury',
-        )} dir={dir}>
+        <Card className="relative overflow-hidden bg-gradient-to-br from-jood-teal-900 via-jood-teal-800 to-jood-teal-900 border-jood-gold-500/30 shadow-luxury">
 
-          {/* Ambient particles */}
-          <div className="absolute inset-0 pointer-events-none overflow-hidden opacity-30">
-            {Array.from({ length: 14 }).map((_, i) => (
-              <motion.div
-                key={i}
-                className="absolute w-1 h-1 rounded-full bg-jood-gold-300"
-                initial={{
-                  x: Math.random() * 600,
-                  y: Math.random() * 200,
-                  opacity: 0,
-                }}
-                animate={{ y: [null, -40], opacity: [0, 0.7, 0] }}
-                transition={{
-                  duration: 5 + Math.random() * 3,
-                  repeat: Infinity,
-                  delay: Math.random() * 5,
-                }}
-              />
-            ))}
+          {/* Subtle ambient glow */}
+          <div className="absolute inset-0 pointer-events-none">
+            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-2/3 h-px bg-gradient-to-r from-transparent via-jood-gold-400/40 to-transparent" />
           </div>
 
-          {/* Top bar */}
-          <div className="relative z-10 flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2 text-jood-gold-300">
-              <Sparkles className="w-4 h-4" />
-              <span className={cn(fa, 'text-xs font-bold tracking-wide')}>{t('brief.label')}</span>
+          <div className="relative z-10 p-5 md:p-6 space-y-4">
+
+            {/* ── Top bar ─────────────────────────────────────────────── */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-3.5 h-3.5 text-jood-gold-400" />
+                <span className="text-[10px] font-bold tracking-[0.15em] text-jood-gold-400 uppercase font-arabic">
+                  {lang === 'ar' ? 'موجز جود' : 'JOOD Brief'}
+                </span>
+              </div>
+              <div className="flex items-center gap-1">
+                {weather && (
+                  <div className="flex items-center gap-1 text-white/50 text-xs mr-2">
+                    <CloudSun className="w-3.5 h-3.5" />
+                    <span>{weather}</span>
+                  </div>
+                )}
+                <button
+                  onClick={() => generate(true)}
+                  disabled={loading}
+                  className="p-1.5 rounded-md text-white/40 hover:text-white/80 hover:bg-white/10 transition"
+                >
+                  <RefreshCw className={cn('w-3.5 h-3.5', loading && 'animate-spin')} />
+                </button>
+                <button
+                  onClick={dismiss}
+                  className="p-1.5 rounded-md text-white/40 hover:text-white/80 hover:bg-white/10 transition"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
             </div>
-            <div className="flex items-center gap-1">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => generate(true)}
-                disabled={loading}
-                className="h-7 w-7 text-white/60 hover:text-white hover:bg-white/10"
-                title={t('brief.refresh.title')}
-              >
-                <RefreshCw className={cn('w-3.5 h-3.5', loading && 'animate-spin')} />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={dismiss}
-                className="h-7 w-7 text-white/60 hover:text-white hover:bg-white/10"
-                title={t('brief.close')}
-              >
-                <X className="w-3.5 h-3.5" />
-              </Button>
-            </div>
-          </div>
 
-          {/* Greeting */}
-          <div className="relative z-10 mb-3">
-            <h2 className={cn(fa, 'text-2xl md:text-3xl font-bold text-white leading-tight')}>
-              {brief.greeting}
-            </h2>
-            {brief.meta?.hijri && (
-              <p className={cn(fa, 'text-xs text-jood-gold-300/80 mt-1')}>
-                🌙 {brief.meta.hijri}
-              </p>
-            )}
-          </div>
-
-          {/* Content */}
-          <p className={cn('relative z-10 text-sm md:text-base text-white/90 leading-relaxed mb-4', fa)}>
-            {brief.content}
-          </p>
-
-          {/* Highlights */}
-          {brief.highlights && brief.highlights.length > 0 && (
-            <div className="relative z-10 flex flex-wrap gap-2 mb-4">
-              {brief.highlights.map((h: BriefHighlight, i: number) => {
-                const Icon = HIGHLIGHT_ICON[h.kind] ?? Lightbulb;
-                const colorCls = HIGHLIGHT_COLOR[h.kind] ?? 'text-jood-gold-600 bg-jood-gold-500/10';
-                return (
-                  <motion.div
-                    key={i}
-                    initial={{ opacity: 0, x: 8 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: 0.1 * i }}
-                    className={cn(
-                      'flex items-center gap-1.5 rounded-full px-3 py-1 text-xs',
-                      'bg-white/10 backdrop-blur-sm border border-white/15 text-white',
-                      fa,
-                    )}
-                  >
-                    <span className={cn('w-5 h-5 rounded-full flex items-center justify-center', colorCls)}>
-                      <Icon className="w-3 h-3" />
-                    </span>
-                    {h.text}
-                  </motion.div>
-                );
-              })}
-            </div>
-          )}
-
-          {/* Action row */}
-          <div className="relative z-10 flex items-center justify-between gap-3 flex-wrap">
-            {brief.suggested_action && (
-              <button
-                onClick={onActionClick}
-                className={cn('flex items-center gap-2 text-jood-gold-200 hover:text-jood-gold-100 text-sm group transition', fa)}
-              >
-                <span>{brief.suggested_action}</span>
-                {lang === 'ar'
-                  ? <ArrowLeft className="w-3.5 h-3.5 group-hover:-translate-x-1 transition-transform" />
-                  : <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
-                }
-              </button>
-            )}
-
-            <Button
-              onClick={handleListen}
-              disabled={speaking || loading}
-              size="sm"
-              className={cn(
-                lang === 'ar' ? 'mr-auto' : 'ml-auto',
-                'gap-1.5',
-                fa,
-                'bg-jood-gold-500/90 hover:bg-jood-gold-400 text-jood-teal-900 font-bold',
-                'shadow-md',
+            {/* ── Bilingual greeting ───────────────────────────────────── */}
+            <div className="space-y-0.5">
+              <h2 className="text-xl md:text-2xl font-bold text-white leading-snug font-arabic" dir="rtl">
+                {brief.greeting}
+              </h2>
+              {greetingEn && (
+                <p className="text-sm text-white/50 font-medium tracking-wide">
+                  {greetingEn}
+                </p>
               )}
-            >
-              <Volume2 className={cn('w-3.5 h-3.5', speaking && 'animate-pulse')} />
-              {speaking ? t('voice.speaking') : t('brief.listen')}
-            </Button>
+            </div>
+
+            {/* ── Highlights pills ─────────────────────────────────────── */}
+            {brief.highlights && brief.highlights.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {prayerAr && (
+                  <div className="flex items-center gap-1.5 rounded-full px-3 py-1 bg-white/10 border border-white/15 text-white text-xs font-arabic">
+                    <Bell className="w-3 h-3 text-emerald-400 flex-shrink-0" />
+                    {prayerAr}
+                  </div>
+                )}
+                {brief.highlights.slice(0, 3).map((h: BriefHighlight & { text_ar?: string; text_en?: string }, i: number) => {
+                  const Icon = ICON[h.kind] ?? Lightbulb;
+                  const label = (h as any).text_ar ?? h.text ?? '';
+                  return (
+                    <div key={i} className="flex items-center gap-1.5 rounded-full px-3 py-1 bg-white/10 border border-white/15 text-white text-xs font-arabic">
+                      <Icon className="w-3 h-3 text-jood-gold-400 flex-shrink-0" />
+                      {label}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* ── Bilingual content ────────────────────────────────────── */}
+            <div className="space-y-2 border-t border-white/10 pt-3">
+              <p className="text-sm text-white/90 leading-relaxed font-arabic" dir="rtl">
+                {brief.content}
+              </p>
+              {contentEn && (
+                <p className="text-xs text-white/50 leading-relaxed">
+                  {contentEn}
+                </p>
+              )}
+            </div>
+
+            {/* ── Closing CTA ──────────────────────────────────────────── */}
+            <div className="border-t border-white/10 pt-3 space-y-0.5">
+              <p className="text-xs text-jood-gold-300/80 font-arabic" dir="rtl">
+                {brief.suggested_action
+                  ? `← ${brief.suggested_action}`
+                  : 'لأي تعديل أو إضافة، كلّم جود ←'}
+              </p>
+              {(actionEn || brief.suggested_action) && (
+                <p className="text-[11px] text-white/35">
+                  {actionEn || 'Ask Jood for any adjustments or additions.'}
+                </p>
+              )}
+            </div>
+
+            {/* ── Action buttons ───────────────────────────────────────── */}
+            <div className="flex items-center gap-2 pt-1">
+              <Button
+                onClick={handleListen}
+                disabled={loading}
+                size="sm"
+                className={cn(
+                  'gap-1.5 font-arabic text-xs',
+                  'bg-jood-gold-500/90 hover:bg-jood-gold-400 text-jood-teal-900 font-bold shadow-md',
+                  'flex-1',
+                )}
+              >
+                <Volume2 className={cn('w-3.5 h-3.5', speaking && 'animate-pulse')} />
+                {speaking
+                  ? (lang === 'ar' ? 'إيقاف' : 'Stop')
+                  : (lang === 'ar' ? 'استمع لجود' : 'Listen to Jood')}
+              </Button>
+
+              <Button
+                onClick={handleShare}
+                size="sm"
+                variant="outline"
+                className="gap-1.5 font-arabic text-xs border-white/20 text-white/70 hover:bg-white/10 hover:text-white flex-1"
+              >
+                <Share2 className="w-3.5 h-3.5" />
+                {lang === 'ar' ? 'شارك اليوم' : 'Share Brief'}
+              </Button>
+
+              {brief.suggested_action && onActionClick && (
+                <button
+                  onClick={onActionClick}
+                  className="p-2 rounded-md text-jood-gold-300 hover:text-jood-gold-200 hover:bg-white/10 transition"
+                  title={lang === 'ar' ? 'كلّم جود' : 'Ask Jood'}
+                >
+                  <ThumbsUp className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+
           </div>
         </Card>
       </motion.div>
