@@ -1,6 +1,8 @@
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import React, { useEffect, useState, useCallback, useMemo, lazy, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Card, CardContent } from '@/components/ui/card';
+
+const MoodTracker = lazy(() => import('@/components/Mood/MoodTracker'));
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -233,7 +235,15 @@ export const AIRecommendations: React.FC<AIRecommendationsProps> = ({ onNavigate
       </Tabs>
 
       {/* ── List ────────────────────────────────────────────────────────────── */}
-      {loading ? (
+      {filter === 'mood' ? (
+        <Suspense fallback={
+          <div className="text-center py-12 text-muted-foreground text-xs font-arabic">
+            <Loader2 className="w-6 h-6 mx-auto mb-2 animate-spin opacity-40" />
+          </div>
+        }>
+          <MoodTracker />
+        </Suspense>
+      ) : loading ? (
         <div className="text-center py-12 text-muted-foreground text-xs font-arabic">
           <Loader2 className="w-6 h-6 mx-auto mb-2 animate-spin opacity-40" />
           {t('rec.loading')}
