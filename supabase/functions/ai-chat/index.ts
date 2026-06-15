@@ -7,6 +7,16 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Strip emoji/symbols from text intended for TTS so the voice engine doesn't read them aloud
+function stripEmojiForVoice(text: string): string {
+  return text
+    .replace(/[\u{1F000}-\u{1FFFF}]/gu, '')   // emoji blocks
+    .replace(/[☀-⟿]/gu, '')           // misc symbols, dingbats
+    .replace(/[✓✗⚠️📅🔴🟡🟢⚪⭐🎯📊💰💸🏦📈📉💳💙✨🎉⏸▶]/gu, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+}
+
 const DIRECT_EXECUTE = new Set([
   'add_task', 'add_habit', 'log_mood', 'remember_about_user', 'update_user_preferences',
   'navigate_to_section', 'create_recurring_task', 'multi_step_workflow',
@@ -15,7 +25,7 @@ const DIRECT_EXECUTE = new Set([
   // financial
   'update_financial_entry', 'delete_financial_entry',
   'add_goal', 'update_goal', 'delete_goal',
-  'update_portfolio_holding', 'delete_portfolio_holding',
+  'add_portfolio_holding', 'update_portfolio_holding', 'delete_portfolio_holding',
   // read tools — Jood sees everything in the app
   'get_portfolio', 'get_financial_summary', 'get_tasks',
   'get_upcoming_events', 'get_habits', 'get_goals',
@@ -50,6 +60,8 @@ const functionTools = [
   { type: "function", function: { name: "update_portfolio_holding", description: "Edit an investment holding — update quantity, average price, or current price. Trigger: 'عدّلي استثماري', 'غيّري الكمية', 'حدّثي سعر السهم', 'update holding', 'edit investment'.", parameters: { type: "object", properties: { search_symbol: { type: "string", description: "Symbol or partial name of the asset to find it, e.g. 'ARAMCO', '2222', 'BTC'." }, quantity: { type: "number", description: "New quantity (omit if not changing)." }, avg_price: { type: "number", description: "New average purchase price (omit if not changing)." }, current_price: { type: "number", description: "New current price (omit if not changing)." } }, required: ["search_symbol"] } } },
 
   { type: "function", function: { name: "delete_portfolio_holding", description: "Permanently remove an investment holding from portfolio. Trigger: 'احذفي استثماري', 'بعت', 'مو عندي', 'sold my', 'remove holding'.", parameters: { type: "object", properties: { search_symbol: { type: "string", description: "Symbol or partial name of the asset, e.g. 'ARAMCO', 'BTC'." } }, required: ["search_symbol"] } } },
+
+  { type: "function", function: { name: "add_portfolio_holding", description: "Add a new investment holding to the portfolio — stocks, crypto, real estate, funds. Trigger: 'اشتريت سهم', 'أضيفي استثمار', 'عندي أسهم', 'اشتريت بتكوين', 'أضيفي للمحفظة', 'دخلت في', 'I bought', 'add to portfolio', 'new investment', 'purchased stock', 'bought crypto', 'invested in'. Use for creating new holdings, NOT for updating existing ones (use update_portfolio_holding for that).", parameters: { type: "object", properties: { symbol: { type: "string", description: "Ticker or asset name, e.g. '2222', 'AAPL', 'BTC', 'أرامكو'." }, market: { type: "string", description: "Exchange/market, e.g. 'tadawul', 'nasdaq', 'crypto'. Default 'tadawul'." }, quantity: { type: "number", description: "Number of shares/units purchased." }, avg_price: { type: "number", description: "Average purchase price per unit." }, currency: { type: "string", description: "Currency code, e.g. 'SAR', 'USD'. Default 'SAR'." }, asset_type: { type: "string", enum: ["stock","crypto","real_estate","fund","other"], description: "Type of asset. Default 'stock'." }, is_crypto: { type: "boolean", description: "True if cryptocurrency. Default false." } }, required: ["symbol","quantity","avg_price"] } } },
 
   { type: "function", function: { name: "remember_about_user", description: "Save a durable fact about the user to long-term memory. Call this when the user reveals something stable about themselves (name, job, family, goals, preferences, health, religious practice, daily routine, etc.). DO NOT call for transient state like 'I'm tired today'. The fact should be third-person and concise.", parameters: { type: "object", properties: { category: { type: "string", enum: ["identity","work","family","financial","health","religion","routine","goals","interests","relationships","preferences","pain_points"], description: "Which life-area this fact belongs to." }, content: { type: "string", description: "Short third-person fact, e.g. 'يعمل مديراً تقنياً في أرامكو' or 'يصلي الفجر في المسجد كل يوم'." }, importance: { type: "number", minimum: 0, maximum: 1, description: "0.0–1.0; how foundational this is. Default 0.6." } }, required: ["category","content"] } } },
   { type: "function", function: { name: "update_user_preferences", description: "Update the user's Jood preferences when they say things like 'كلميني بالتفصيل', 'أبي ردود قصيرة', 'خلّي ردودك مختصرة', 'I prefer detailed responses', 'call me Abu Mohammed', 'ناديني أبو محمد'. Only call when user explicitly requests a change.", parameters: { type: "object", properties: { response_style: { type: "string", enum: ["concise","balanced","detailed"], description: "How verbose Jood should be." }, jood_nickname: { type: "string", description: "What the user wants to call Jood (e.g. جودي, حبيبتي, etc.)." }, voice_language: { type: "string", enum: ["ar","en","auto"], description: "Preferred voice response language." } }, required: [] } } },
@@ -156,17 +168,34 @@ async function executeFunction(functionCall: any, userId: string, supabase: any)
     case 'remember_about_user': {
       const cat = MEMORY_CATEGORIES.includes(args.category) ? args.category : 'identity';
       const importance = Math.max(0, Math.min(1, Number(args.importance) || 0.6));
-      const { error } = await supabase.from('user_memories').insert({
-        user_id: userId,
-        kind: 'fact',
-        category: cat,
-        content: String(args.content).slice(0, 400),
-        importance,
-        confidence: 0.85,
-        is_template: false,
-        active: true,
-      });
-      if (error) throw new Error(`remember_about_user: ${error.message}`);
+      const content = String(args.content).slice(0, 400);
+
+      // Deduplicate: if an identical fact already exists in this category, just refresh its timestamp
+      const { data: existing } = await supabase.from('user_memories')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('category', cat)
+        .eq('content', content)
+        .eq('active', true)
+        .maybeSingle();
+
+      if (existing) {
+        await supabase.from('user_memories')
+          .update({ last_used_at: new Date().toISOString(), importance })
+          .eq('id', existing.id);
+      } else {
+        const { error } = await supabase.from('user_memories').insert({
+          user_id: userId,
+          kind: 'fact',
+          category: cat,
+          content,
+          importance,
+          confidence: 0.85,
+          is_template: false,
+          active: true,
+        });
+        if (error) throw new Error(`remember_about_user: ${error.message}`);
+      }
       // Silent — no user-facing summary; Jood continues her natural reply.
       return { kind: 'memory', summary: '', data: args, silent: true };
     }
@@ -221,11 +250,13 @@ async function executeFunction(functionCall: any, userId: string, supabase: any)
       let needsApproval = false;
       let pendingSteps: any[] = [];
 
-      for (const step of (args.steps || [])) {
+      const allSteps: any[] = args.steps || [];
+      for (let stepIdx = 0; stepIdx < allSteps.length; stepIdx++) {
+        const step = allSteps[stepIdx];
         if (step.needs_approval) {
-          // Queue remaining steps for approval
+          // Queue remaining steps for approval — use numeric index to avoid indexOf reference bug
           needsApproval = true;
-          pendingSteps = args.steps.slice(args.steps.indexOf(step));
+          pendingSteps = allSteps.slice(stepIdx);
           stepResults.push(`⏸ ${step.action}: يحتاج تأكيدك`);
           break;
         }
@@ -517,6 +548,30 @@ async function executeFunction(functionCall: any, userId: string, supabase: any)
       return { kind: 'goal_delete', summary: `✓ حذفت هدف "${goal.title}" (${fmt(goal.target_amount)} ريال)`, data: args };
     }
 
+    // ── Add Portfolio Holding ──────────────────────────────────────────────────
+    case 'add_portfolio_holding': {
+      const isCrypto = args.is_crypto ?? args.asset_type === 'crypto';
+      const { error } = await supabase.from('portfolio_holdings').insert({
+        user_id: userId,
+        symbol: String(args.symbol).toUpperCase(),
+        market: args.market || (isCrypto ? 'crypto' : 'tadawul'),
+        quantity: Number(args.quantity),
+        avg_price: Number(args.avg_price),
+        current_price: Number(args.avg_price),
+        currency: args.currency || 'SAR',
+        asset_type: args.asset_type || 'stock',
+        is_crypto: isCrypto,
+      });
+      if (error) throw new Error(`add_portfolio_holding: ${error.message}`);
+      const totalCost = Number(args.quantity) * Number(args.avg_price);
+      const typeLabel = isCrypto ? 'كريبتو' : (args.asset_type === 'real_estate' ? 'عقار' : 'سهم');
+      return {
+        kind: 'portfolio',
+        summary: `✓ أضفت ${typeLabel} "${String(args.symbol).toUpperCase()}" للمحفظة — ${args.quantity} وحدة × ${fmt(Number(args.avg_price))} ${args.currency || 'ريال'} = ${fmt(totalCost)} ${args.currency || 'ريال'}`,
+        data: args,
+      };
+    }
+
     // ── Update Portfolio Holding ───────────────────────────────────────────────
     case 'update_portfolio_holding': {
       const { data: found } = await supabase.from('portfolio_holdings')
@@ -572,7 +627,7 @@ async function executeFunction(functionCall: any, userId: string, supabase: any)
       const [tasksRes, eventsRes, habitsRes, moodRes, overdueRes] = await Promise.all([
         supabase.from('tasks').select('title, status, priority, due_date, category')
           .eq('user_id', userId).eq('status', 'pending')
-          .lte('due_date', todayISO)
+          .eq('due_date', todayISO)
           .order('priority', { ascending: false }).limit(10),
         supabase.from('events').select('title, starts_at, ends_at, location, category, all_day')
           .eq('user_id', userId).gte('starts_at', todayStart).lt('starts_at', tomorrowEnd)
@@ -959,8 +1014,8 @@ serve(async (req) => {
             JSON.stringify({
               error: 'rate_limited',
               message: isSignature
-                ? 'لقد تجاوزتِ حد ٢٠٠ طلب في الساعة. يُعاد تعيين الحد بداية الساعة التالية.'
-                : 'لقد تجاوزتِ حد ٦٠ طلباً في الساعة. ترقَّي إلى Signature للحصول على ٢٠٠ طلب/ساعة.',
+                ? 'تجاوزت حد ٢٠٠ طلب في الساعة. يُعاد تعيين الحد بداية الساعة التالية.'
+                : 'تجاوزت حد ٦٠ طلباً في الساعة. الترقية إلى Signature تتيح ٢٠٠ طلب/ساعة.',
               limit: hourlyLimit,
               used: currentCount,
               resets_at: new Date(windowHour.getTime() + 3600000).toISOString(),
@@ -1035,10 +1090,10 @@ serve(async (req) => {
         }
         if (filled.length) knownFacts = "\n\nما تعرفينه عن المستخدم:\n" + filled.join('\n');
 
-        // Bump use_count on referenced memories (fire-and-forget for speed)
+        // Touch last_used_at on referenced memories (fire-and-forget)
         if (filled.length) {
           supabaseClient.from('user_memories')
-            .update({ last_used_at: new Date().toISOString(), use_count: 1 }) // use_count will be incremented via trigger or next iteration
+            .update({ last_used_at: new Date().toISOString() })
             .eq('user_id', userId).eq('active', true).eq('is_template', false)
             .then(() => {}).catch(() => {}); // non-fatal
         }
@@ -1053,7 +1108,7 @@ serve(async (req) => {
 
     // Flow detection
     stage = 'flow_detect';
-    const CONFIRM_WORDS = ['yes','confirm','ok','sure','نعم','تأكيد','تمام','ماشي','صح','أكيد','سم','يلا','نمشي','امشي','طيب','اي','ايه','يب'];
+    const CONFIRM_WORDS = ['yes','confirm','ok','okay','sure','yep','yup','نعم','تأكيد','تمام','ماشي','صح','صحيح','أكيد','اكيد','سم','يلا','نمشي','امشي','طيب','اي','ايه','ايوا','ايوه','يب','هم','مضبوط','عيال','يعطيك','امضي','مشي','تفضل','واو','هه'];
     const CANCEL_WORDS = ['no','cancel','لا','إلغاء','الغي','خلاص','لا خلاص','وقف','كنسل','الغها'];
     const msgLower = String(message).toLowerCase().trim();
     const isConfirmation = CONFIRM_WORDS.includes(msgLower);
@@ -1112,8 +1167,12 @@ serve(async (req) => {
     // voice_mode: use gpt-4o-mini for ~2x faster response — brevity is already enforced
     // by the voice_mode prompt rule (≤15 spoken words). Quality difference is negligible
     // for short conversational Arabic responses.
-    const SIMPLE_RE = /^(كيف حال|how are you|مرحب|hello|هلا|أهلا|شكراً|thank|^ok$|^تمام$|صباح|مساء|السلام)/i;
-    const isSimple = SIMPLE_RE.test(String(message).trim()) && !pendingFunction;
+    const SIMPLE_RE = /^(كيف حال|how are you|مرحب|hello|هلا|أهلا|شكراً|thank|صباح|مساء|السلام)/i;
+    // Compound messages (greetings + commands) must go to gpt-4o to handle the action correctly
+    const COMPOUND_ACTION_RE = /أضيف|سجل|ذكر|احجز|موعد|مهمة|اجتماع|مصروف|راتب|add|remind|schedule|book|task|meeting|log|record/i;
+    const isSimple = SIMPLE_RE.test(String(message).trim())
+      && !COMPOUND_ACTION_RE.test(String(message))
+      && !pendingFunction;
     const model = (voice_mode || isSimple) ? "gpt-4o-mini" : "gpt-4o";
     // Voice mode: slim context to last 4 messages (faster inference, fewer tokens)
     // Text mode: last 8 messages for richer context
@@ -1406,8 +1465,10 @@ ${modeRules}
       // If we have summaries (visible tool actions), those form the message.
       // If ONLY silent tools fired (e.g. remember_about_user), keep the model's natural reply.
       const naturalReply = choice.message?.content || '';
-      if (summaries.length) {
-        assistantMessage = naturalReply ? `${naturalReply}\n\n${summaries.join('\n')}` : summaries.join('\n');
+      // In voice mode strip emoji from tool summaries so TTS doesn't vocalise symbols
+      const cleanSummaries = voice_mode ? summaries.map(stripEmojiForVoice) : summaries;
+      if (cleanSummaries.length) {
+        assistantMessage = naturalReply ? `${naturalReply}\n\n${cleanSummaries.join('\n')}` : cleanSummaries.join('\n');
       } else if (naturalReply) {
         assistantMessage = naturalReply;
       }
@@ -1469,14 +1530,36 @@ ${modeRules}
       }
     }
 
-    // Emotion hint — Jood's personality-aware emotion routing
+    // Emotion hint — driven by response mode and executed tool kind first, text as fallback
     stage = 'emotion';
+    const toolKind = actionCard?.kind ?? '';
     let suggestedEmotion = "neutral";
-    if (responseMode === 'mood' || /متوتر|ضغط|قلق|stressed|تعبان|يعينك|حليلك|يا قلبي|لا تشيل هم/i.test(assistantMessage)) suggestedEmotion = "empathetic";
-    else if (/ياااي|يستاهل|حلوو|عجبني|مبروك|يحمّس|واو|يا سلام/i.test(assistantMessage)) suggestedEmotion = "excited";
-    else if (responseMode === 'command' || /ممتاز|رائع|great|excellent|ما شاء الله|ههه/i.test(assistantMessage)) suggestedEmotion = "warm";
-    else if (responseMode === 'finance' || /استثمار|محفظة|invest|portfolio|ريال|budget|مصاريف/i.test(assistantMessage)) suggestedEmotion = "confident";
-    else if (responseMode === 'planning') suggestedEmotion = "confident";
+    if (responseMode === 'mood' || toolKind === 'mood') {
+      // Mood logging or empathetic support
+      suggestedEmotion = "empathetic";
+    } else if (
+      (toolKind === 'goal' || toolKind === 'goal_update') &&
+      /مكتمل|completed|🎉/i.test(assistantMessage)
+    ) {
+      // Goal achieved — genuinely excited
+      suggestedEmotion = "excited";
+    } else if (
+      responseMode === 'finance' || responseMode === 'planning' ||
+      ['finance','finance_update','finance_delete','portfolio','goal','holding_update'].includes(toolKind)
+    ) {
+      // Financial or planning context — composed, authoritative
+      suggestedEmotion = "confident";
+    } else if (
+      responseMode === 'command' ||
+      ['task','habit','event','task_update','event_update','habit_update','task_delete','event_delete','habit_delete','navigate','memory'].includes(toolKind)
+    ) {
+      // Action completed — warm confirmation
+      suggestedEmotion = "warm";
+    } else if (/ياااي|مبروك|يحمّس|يا سلام|واو/i.test(assistantMessage)) {
+      suggestedEmotion = "excited";
+    } else if (/متوتر|ضغط|قلق|stressed|يعينك|يا قلبي/i.test(assistantMessage)) {
+      suggestedEmotion = "empathetic";
+    }
 
     return new Response(JSON.stringify({
       message: assistantMessage,
