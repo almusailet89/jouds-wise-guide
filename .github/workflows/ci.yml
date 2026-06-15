@@ -23,6 +23,7 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: '20' }
       - run: npm ci
+      - run: npm install --no-save @playwright/test
       - run: npx playwright install --with-deps
       - run: npx playwright test
       # See Playwright CI docs if you shard or record runs
