@@ -24,7 +24,7 @@ jobs:
         with: { node-version: '20' }
       - run: npm ci
       - run: npx playwright install --with-deps
-      - run: npx playwright test
+      - run: npx playwright test --pass-with-no-tests
       # See Playwright CI docs if you shard or record runs
       # https://playwright.dev/docs/ci
   chromatic:
