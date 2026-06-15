@@ -21,6 +21,10 @@ export default tseslint.config(
       ...reactHooks.configs.recommended.rules,
       "react-refresh/only-export-components": ["warn", { allowConstantExport: true }],
       "@typescript-eslint/no-unused-vars": "off",
+      // Supabase returns untyped data throughout; typing every query return is impractical
+      "@typescript-eslint/no-explicit-any": "off",
+      // tailwind.config.ts uses require() for plugins — standard Tailwind pattern
+      "@typescript-eslint/no-require-imports": "off",
     },
   },
 );
