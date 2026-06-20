@@ -68,7 +68,7 @@ export const SecurityCenter: React.FC = () => {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) setPrefs({ ...DEFAULTS, ...JSON.parse(raw) });
-    } catch {}
+    } catch { /* ignore malformed localStorage */ }
   }, []);
 
   // ── Persist ──────────────────────────────────────────────────────────────────
