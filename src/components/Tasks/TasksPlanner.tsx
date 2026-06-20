@@ -25,6 +25,7 @@ const TasksPlanner: React.FC = () => {
   const { tasks, loading, addTask, updateTask } = useTasks();
   const { t, lang, dir } = useLanguage();
   const [newTask, setNewTask] = useState('');
+  const [dueDate, setDueDate] = useState(new Date().toISOString().split('T')[0]);
 
   const toggleTask = async (id: string) => {
     const task = tasks.find(t => t.id === id);
@@ -43,10 +44,11 @@ const TasksPlanner: React.FC = () => {
       status: 'pending',
       priority: 'medium',
       category: 'general',
-      due_date: new Date().toISOString().split('T')[0],
+      due_date: dueDate,
       completed_at: null,
     });
     setNewTask('');
+    setDueDate(new Date().toISOString().split('T')[0]);
   };
 
   const completedTasks = tasks.filter(t => t.status === 'completed').length;
@@ -89,18 +91,30 @@ const TasksPlanner: React.FC = () => {
       {/* Add New Task */}
       <Card>
         <CardContent className="pt-6">
-          <div className="flex gap-2">
-            <Input
-              placeholder={t('tasks.add.placeholder')}
-              value={newTask}
-              onChange={(e) => setNewTask(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && handleAddTask()}
-              className="flex-1 font-arabic"
-              disabled={loading}
-            />
-            <Button onClick={handleAddTask} size="icon" disabled={loading || !newTask.trim()}>
-              <Plus className="h-4 w-4" />
-            </Button>
+          <div className="flex flex-col gap-2">
+            <div className="flex gap-2">
+              <Input
+                placeholder={t('tasks.add.placeholder')}
+                value={newTask}
+                onChange={(e) => setNewTask(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && handleAddTask()}
+                className="flex-1 font-arabic"
+                disabled={loading}
+              />
+              <Button onClick={handleAddTask} size="icon" disabled={loading || !newTask.trim()}>
+                <Plus className="h-4 w-4" />
+              </Button>
+            </div>
+            <div className="flex items-center gap-2">
+              <Calendar className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+              <Input
+                type="date"
+                value={dueDate}
+                onChange={(e) => setDueDate(e.target.value)}
+                className="w-auto text-sm"
+                disabled={loading}
+              />
+            </div>
           </div>
         </CardContent>
       </Card>

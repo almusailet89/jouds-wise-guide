@@ -10,7 +10,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog';
 import {
-  Wallet, CalendarClock, Target, TrendingUp, Plus, Sparkles, ArrowUpRight, Loader2,
+  Wallet, CalendarClock, Target, TrendingUp, Plus, Sparkles, Loader2,
 } from 'lucide-react';
 import { useProfile, useFinancialData, useGoals } from '@/hooks/useDatabase';
 import { useLanguage } from '@/hooks/useLanguage';
@@ -27,13 +27,6 @@ const daysUntilSalary = (payday = 25): { days: number; nextDate: Date } => {
   return { days: diff, nextDate: next };
 };
 
-// ─── Investment scenario projections ─────────────────────────────────────────
-const projectGrowth = (principal: number, monthlyDeposit: number, annualRate: number, years: number) => {
-  const r = annualRate / 12;
-  const n = years * 12;
-  const fv = principal * Math.pow(1 + r, n) + monthlyDeposit * ((Math.pow(1 + r, n) - 1) / r);
-  return Math.round(fv);
-};
 
 // ─── Goal colour palette ──────────────────────────────────────────────────────
 const GOAL_COLORS = [
@@ -67,19 +60,6 @@ export const FinanceExtras: React.FC = () => {
     return Math.max(income - expense, 0);
   }, [financialData]);
 
-  // ── Investment scenarios ──────────────────────────────────────────────────
-  const SCENARIOS = [
-    { labelKey: 'fin.proj.conservative', rate: 0.04, color: 'text-slate-600',     tagKey: 'fin.proj.sukuk' },
-    { labelKey: 'fin.proj.balanced',     rate: 0.08, color: 'text-jood-teal-700', tagKey: 'fin.proj.tasi' },
-    { labelKey: 'fin.proj.aggressive',   rate: 0.12, color: 'text-jood-gold-700', tagKey: 'fin.proj.growth' },
-  ];
-
-  // ── Investment projections ────────────────────────────────────────────────
-  const monthlyDeposit = Math.max(Math.round(salary * 0.2), 500);
-  const projections5   = SCENARIOS.map(s => ({
-    ...s,
-    fv: projectGrowth(currentSavings, monthlyDeposit, s.rate, 5),
-  }));
 
   // ── Add to goal ───────────────────────────────────────────────────────────
   const addToGoal = async () => {
@@ -233,57 +213,6 @@ export const FinanceExtras: React.FC = () => {
                 })}
               </div>
             )}
-          </CardContent>
-        </Card>
-      </motion.div>
-
-      {/* ── 3. Investment Projection ──────────────────────────────────────────── */}
-      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, delay: 0.15 }}>
-        <Card className="h-full overflow-hidden relative">
-          <div className="absolute inset-0 bg-gradient-to-br from-jood-gold-500/10 via-transparent to-jood-teal-700/5" />
-          <CardContent className="p-5 relative">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-jood-gold-500 to-amber-700 flex items-center justify-center">
-                  <TrendingUp className="w-4.5 h-4.5 text-white" />
-                </div>
-                <div>
-                  <h3 className="font-bold text-sm font-arabic flex items-center gap-1">
-                    {t('fin.proj.title')} <Sparkles className="w-3 h-3 text-jood-gold-500" />
-                  </h3>
-                  <p className="text-[10px] text-muted-foreground font-arabic">
-                    {t('fin.proj.subtitle')} • {fmt(monthlyDeposit)} {t('fin.proj.per.month')}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              {projections5.map((p, i) => (
-                <motion.div
-                  key={p.labelKey}
-                  initial={{ opacity: 0, x: -10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ duration: 0.4, delay: 0.2 + i * 0.08 }}
-                  className="flex items-center justify-between p-2 rounded-lg bg-muted/20 hover:bg-muted/40 transition-colors"
-                >
-                  <div>
-                    <div className={cn('text-xs font-bold font-arabic', p.color)}>{t(p.labelKey)}</div>
-                    <div className="text-[9px] text-muted-foreground font-arabic">{t(p.tagKey)} • {Math.round(p.rate * 100)}{t('fin.proj.annual')}</div>
-                  </div>
-                  <div className="text-left">
-                    <div className="text-sm font-black font-mono text-foreground">{fmt(p.fv)}</div>
-                    <div className="text-[9px] text-jood-teal-700 font-arabic flex items-center gap-0.5 justify-end">
-                      <ArrowUpRight className="w-2.5 h-2.5" />{t('fin.salary.sar')}
-                    </div>
-                  </div>
-                </motion.div>
-              ))}
-            </div>
-
-            <p className="text-[9px] text-muted-foreground font-arabic mt-3 italic leading-relaxed">
-              {t('fin.proj.disclaimer')}
-            </p>
           </CardContent>
         </Card>
       </motion.div>

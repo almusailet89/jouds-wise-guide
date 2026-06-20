@@ -222,6 +222,7 @@ const SmartCalendar: React.FC = () => {
   const [addDialog, setAddDialog] = useState<{ open: boolean; type: AddType }>({ open: false, type: 'event' });
   const [eventForm, setEventForm] = useState<EventForm>(defaultEventForm(now));
   const [quickTask, setQuickTask] = useState('');
+  const [quickTaskDate, setQuickTaskDate] = useState('');
   const [quickTaskPriority, setQuickTaskPriority] = useState<'low'|'medium'|'high'>('medium');
   const [quickTaskRecurrence, setQuickTaskRecurrence] = useState('none');
   const [quickHabit, setQuickHabit] = useState('');
@@ -329,6 +330,7 @@ const SmartCalendar: React.FC = () => {
   const openAdd = (type: AddType) => {
     setEventForm(defaultEventForm(selected));
     setQuickTask(''); setQuickHabit('');
+    setQuickTaskDate(dateStr(selected));
     setAddDialog({ open: true, type });
   };
 
@@ -384,7 +386,7 @@ const SmartCalendar: React.FC = () => {
     await addTask({
       title: quickTask.trim() + (recurrenceLabel ? ` [${recurrenceLabel}]` : ''),
       description: null, status: 'pending', priority: quickTaskPriority,
-      category: 'general', due_date: dateStr(selected), completed_at: null,
+      category: 'general', due_date: quickTaskDate || dateStr(selected), completed_at: null,
     });
     setSaving(false);
     setAddDialog({ open: false, type: 'task' });
@@ -1076,7 +1078,7 @@ const SmartCalendar: React.FC = () => {
               </div>
               <div>
                 <Label className="font-arabic text-xs">{t('cal.field.date')}</Label>
-                <Input type="date" value={dateStr(selected)} onChange={() => {}} className="text-sm mt-1" readOnly />
+                <Input type="date" value={quickTaskDate} onChange={e => setQuickTaskDate(e.target.value)} className="text-sm mt-1" />
               </div>
             </div>
           )}

@@ -28,13 +28,11 @@ const ChatInterface  = lazy(() => import('@/components/Chat/ChatInterface').then
 const MajlisMode   = lazy(() => import('@/components/Voice/MajlisModeAgent'));
 const Onboarding   = lazy(() => import('@/components/Onboarding/Onboarding'));
 const ProfileDialog = lazy(() => import('@/components/Profile/ProfileDialog'));
-// Voice panel loaded when user switches to voice mode
-const VoicePanel   = lazy(() => import('@/components/Voice/VoicePanel'));
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   MessageSquare, TrendingUp, Heart, Home,
-  LogOut, Mic, Download, Sparkles, CalendarCheck, Settings, Bell, Moon, Sun, FlaskConical, ShieldCheck, Brain,
+  LogOut, Download, Sparkles, CalendarCheck, Settings, Bell, Moon, Sun, ShieldCheck, Brain,
 } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { cn } from '@/lib/utils';
@@ -46,19 +44,10 @@ const SIGNAL_PRAYER_KEYS: Record<string, string> = {
 };
 
 const useSaudiSignal = () => {
-  const [hijri, setHijri] = React.useState('');
   const [prayer, setPrayer] = React.useState<{ key: string; time: string } | null>(null);
   const [sarUsd, setSarUsd] = React.useState<string | null>(null);
 
   React.useEffect(() => {
-    // Hijri date
-    try {
-      const h = new Intl.DateTimeFormat('ar-SA-u-ca-islamic', {
-        year: 'numeric', month: 'long', day: 'numeric',
-      }).format(new Date());
-      setHijri(h);
-    } catch { setHijri(''); }
-
     // Prayer times
     fetch('https://api.aladhan.com/v1/timingsByCity?city=Riyadh&country=SA&method=4')
       .then(r => r.json())
@@ -88,7 +77,7 @@ const useSaudiSignal = () => {
       .catch(() => setSarUsd('3.75')); // fallback to peg
   }, []);
 
-  return { hijri, prayer, sarUsd };
+  return { prayer, sarUsd };
 };
 
 // ─── Nav items (6 tabs) — built at render time so labels are translated ───────
@@ -99,8 +88,6 @@ const buildNav = (t: (k: string) => string) => [
   { value: 'planning',  label: t('nav.planning'),  icon: CalendarCheck },
   { value: 'recommendations', label: t('nav.recommendations') || 'توصيات', icon: Brain },
   { value: 'settings',        label: t('nav.settings'),  icon: Settings },
-  // Dev-only sandbox tab — never shown to production users
-  ...(import.meta.env.DEV ? [{ value: 'test', label: 'Test', icon: FlaskConical }] : []),
 ];
 
 // ─── Lazy tab skeleton ────────────────────────────────────────────────────────
@@ -112,81 +99,14 @@ const TabSkeleton: React.FC = () => (
   </div>
 );
 
-// ─── Chat+Voice tab ───────────────────────────────────────────────────────────
-const ChatVoiceTab: React.FC<{ onMajlis: () => void }> = ({ onMajlis }) => {
-  const [mode, setMode] = useState<'chat' | 'voice'>('chat');
-  const { t } = useLanguage();
-
+// ─── Chat tab ─────────────────────────────────────────────────────────────────
+const ChatVoiceTab: React.FC<{ onMajlis: () => void }> = () => {
   return (
     <div className="flex flex-col h-[calc(100vh-180px)] sm:h-[calc(100vh-160px)]">
-      {/* Mode toggle */}
-      <div className="flex items-center justify-between mb-3 flex-shrink-0">
-        <div className="flex gap-1 p-1 bg-muted/40 rounded-xl border border-border/30">
-          <button
-            onClick={() => setMode('chat')}
-            className={cn(
-              'flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-sm font-arabic transition-all',
-              mode === 'chat' ? 'bg-card shadow-sm text-foreground font-semibold' : 'text-muted-foreground hover:text-foreground',
-            )}
-          >
-            <MessageSquare className="w-4 h-4" />
-            {t('chat.mode.chat')}
-          </button>
-          <button
-            onClick={() => setMode('voice')}
-            className={cn(
-              'flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-sm font-arabic transition-all',
-              mode === 'voice' ? 'bg-card shadow-sm text-foreground font-semibold' : 'text-muted-foreground hover:text-foreground',
-            )}
-          >
-            <Mic className="w-4 h-4" />
-            {t('chat.mode.voice')}
-          </button>
-        </div>
-
-        {mode === 'voice' && (
-          <Button
-            onClick={onMajlis}
-            size="sm"
-            className="bg-gradient-to-r from-jood-gold-500 to-amber-700 hover:from-amber-600 hover:to-amber-800 text-white gap-2 font-arabic shadow-luxury h-9 text-xs"
-          >
-            <Sparkles className="w-3.5 h-3.5" />
-            {t('chat.majlis.full')}
-          </Button>
-        )}
-      </div>
-
-      {/* Content */}
       <div className="flex-1 min-h-0">
-        <AnimatePresence mode="wait">
-          {mode === 'chat' ? (
-            <motion.div
-              key="chat"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.15 }}
-              className="h-full"
-            >
-              <Suspense fallback={<TabSkeleton />}>
-                <ChatInterface />
-              </Suspense>
-            </motion.div>
-          ) : (
-            <motion.div
-              key="voice"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.15 }}
-              className="h-full overflow-y-auto"
-            >
-              <Suspense fallback={<TabSkeleton />}>
-                <VoicePanel />
-              </Suspense>
-            </motion.div>
-          )}
-        </AnimatePresence>
+        <Suspense fallback={<TabSkeleton />}>
+          <ChatInterface />
+        </Suspense>
       </div>
     </div>
   );
@@ -254,7 +174,7 @@ const Dashboard = () => {
   const NAV = buildNav(t);
   const [activeTab, setActiveTab] = useState('home');
   const [profileOpen, setProfileOpen] = useState(false);
-  const { hijri, prayer, sarUsd } = useSaudiSignal();
+  const { prayer, sarUsd } = useSaudiSignal();
   // Check localStorage first (fast), then sync from DB profile once loaded
   const [showOnboarding, setShowOnboarding] = useState(() => {
     if (typeof window === 'undefined') return false;
@@ -342,9 +262,6 @@ const Dashboard = () => {
 
           {/* Saudi Signal Strip */}
           <div className="hidden md:flex items-center gap-3 mx-auto">
-            {hijri && (
-              <span className="signal-chip font-arabic text-[11px]">🌙 {hijri}</span>
-            )}
             {prayer && (
               <span className="signal-chip font-arabic text-[11px]">🕌 {t(prayer.key)} {prayer.time}</span>
             )}
@@ -511,13 +428,6 @@ const Dashboard = () => {
                 </Fade>
               </Suspense>
             </ErrorBoundary>
-          </TabsContent>
-
-          {/* ── Test ─────────────────────────────────────────────────────── */}
-          <TabsContent value="test" className="p-4 mt-0">
-            <div className="flex items-center justify-center min-h-[200px]">
-              <p className="text-foreground text-lg font-semibold">Test Tab ✓</p>
-            </div>
           </TabsContent>
 
           {/* ── Settings (Insights + Memory + Security) ───────────────────── */}
