@@ -397,7 +397,7 @@ const SmartCalendar: React.FC = () => {
       due_date: quickTaskDate || dateStr(selected),
       completed_at: null,
     };
-    if (quickTaskParent)       taskPayload.parent_task_id  = quickTaskParent;
+    if (quickTaskParent && quickTaskParent !== 'none') taskPayload.parent_task_id = quickTaskParent;
     if (quickTaskHours)        taskPayload.estimated_hours = parseFloat(quickTaskHours);
     if (quickTaskDepends.length) taskPayload.depends_on    = JSON.stringify(quickTaskDepends);
     await addTask(taskPayload);
@@ -1118,7 +1118,7 @@ const SmartCalendar: React.FC = () => {
                       <SelectValue placeholder={dir === 'rtl' ? 'مهمة مستقلة' : 'Independent task'} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">{dir === 'rtl' ? 'مهمة مستقلة' : 'Independent task'}</SelectItem>
+                      <SelectItem value="none">{dir === 'rtl' ? 'مهمة مستقلة' : 'Independent task'}</SelectItem>
                       {tasks.filter(t => !t.parent_task_id && t.status !== 'completed').map(t => (
                         <SelectItem key={t.id} value={t.id} className="font-arabic text-sm">{t.title}</SelectItem>
                       ))}
