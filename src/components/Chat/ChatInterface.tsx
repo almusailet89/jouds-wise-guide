@@ -329,7 +329,7 @@ const SessionItem: React.FC<{
     >
       <div className="flex items-center gap-2 pl-6">
         <MessageSquare className={cn('w-3.5 h-3.5 flex-shrink-0', active ? 'text-jood-gold-300' : 'text-muted-foreground/50')} />
-        <span className="truncate text-sm font-arabic leading-snug">{session.title}</span>
+        <span className="line-clamp-2 text-xs font-arabic leading-snug break-words min-w-0">{session.title}</span>
       </div>
       <p className="text-xs mt-0.5 opacity-45 font-arabic pr-5">
         {new Date(session.updated_at).toLocaleDateString(sLang === 'ar' ? 'ar-SA' : 'en-US', { month: 'short', day: 'numeric' })}
