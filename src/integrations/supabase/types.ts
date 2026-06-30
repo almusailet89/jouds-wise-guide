@@ -307,9 +307,12 @@ export type Database = {
           category: string | null
           completed_at: string | null
           created_at: string
+          depends_on: string | null
           description: string | null
           due_date: string | null
+          estimated_hours: number | null
           id: string
+          parent_task_id: string | null
           priority: string | null
           status: string | null
           title: string
@@ -320,9 +323,12 @@ export type Database = {
           category?: string | null
           completed_at?: string | null
           created_at?: string
+          depends_on?: string | null
           description?: string | null
           due_date?: string | null
+          estimated_hours?: number | null
           id?: string
+          parent_task_id?: string | null
           priority?: string | null
           status?: string | null
           title: string
@@ -333,9 +339,12 @@ export type Database = {
           category?: string | null
           completed_at?: string | null
           created_at?: string
+          depends_on?: string | null
           description?: string | null
           due_date?: string | null
+          estimated_hours?: number | null
           id?: string
+          parent_task_id?: string | null
           priority?: string | null
           status?: string | null
           title?: string

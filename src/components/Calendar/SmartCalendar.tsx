@@ -388,7 +388,7 @@ const SmartCalendar: React.FC = () => {
     if (!quickTask.trim()) return;
     setSaving(true);
     const recurrenceLabel = quickTaskRecurrence === 'none' ? null : quickTaskRecurrence;
-    await addTask({
+    const taskPayload: any = {
       title: quickTask.trim() + (recurrenceLabel ? ` [${recurrenceLabel}]` : ''),
       description: null,
       status: 'pending',
@@ -396,10 +396,11 @@ const SmartCalendar: React.FC = () => {
       category: 'general',
       due_date: quickTaskDate || dateStr(selected),
       completed_at: null,
-      parent_task_id: quickTaskParent || null,
-      estimated_hours: quickTaskHours ? parseFloat(quickTaskHours) : null,
-      depends_on: quickTaskDepends.length ? JSON.stringify(quickTaskDepends) : null,
-    } as any);
+    };
+    if (quickTaskParent)       taskPayload.parent_task_id  = quickTaskParent;
+    if (quickTaskHours)        taskPayload.estimated_hours = parseFloat(quickTaskHours);
+    if (quickTaskDepends.length) taskPayload.depends_on    = JSON.stringify(quickTaskDepends);
+    await addTask(taskPayload);
     setSaving(false);
     setAddDialog({ open: false, type: 'task' });
     setQuickTask('');
