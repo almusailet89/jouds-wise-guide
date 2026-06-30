@@ -272,7 +272,6 @@ export const useChat = () => {
           pendingFunction: existingPendingFunction,
           voice_mode,
           detected_language,
-          lang,                   // app UI language — tells Jood which language to reply in
         },
         headers: { Authorization: `Bearer ${session.access_token}` },
       });

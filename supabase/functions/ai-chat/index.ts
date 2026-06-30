@@ -1186,7 +1186,11 @@ serve(async (req) => {
     const _now = new Date();
     const TODAY = _now.toLocaleDateString('ar-SA', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
     const TODAY_ISO = `${_now.getFullYear()}-${String(_now.getMonth() + 1).padStart(2, '0')}-${String(_now.getDate()).padStart(2, '0')}`;
-    const langRule = respondInEnglish ? "User spoke English — reply in English." : respondMixed ? "المستخدم يخلط عربي-إنجليزي — رديّ بنفس المزيج." : "";
+    const langRule = respondInEnglish
+      ? "🔴 User wrote in English — reply in English only for this message. No Arabic."
+      : respondMixed
+      ? "🔴 المستخدم يخلط عربي-إنجليزي — رديّ بنفس المزيج بالضبط."
+      : "🔴 المستخدم كتب بالعربي — ردّي بالعربية السعودية.";
     // Mode-specific instructions (Phase 2: per-mode tuning)
     const responseModeHint: Record<ResponseMode, string> = {
       command: '🎯 وضع أوامر: المستخدم يبي تنفيذ — نفّذي فوراً + تأكيد مختصر. لا تطوّلي.',
@@ -1277,12 +1281,12 @@ ${responseModeHint[responseMode]}`;
 ${genderRule}
 
 ═══ قواعد اللغة الصارمة ═══
-🔴 القاعدة الأهم: ردّي دائماً بالعربية السعودية (اللهجة النجدية/الخليجية) إلا إذا المستخدم كتب/تكلم إنجليزي بالكامل.
-• لو المستخدم يخلط عربي-إنجليزي → ردّي بالعربي مع مصطلحات إنجليزية طبيعية
-• لو المستخدم يتكلم إنجليزي كامل → ردّي إنجليزي بنبرة مهنية ودافئة
-• ممنوع الفصحى الثقيلة — لا تقولي "بالتأكيد سيدي" أو "حسناً سأقوم بذلك" — قولي "سم" أو "تم"
-• ممنوع تبدئي بـ "بالطبع" أو "بالتأكيد" أو "Sure" — ابدئي بالمضمون أو "سم"
+ردّي دائماً بنفس لغة آخر رسالة كتبها المستخدم — هذه القاعدة تطغى على كل شيء:
 ${langRule}
+• إذا عربي: لهجة سعودية نجدية/خليجية أنيقة مع مصطلحات إنجليزية طبيعية (schedule, budget, deadline)
+• إذا إنجليزي: warm professional English, no Arabic words
+• ممنوع الفصحى الثقيلة — قولي "سم" مو "بالتأكيد سيدي"
+• ممنوع تبدئي بـ "بالطبع" أو "Sure" — ابدئي بالمضمون
 
 ═══ أسلوب الرد ═══
 ${preferredStyle === 'concise' ? '⚡ المستخدم يفضّل الإيجاز — ردودك أقصر ما يمكن، بدون شرح زيادة.' : preferredStyle === 'detailed' ? '📖 المستخدم يفضّل التفصيل — وسّعي شوي بالشرح والتحليل.' : ''}
