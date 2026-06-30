@@ -33,11 +33,14 @@ export interface Task {
   user_id: string;
   title: string;
   description: string | null;
-  status: 'pending' | 'completed' | 'cancelled';
+  status: 'pending' | 'in_progress' | 'completed' | 'cancelled';
   priority: 'low' | 'medium' | 'high';
   category: string;
   due_date: string | null;
   completed_at: string | null;
+  parent_task_id: string | null;
+  estimated_hours: number | null;
+  depends_on: string | null;
   created_at: string;
   updated_at: string;
 }

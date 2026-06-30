@@ -225,6 +225,9 @@ const SmartCalendar: React.FC = () => {
   const [quickTaskDate, setQuickTaskDate] = useState('');
   const [quickTaskPriority, setQuickTaskPriority] = useState<'low'|'medium'|'high'>('medium');
   const [quickTaskRecurrence, setQuickTaskRecurrence] = useState('none');
+  const [quickTaskHours, setQuickTaskHours] = useState('');
+  const [quickTaskParent, setQuickTaskParent] = useState('');
+  const [quickTaskDepends, setQuickTaskDepends] = useState<string[]>([]);
   const [quickHabit, setQuickHabit] = useState('');
   const [quickHabitRecurrence, setQuickHabitRecurrence] = useState('none');
   const [saving, setSaving]     = useState(false);
@@ -331,6 +334,9 @@ const SmartCalendar: React.FC = () => {
     setEventForm(defaultEventForm(selected));
     setQuickTask(''); setQuickHabit('');
     setQuickTaskDate(dateStr(selected));
+    setQuickTaskHours('');
+    setQuickTaskParent('');
+    setQuickTaskDepends([]);
     setAddDialog({ open: true, type });
   };
 
@@ -382,16 +388,25 @@ const SmartCalendar: React.FC = () => {
     if (!quickTask.trim()) return;
     setSaving(true);
     const recurrenceLabel = quickTaskRecurrence === 'none' ? null : quickTaskRecurrence;
-    // Store recurrence in category note as workaround (category field allows custom strings)
     await addTask({
       title: quickTask.trim() + (recurrenceLabel ? ` [${recurrenceLabel}]` : ''),
-      description: null, status: 'pending', priority: quickTaskPriority,
-      category: 'general', due_date: quickTaskDate || dateStr(selected), completed_at: null,
-    });
+      description: null,
+      status: 'pending',
+      priority: quickTaskPriority,
+      category: 'general',
+      due_date: quickTaskDate || dateStr(selected),
+      completed_at: null,
+      parent_task_id: quickTaskParent || null,
+      estimated_hours: quickTaskHours ? parseFloat(quickTaskHours) : null,
+      depends_on: quickTaskDepends.length ? JSON.stringify(quickTaskDepends) : null,
+    } as any);
     setSaving(false);
     setAddDialog({ open: false, type: 'task' });
     setQuickTask('');
     setQuickTaskRecurrence('none');
+    setQuickTaskHours('');
+    setQuickTaskParent('');
+    setQuickTaskDepends([]);
   };
 
   // ── Save habit ────────────────────────────────────────────────────────────────
@@ -1080,6 +1095,58 @@ const SmartCalendar: React.FC = () => {
                 <Label className="font-arabic text-xs">{t('cal.field.date')}</Label>
                 <Input type="date" value={quickTaskDate} onChange={e => setQuickTaskDate(e.target.value)} className="text-sm mt-1" />
               </div>
+
+              {/* Time estimate */}
+              <div>
+                <Label className="font-arabic text-xs">{dir === 'rtl' ? 'الوقت المقدر (ساعات)' : 'Estimated Hours'}</Label>
+                <Input
+                  type="number" min="0.5" step="0.5"
+                  value={quickTaskHours}
+                  onChange={e => setQuickTaskHours(e.target.value)}
+                  placeholder={dir === 'rtl' ? 'مثال: ٢' : 'e.g. 2'}
+                  className="text-sm mt-1"
+                />
+              </div>
+
+              {/* Parent task (subtask) */}
+              {tasks.filter(t => !t.parent_task_id && t.status !== 'completed').length > 0 && (
+                <div>
+                  <Label className="font-arabic text-xs">{dir === 'rtl' ? 'مهمة رئيسية (اختياري)' : 'Parent Task (optional)'}</Label>
+                  <Select value={quickTaskParent} onValueChange={setQuickTaskParent}>
+                    <SelectTrigger className="mt-1 font-arabic text-sm h-9">
+                      <SelectValue placeholder={dir === 'rtl' ? 'مهمة مستقلة' : 'Independent task'} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">{dir === 'rtl' ? 'مهمة مستقلة' : 'Independent task'}</SelectItem>
+                      {tasks.filter(t => !t.parent_task_id && t.status !== 'completed').map(t => (
+                        <SelectItem key={t.id} value={t.id} className="font-arabic text-sm">{t.title}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              {/* Dependencies */}
+              {tasks.filter(t => t.status !== 'completed').length > 0 && (
+                <div>
+                  <Label className="font-arabic text-xs">{dir === 'rtl' ? 'تعتمد على إتمام (اختياري)' : 'Depends on (optional)'}</Label>
+                  <div className="mt-1 space-y-1 max-h-28 overflow-y-auto border border-border/40 rounded-lg p-2">
+                    {tasks.filter(t => t.status !== 'completed' && t.title !== quickTask).map(t => (
+                      <label key={t.id} className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={quickTaskDepends.includes(t.id)}
+                          onChange={e => setQuickTaskDepends(prev =>
+                            e.target.checked ? [...prev, t.id] : prev.filter(id => id !== t.id)
+                          )}
+                          className="rounded"
+                        />
+                        <span className="text-xs font-arabic text-foreground line-clamp-1">{t.title}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

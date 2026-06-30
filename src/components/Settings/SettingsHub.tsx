@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { BookHeart, Shield, Link2, Bell, CalendarDays, Mic2, UserCog } from 'lucide-react';
+import { BookHeart, Shield, Link2, Bell, CalendarDays, Mic2, UserCog, Lock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useLanguage } from '@/hooks/useLanguage';
+import { useRoles } from '@/hooks/useRoles';
 import MemoryCenter from '@/components/Memory/MemoryCenter';
 import SecurityCenter from '@/components/Security/SecurityCenter';
 import IntegrationsHub from '@/components/Settings/IntegrationsHub';
@@ -18,17 +19,18 @@ interface SettingsHubProps {
 
 const SettingsHub: React.FC<SettingsHubProps> = ({ onNavigate }) => {
   const { t, lang } = useLanguage();
+  const { isAdmin } = useRoles();
   const [active, setActive] = useState<SettingsTab>('profile');
 
-  const TABS: { value: SettingsTab; label: string; icon: React.ElementType }[] = [
-    { value: 'profile',       label: lang === 'ar' ? 'الحساب' : 'Account',  icon: UserCog },
-    { value: 'voice',         label: lang === 'ar' ? 'الصوت' : 'Voice', icon: Mic2 },
-    { value: 'calendar',      label: t('settings.tab.calendar'),      icon: CalendarDays },
-    { value: 'memory',        label: t('settings.tab.memory'),        icon: BookHeart },
-    { value: 'integrations',  label: t('settings.tab.integrations'),  icon: Link2 },
-    { value: 'notifications', label: t('settings.tab.notifications'), icon: Bell },
-    { value: 'security',      label: t('settings.tab.security'),      icon: Shield },
-  ];
+  const TABS: { value: SettingsTab; label: string; icon: React.ElementType; adminOnly?: boolean }[] = [
+    { value: 'profile',       label: lang === 'ar' ? 'الحساب' : 'Account',       icon: UserCog },
+    { value: 'voice',         label: lang === 'ar' ? 'الصوت' : 'Voice',          icon: Mic2, adminOnly: true },
+    { value: 'calendar',      label: t('settings.tab.calendar'),                  icon: CalendarDays },
+    { value: 'memory',        label: t('settings.tab.memory'),                    icon: BookHeart },
+    { value: 'integrations',  label: t('settings.tab.integrations'),              icon: Link2 },
+    { value: 'notifications', label: t('settings.tab.notifications'),             icon: Bell },
+    { value: 'security',      label: t('settings.tab.security'),                  icon: Shield },
+  ].filter(tab => !tab.adminOnly || isAdmin());
 
   return (
     <div className="space-y-4">
