@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { CalendarDays, LayoutKanban, Grid2x2 } from 'lucide-react';
+import { CalendarDays, Kanban, Grid2x2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useLanguage } from '@/hooks/useLanguage';
 import SmartCalendar from '@/components/Calendar/SmartCalendar';
@@ -10,7 +10,7 @@ type View = 'calendar' | 'kanban' | 'matrix';
 
 const VIEWS: { id: View; labelAr: string; labelEn: string; icon: React.FC<any> }[] = [
   { id: 'calendar', labelAr: 'التقويم',      labelEn: 'Calendar', icon: CalendarDays },
-  { id: 'kanban',   labelAr: 'لوحة المهام',  labelEn: 'Kanban',   icon: LayoutKanban },
+  { id: 'kanban',   labelAr: 'لوحة المهام',  labelEn: 'Kanban',   icon: Kanban },
   { id: 'matrix',   labelAr: 'مصفوفة الأولويات', labelEn: 'Matrix', icon: Grid2x2 },
 ];
 
