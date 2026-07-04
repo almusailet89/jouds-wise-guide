@@ -1045,11 +1045,13 @@ serve(async (req) => {
     let joodNickname = '';
     if (userId) {
       try {
-        const [profileRes, taxonomyRes] = await Promise.all([
+        const [profileRes, taxonomyRes, memoriesRes] = await Promise.all([
           supabaseClient.from('profiles')
-            .select('display_name, gender, phone, city, date_of_birth, bio, base_currency, working_days, weekend_days, preferred_response_style, preferred_voice_language, jood_nickname')
+            .select('display_name, gender, phone, city, date_of_birth, bio, base_currency, working_days, weekend_days, preferred_response_style, preferred_voice_language, jood_nickname, last_pattern_analysis_at, pattern_analysis_session_count')
             .eq('user_id', userId).maybeSingle(),
           supabaseClient.rpc('get_memory_taxonomy', { p_user_id: userId })
+            .then((r: any) => r).catch(() => ({ data: [] })),
+          (supabaseClient as any).rpc('get_user_memories_for_prompt', { p_user_id: userId, p_limit: 20 })
             .then((r: any) => r).catch(() => ({ data: [] })),
         ]);
         const profile = profileRes?.data;
@@ -1076,34 +1078,44 @@ serve(async (req) => {
           relationships: "العلاقات", preferences: "التفضيلات", pain_points: "التحديات",
         };
         const ALL_CATS = Object.keys(CAT_AR);
+
+        // Taxonomy is only used to find unfilled categories (for missingHint)
         const filledCats = new Set<string>();
-        const filled: string[] = [];
         for (const row of taxonomy) {
-          filledCats.add(row.category);
-          if (row.filled_count > 0 && row.latest_real_content) {
-            filled.push(`• ${CAT_AR[row.category] ?? row.category}: ${row.latest_real_content}`);
-          }
+          if (row.filled_count > 0) filledCats.add(row.category);
         }
-        // Find truly missing categories (no memories at all)
         for (const cat of ALL_CATS) {
           if (!filledCats.has(cat)) missingCategories.push(CAT_AR[cat]);
         }
-        if (filled.length) knownFacts = "\n\nما تعرفينه عن المستخدم:\n" + filled.join('\n');
 
-        // Touch last_used_at on referenced memories (fire-and-forget)
-        if (filled.length) {
-          supabaseClient.from('user_memories')
-            .update({ last_used_at: new Date().toISOString() })
-            .eq('user_id', userId).eq('active', true).eq('is_template', false)
-            .then(() => {}).catch(() => {}); // non-fatal
+        // Full memory list for prompt injection — all kinds, ranked by importance × confidence
+        const KIND_AR: Record<string, string> = {
+          fact: 'حقيقة', preference: 'تفضيل', goal: 'هدف',
+          pattern: 'نمط سلوكي', relationship: 'علاقة', context: 'سياق',
+        };
+        const memories: any[] = Array.isArray(memoriesRes?.data) ? memoriesRes.data : [];
+        if (memories.length) {
+          const memLines = memories.map((m: any) =>
+            `• [${KIND_AR[m.kind] ?? m.kind}] ${m.content}`
+          );
+          knownFacts = "\n\nما تعرفينه عن المستخدم:\n" + memLines.join('\n');
+
+          // Touch last_used_at only on the specific memories being injected
+          const injectedIds = memories.map((m: any) => m.id).filter(Boolean);
+          if (injectedIds.length) {
+            (supabaseClient as any).rpc('touch_user_memories', { p_memory_ids: injectedIds })
+              .then(() => {}).catch(() => {});
+          }
         }
       } catch { /* non-fatal */ }
     }
     const dayNamesAr = ['الأحد','الإثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت'];
     const workDaysAr = workingDays.map(d => dayNamesAr[d]).filter(Boolean).join('، ');
     const weekendAr  = weekendDays.map(d => dayNamesAr[d]).filter(Boolean).join('، ');
-    const missingHint = missingCategories.length
-      ? `\nمعلومات لم تُجمع بعد عن المستخدم — اسأليها بشكل طبيعي ضمن السياق فقط (لا تستجوبيها ولا تطرحي أكثر من سؤال واحد لكل رد): ${missingCategories.slice(0, 4).join('، ')}`
+    // Shuffle so Jood varies which gaps she asks about across sessions
+    const shuffledMissing = [...missingCategories].sort(() => Math.random() - 0.5);
+    const missingHint = shuffledMissing.length
+      ? `\nمعلومات لم تُجمع بعد عن المستخدم — اسأليها بشكل طبيعي ضمن السياق فقط (لا تستجوبيها ولا تطرحي أكثر من سؤال واحد لكل رد): ${shuffledMissing.slice(0, 4).join('، ')}`
       : "";
 
     // Flow detection
@@ -1564,6 +1576,28 @@ ${modeRules}
       suggestedEmotion = "excited";
     } else if (/متوتر|ضغط|قلق|stressed|يعينك|يا قلبي/i.test(assistantMessage)) {
       suggestedEmotion = "empathetic";
+    }
+
+    // Fire-and-forget pattern analysis — 5% sample rate so we don't hit it every message.
+    // analyze-patterns does its own session-count gating; these calls are cheap no-ops
+    // until the user crosses MIN_SESSIONS (20). After that, it runs at most once per
+    // RE_ANALYZE_AFTER (10) new sessions.
+    if (userId && Math.random() < 0.05) {
+      (async () => {
+        try {
+          await fetch(
+            `${Deno.env.get('SUPABASE_URL')}/functions/v1/analyze-patterns`,
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+              },
+              body: JSON.stringify({ user_id: userId }),
+            },
+          );
+        } catch { /* non-fatal — never block the chat response */ }
+      })();
     }
 
     return new Response(JSON.stringify({
