@@ -33,33 +33,102 @@ import { useChat } from '@/hooks/useChat';
 import { useSubscription } from '@/hooks/useSubscription';
 import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/hooks/useLanguage';
+import { useMemories, type UserMemory } from '@/hooks/useMemories';
 import { cn } from '@/lib/utils';
 
-// ─── Suggested prompts ───────────────────────────────────────────────────────
-type Cat = 'all' | 'finance' | 'health' | 'planning' | 'personal';
-
-// ─── Smart-reply chip generator ───────────────────────────────────────────────
+// ─── Smart-reply chips after an assistant message (max 4) ────────────────────
 const generateSmartReplies = (lastAssistant: string, lang: 'ar' | 'en', gender: 'male' | 'female' | null): string[] => {
   const has = (...needles: string[]) => needles.some(n => lastAssistant.includes(n));
   const f = gender === 'female';
   if (lang === 'en') {
-    if (has('zakat'))                              return ['Calculate now', 'Add to calendar', 'Send reminder'];
-    if (has('portfolio', 'stock', 'investment'))   return ['Show portfolio', '5-year forecast', 'Investment suggestion'];
-    if (has('expense', 'spent', 'spend'))          return ['How much this month?', 'Categorize it', 'Delete last entry'];
-    if (has('prayer', 'fajr', 'dhuhr'))            return ['Remind me in 10 min', 'Add to calendar', 'Next prayer time'];
-    if (has('task', 'reminder'))                   return ["Today's tasks", 'Add task', 'Mark complete'];
-    if (has('mood', 'stressed', 'happy'))          return ['Why?', 'Give me advice', 'Log again'];
-    if (has('habit', 'streak'))                    return ['My streak?', 'Add habit', 'Daily reminder'];
+    if (has('zakat'))                            return ['Calculate now', 'Add to calendar', 'Send reminder', 'Tell me more'];
+    if (has('portfolio', 'stock', 'investment')) return ['Show portfolio', '5-year forecast', 'Investment suggestion', 'Tell me more'];
+    if (has('expense', 'spent', 'spend'))        return ['How much this month?', 'Categorize it', 'Delete last entry', 'Tell me more'];
+    if (has('prayer', 'fajr', 'dhuhr'))          return ['Remind me in 10 min', 'Add to calendar', 'Next prayer time'];
+    if (has('task', 'reminder'))                 return ["Today's tasks", 'Add task', 'Mark complete'];
+    if (has('mood', 'stressed', 'happy'))        return ['Why?', 'Give me advice', 'Log again'];
+    if (has('habit', 'streak'))                  return ['My streak?', 'Add habit', 'Daily reminder'];
     return ['Tell me more', 'Give me an example', 'Save this'];
   }
-  if (has('زكاة'))                        return [f ? 'احسبيها الآن' : 'احسبها الآن', f ? 'أضيفيها للتقويم' : 'أضفها للتقويم', f ? 'أرسلي تذكيراً' : 'أرسل تذكيراً'];
-  if (has('سهم', 'محفظة', 'استثمار'))    return ['اعرضي لي المحفظة', 'التوقع لخمس سنوات', 'اقتراح استثمار'];
-  if (has('مصروف', 'صرف', 'أنفقت'))      return ['كم صرفت هذا الشهر؟', 'صنّفيها', 'احذفي آخر إدخال'];
-  if (has('صلاة', 'الفجر', 'الظهر'))     return ['ذكّريني بـ١٠ دقائق', f ? 'أضيفي للتقويم' : 'أضف للتقويم', 'وقت الصلاة القادمة'];
-  if (has('مهمة', 'مهام', 'تذكير'))      return ['مهام اليوم', f ? 'أضيفي مهمة' : 'أضف مهمة', f ? 'علّمي كمكتمل' : 'علّم كمكتمل'];
-  if (has('مزاج', 'متوتر', 'سعيد'))      return ['ليش؟', 'عطيني نصيحة', f ? 'سجّلي مرة ثانية' : 'سجّل مرة ثانية'];
-  if (has('عادة', 'سلسلة'))              return ['كم سلسلتي؟', f ? 'أضيفي عادة' : 'أضف عادة', 'تذكير يومي'];
+  if (has('زكاة'))                       return [f ? 'احسبيها الآن' : 'احسبها الآن', f ? 'أضيفيها للتقويم' : 'أضفها للتقويم', 'اشرحي أكثر'];
+  if (has('سهم', 'محفظة', 'استثمار'))   return ['اعرضي لي المحفظة', 'التوقع لخمس سنوات', 'اقتراح استثمار', 'اشرحي أكثر'];
+  if (has('مصروف', 'صرف', 'أنفقت'))     return ['كم صرفت هذا الشهر؟', 'صنّفيها', 'اشرحي أكثر'];
+  if (has('صلاة', 'الفجر', 'الظهر'))    return ['ذكّريني بـ١٠ دقائق', 'وقت الصلاة القادمة', 'اشرحي أكثر'];
+  if (has('مهمة', 'مهام', 'تذكير'))     return ['مهام اليوم', f ? 'أضيفي مهمة' : 'أضف مهمة', f ? 'علّمي كمكتمل' : 'علّم كمكتمل'];
+  if (has('مزاج', 'متوتر', 'سعيد'))     return ['ليش؟', 'عطيني نصيحة', f ? 'سجّلي مرة ثانية' : 'سجّل مرة ثانية'];
+  if (has('عادة', 'سلسلة'))             return ['كم سلسلتي؟', f ? 'أضيفي عادة' : 'أضف عادة'];
   return ['اشرحي أكثر', 'أعطني مثالاً', 'احفظي هذا'];
+};
+
+// ─── Memory-based welcome suggestions (empty chat state, max 6) ───────────────
+const getMemorySuggestions = (
+  memories: UserMemory[],
+  lang: 'ar' | 'en',
+  gender: 'male' | 'female' | null,
+): string[] => {
+  const f = gender === 'female';
+  const active = memories.filter(m => m.active).slice(0, 10);
+  const pool: string[] = [];
+
+  const hasKind = (k: string) => active.some(m => m.kind === k);
+  const hasWord = (...words: string[]) => active.some(m => words.some(w => m.content.toLowerCase().includes(w.toLowerCase())));
+
+  // 1. Personalised from top goal memory
+  const topGoal = active.find(m => m.kind === 'goal');
+  if (topGoal) {
+    const snippet = topGoal.content.slice(0, 35).trim();
+    pool.push(lang === 'ar' ? `كيف وضعي مع هدف: ${snippet}` : `Update on my goal: ${snippet}`);
+  }
+
+  // 2. Finance signals
+  if (hasWord('ريال', 'SAR', 'محفظة', 'portfolio', 'سهم', 'stock', 'مصروف', 'expense')) {
+    pool.push(lang === 'ar' ? 'كيف حال ماليتي هذا الشهر؟' : 'How are my finances this month?');
+    pool.push(lang === 'ar' ? (f ? 'سجّلي مصروف جديد' : 'سجّل مصروف جديد') : 'Log a new expense');
+  }
+
+  // 3. Habits / patterns
+  if (hasWord('عادة', 'habit', 'يومياً', 'daily', 'سلسلة', 'streak') || hasKind('pattern')) {
+    pool.push(lang === 'ar' ? 'كيف عاداتي هذا الأسبوع؟' : 'How are my habits this week?');
+  }
+
+  // 4. Prayer / spiritual
+  if (hasWord('صلاة', 'prayer', 'رمضان', 'Ramadan', 'زكاة', 'zakat')) {
+    pool.push(lang === 'ar' ? 'مواعيد الصلاة اليوم' : "Today's prayer times");
+  }
+
+  // 5. Planning signals
+  if (hasWord('مهمة', 'task', 'اجتماع', 'meeting', 'موعد', 'appointment') || hasKind('context')) {
+    pool.push(lang === 'ar' ? 'مهامي اليوم' : "What are my tasks today?");
+  }
+
+  // 6. Mood / wellbeing
+  if (hasWord('مزاج', 'mood', 'تعب', 'tired', 'نوم', 'sleep', 'طاقة', 'energy')) {
+    pool.push(lang === 'ar' ? (f ? 'سجّلي مزاجي اليوم' : 'سجّل مزاجي اليوم') : 'Log my mood today');
+  }
+
+  // Fill remaining with universal defaults if pool is short
+  const defaults = lang === 'ar'
+    ? [
+        f ? 'ساعديني أنظّم يومي' : 'ساعدني أنظّم يومي',
+        f ? 'أضيفي مهمة جديدة' : 'أضف مهمة جديدة',
+        'ما الأفضل أركّز عليه الآن؟',
+        f ? 'عطيني نصيحة اليوم' : 'عطني نصيحة اليوم',
+        'كم صرفت هذا الشهر؟',
+      ]
+    : [
+        'Help me organise my day',
+        'Add a new task',
+        'What should I focus on now?',
+        'Give me a tip for today',
+        'How much did I spend this month?',
+      ];
+
+  for (const d of defaults) {
+    if (pool.length >= 6) break;
+    if (!pool.includes(d)) pool.push(d);
+  }
+
+  return pool.slice(0, 6);
 };
 
 // ─── Action Card ─────────────────────────────────────────────────────────────
@@ -342,34 +411,7 @@ interface ChatInterfaceProps {
 export const ChatInterface: React.FC<ChatInterfaceProps> = ({ onMessage }) => {
   const { canAccessFeature } = useSubscription();
   const { toast } = useToast();
-  const { lang, t, tg, gender } = useLanguage();
-
-  const SUGGESTED_PROMPTS: { icon: string; ar: string; en: string; cat: Cat }[] = [
-    // Finance
-    { icon: '💸', ar: 'أنفقت ١٥٠ ريال على الغداء اليوم',                                                               en: 'I spent 150 SAR on lunch today',                         cat: 'finance'  },
-    { icon: '🎯', ar: 'حطّي هدف توفير سيارة ٦٠٠٠٠ ريال بنهاية السنة',                                                  en: 'Set a savings goal of 60,000 SAR for a car by year end', cat: 'finance'  },
-    { icon: '🤲', ar: 'احسبي لي الزكاة بناءً على ثروتي الحالية',                                                        en: 'Calculate my zakat based on my current wealth',          cat: 'finance'  },
-    { icon: '📊', ar: 'كيف حال محفظتي الاستثمارية هذا الشهر؟',                                                          en: 'How is my investment portfolio doing this month?',       cat: 'finance'  },
-    { icon: '📈', ar: gender === 'female' ? 'أضيفي ٥٠٠ سهم أرامكو بسعر ٢٨ ريال للمحفظة' : 'أضف ٥٠٠ سهم أرامكو بسعر ٢٨ ريال للمحفظة', en: 'Add 500 Aramco shares at 28 SAR to my portfolio', cat: 'finance' },
-    // Planning
-    { icon: '✅', ar: gender === 'female' ? 'أضيفي مهمة مراجعة الميزانية الشهرية' : 'أضف مهمة مراجعة الميزانية الشهرية', en: 'Add a task: review monthly budget',                    cat: 'planning' },
-    { icon: '📆', ar: 'احجزي اجتماع غداً الساعة ١٠ صباحاً',                                                            en: 'Schedule a meeting tomorrow at 10 AM',                   cat: 'planning' },
-    { icon: '⭐', ar: 'عوّديني على المشي ٣٠ دقيقة يومياً الساعة ٧',                                                    en: 'Build a habit: walk 30 minutes daily at 7 AM',           cat: 'planning' },
-    // Personal / Spiritual
-    { icon: '🕌', ar: 'ذكّريني بمواعيد الصلاة الخمس اليوم',                                                            en: "Remind me of today's prayer times",                      cat: 'personal' },
-    { icon: '🌙', ar: 'كم باقي على رمضان؟',                                                                             en: 'How many days until Ramadan?',                           cat: 'personal' },
-    // Health
-    { icon: '💚', ar: 'كيف أحسّن نومي وطاقتي اليومية؟',                                                                en: 'How can I improve my sleep and daily energy?',           cat: 'health'   },
-    { icon: '😊', ar: gender === 'female' ? 'سجّلي إن مزاجي اليوم ممتاز — ١٠ من ١٠' : 'سجّل إن مزاجي اليوم ممتاز — ١٠ من ١٠', en: 'Log my mood today as excellent — 10 out of 10', cat: 'health'  },
-  ];
-
-  const CATS: { value: Cat; label: string; icon: string }[] = [
-    { value: 'all',      label: t('chat.cat.all'),      icon: '✨' },
-    { value: 'finance',  label: t('chat.cat.finance'),  icon: '💰' },
-    { value: 'planning', label: t('chat.cat.planning'), icon: '📅' },
-    { value: 'personal', label: t('chat.cat.personal'), icon: '🌙' },
-    { value: 'health',   label: t('chat.cat.health'),   icon: '💚' },
-  ];
+  const { lang, t, tg, gender, dir } = useLanguage();
 
   const {
     sessions, messages, currentSessionId,
@@ -378,10 +420,11 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ onMessage }) => {
     sendMessage, speakMessage, confirmAction, deleteSession,
   } = useChat();
 
-  const [input, setInput]           = useState('');
+  const { memories } = useMemories();
+
+  const [input, setInput]             = useState('');
   const [sidebarOpen, setSidebarOpen] = useState(() => window.innerWidth >= 768);
-  const [listening, setListening]   = useState(false);
-  const [activeCat, setActiveCat]   = useState<Cat>('all');
+  const [listening, setListening]     = useState(false);
   const bottomRef  = useRef<HTMLDivElement>(null);
   const inputRef   = useRef<HTMLTextAreaElement>(null);
   const recognitionRef = useRef<any>(null);
@@ -447,9 +490,16 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ onMessage }) => {
   }, [canAccessFeature, speakMessage, toast]);
 
   const showWelcome = messages.length === 0 && !loading;
-  const filteredPrompts = SUGGESTED_PROMPTS.filter(p => activeCat === 'all' || p.cat === activeCat);
-
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+
+  // Chips shown below the input: memory-based when empty, smart replies after a message
+  const inputChips: string[] = (() => {
+    if (loading || awaitingConfirmation || input.trim()) return [];
+    if (messages.length === 0) return getMemorySuggestions(memories, lang as 'ar' | 'en', gender);
+    const last = messages[messages.length - 1];
+    if (last.role === 'assistant') return generateSmartReplies(last.content, lang as 'ar' | 'en', gender).slice(0, 4);
+    return [];
+  })();
 
   return (
     <div className="flex h-full overflow-hidden bg-background rounded-2xl border border-border/40 shadow-luxury relative">
@@ -610,47 +660,9 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ onMessage }) => {
                   </motion.div>
 
                   <h2 className="text-2xl font-bold text-foreground font-arabic mb-1">{t('chat.welcome.greet')}</h2>
-                  <p className="text-base text-muted-foreground font-arabic mb-8 max-w-xs leading-relaxed">
+                  <p className="text-base text-muted-foreground font-arabic max-w-xs leading-relaxed">
                     {t('chat.welcome.sub')}
                   </p>
-
-                  {/* Category filter */}
-                  <div className="flex items-center gap-2 mb-5 flex-wrap justify-center">
-                    {CATS.map(c => (
-                      <button
-                        key={c.value}
-                        onClick={() => setActiveCat(c.value)}
-                        className={cn(
-                          'px-3.5 py-2 rounded-full text-sm font-arabic transition-all border',
-                          activeCat === c.value
-                            ? 'bg-jood-teal-900 text-white border-jood-teal-900 shadow-sm'
-                            : 'bg-card text-muted-foreground border-border/50 hover:border-jood-teal-400/60',
-                        )}
-                      >
-                        <span className="ml-1">{c.icon}</span>{c.label}
-                      </button>
-                    ))}
-                  </div>
-
-                  {/* Suggestion list — ChatGPT vertical style */}
-                  <div className="w-full max-w-sm space-y-2">
-                    {filteredPrompts.map((p, i) => (
-                      <motion.button
-                        key={`${activeCat}-${i}`}
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.04 * i, duration: 0.25 }}
-                        onClick={() => handleSend(lang === 'ar' ? p.ar : p.en)}
-                        className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl bg-card border border-border/50 hover:border-jood-teal-400/50 hover:bg-muted/40 transition-all text-right group"
-                      >
-                        <span className="text-xl flex-shrink-0">{p.icon}</span>
-                        <span className="text-[15px] text-foreground font-arabic leading-snug flex-1">
-                          {lang === 'ar' ? p.ar : p.en}
-                        </span>
-                        <Send className="w-4 h-4 text-muted-foreground/30 group-hover:text-jood-teal-500 transition-colors flex-shrink-0 rotate-180" />
-                      </motion.button>
-                    ))}
-                  </div>
                 </motion.div>
               )}
             </AnimatePresence>
@@ -675,35 +687,6 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ onMessage }) => {
                 </React.Fragment>
               ))}
             </div>
-
-            {/* Smart reply chips */}
-            <AnimatePresence>
-              {!loading && !awaitingConfirmation && messages.length > 0 &&
-                messages[messages.length - 1].role === 'assistant' && (
-                  <motion.div
-                    key="chips"
-                    initial={{ opacity: 0, y: 8 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0 }}
-                    transition={{ duration: 0.25, delay: 0.1 }}
-                    className="flex flex-wrap gap-2 px-4 pb-4 pr-16"
-                    dir="rtl"
-                  >
-                    {generateSmartReplies(messages[messages.length - 1].content, lang, gender).map((chip, i) => (
-                      <motion.button
-                        key={chip}
-                        initial={{ opacity: 0, scale: 0.92 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        transition={{ delay: 0.15 + i * 0.05 }}
-                        onClick={() => handleSend(chip)}
-                        className="px-4 py-2 rounded-full text-sm font-arabic bg-card border border-border/60 hover:border-jood-teal-400/60 hover:bg-muted/50 text-foreground transition-all"
-                      >
-                        {chip}
-                      </motion.button>
-                    ))}
-                  </motion.div>
-                )}
-            </AnimatePresence>
 
             {/* Typing indicator */}
             <AnimatePresence>
@@ -810,6 +793,32 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ onMessage }) => {
                 }
               </button>
             </div>
+
+            {/* Keyboard-style chip strip — memory suggestions or smart replies */}
+            <AnimatePresence>
+              {inputChips.length > 0 && (
+                <motion.div
+                  key="input-chips"
+                  initial={{ opacity: 0, y: 4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.2 }}
+                  className="flex gap-1.5 overflow-x-auto pb-1 pt-2"
+                  style={{ scrollbarWidth: 'none' }}
+                  dir={dir}
+                >
+                  {inputChips.map((chip) => (
+                    <button
+                      key={chip}
+                      onClick={() => handleSend(chip)}
+                      className="flex-shrink-0 px-3 py-1 rounded-full text-xs font-arabic bg-muted/60 border border-border/40 hover:bg-muted hover:border-jood-teal-400/50 text-foreground/80 hover:text-foreground transition-all whitespace-nowrap"
+                    >
+                      {chip}
+                    </button>
+                  ))}
+                </motion.div>
+              )}
+            </AnimatePresence>
 
             <p className="text-center text-xs text-muted-foreground/40 mt-2 font-arabic">
               {t('chat.footer.badge')}
