@@ -18,6 +18,8 @@ export interface UserProfile {
   base_currency: string | null;
   risk_profile: string | null;
   app_language: 'ar' | 'en' | null;
+  timezone: string | null;
+  timezone_auto: boolean | null;
 }
 
 export function useProfile() {
@@ -34,7 +36,7 @@ export function useProfile() {
       .select('*')
       .eq('user_id', user.id)
       .single();
-    setProfile(data ?? { user_id: user.id, display_name: null, gender: null, phone: null, date_of_birth: null, city: null, nationality: 'SA', avatar_emoji: '🌟', bio: null, interests: [], income: 0, base_currency: 'SAR', risk_profile: 'balanced', app_language: 'ar' });
+    setProfile(data ?? { user_id: user.id, display_name: null, gender: null, phone: null, date_of_birth: null, city: null, nationality: 'SA', avatar_emoji: '🌟', bio: null, interests: [], income: 0, base_currency: 'SAR', risk_profile: 'balanced', app_language: 'ar', timezone: 'Asia/Riyadh', timezone_auto: false });
     setLoading(false);
   }, [user?.id]);
 

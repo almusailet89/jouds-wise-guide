@@ -8,7 +8,8 @@ import { useProfile, UserProfile } from '@/hooks/useProfile';
 import { useAuth } from '@/hooks/useAuth';
 import { useLanguage } from '@/hooks/useLanguage';
 import { toast } from 'sonner';
-import { User, Phone, Mail, MapPin, Calendar, Sparkles, Lock, CheckCircle2, Languages, Coins } from 'lucide-react';
+import { User, Phone, Mail, MapPin, Calendar, Sparkles, Lock, CheckCircle2, Languages, Coins, Globe, Smartphone } from 'lucide-react';
+import { TIMEZONE_OPTIONS } from '@/hooks/useTimezone';
 import { cn } from '@/lib/utils';
 import type { Lang } from '@/lib/i18n';
 
@@ -47,8 +48,10 @@ export default function ProfileDialog({ open, onOpenChange }: Props) {
     nationality:   'SA',
     avatar_emoji:  '🌟',
     bio:           '',
-    base_currency: 'SAR',
-    app_language:  'ar' as Lang,
+    base_currency:  'SAR',
+    app_language:   'ar' as Lang,
+    timezone:       'Asia/Riyadh',
+    timezone_auto:  false,
   });
   const [tab, setTab] = useState<'profile' | 'account'>('profile');
   const [newPassword, setNewPassword]     = useState('');
@@ -67,13 +70,15 @@ export default function ProfileDialog({ open, onOpenChange }: Props) {
         nationality:   profile.nationality   ?? 'SA',
         avatar_emoji:  profile.avatar_emoji  ?? '🌟',
         bio:           profile.bio           ?? '',
-        base_currency: profile.base_currency ?? 'SAR',
-        app_language:  (profile as any).app_language ?? 'ar',
+        base_currency:  profile.base_currency ?? 'SAR',
+        app_language:   (profile as any).app_language ?? 'ar',
+        timezone:       profile.timezone ?? 'Asia/Riyadh',
+        timezone_auto:  profile.timezone_auto ?? false,
       });
     }
   }, [profile]);
 
-  const set = (k: keyof typeof form, v: string) => setForm(f => ({ ...f, [k]: v }));
+  const set = (k: keyof typeof form, v: string | boolean) => setForm(f => ({ ...f, [k]: v }));
 
   const handleSave = async () => {
     if (!form.display_name.trim()) {
@@ -97,8 +102,10 @@ export default function ProfileDialog({ open, onOpenChange }: Props) {
       date_of_birth: form.date_of_birth || null,
       city:          form.city          || null,
       bio:           form.bio           || null,
-      app_language:  form.app_language  as any,
-    });
+      app_language:   form.app_language  as any,
+      timezone:       form.timezone,
+      timezone_auto:  form.timezone_auto,
+    } as any);
     if (error) {
       toast.error(t('toast.save.error'));
     } else {
@@ -293,6 +300,62 @@ export default function ProfileDialog({ open, onOpenChange }: Props) {
                     </button>
                   ))}
                 </div>
+              </div>
+
+              {/* Timezone */}
+              <div className="space-y-2">
+                <Label className="font-arabic text-sm flex items-center gap-1.5">
+                  <Globe className="w-3.5 h-3.5 text-muted-foreground" />
+                  {lang === 'ar' ? 'المنطقة الزمنية' : 'Timezone'}
+                </Label>
+                {/* Auto-detect toggle */}
+                <button
+                  type="button"
+                  onClick={() => set('timezone_auto', !form.timezone_auto)}
+                  className={cn(
+                    'w-full flex items-center justify-between px-3 py-2.5 rounded-xl border-2 text-sm transition-all',
+                    form.timezone_auto
+                      ? 'border-jood-teal-500 bg-jood-teal-50 dark:bg-jood-teal-900/20 text-jood-teal-700 dark:text-jood-teal-300'
+                      : 'border-border text-muted-foreground hover:border-border/80',
+                  )}
+                >
+                  <span className="flex items-center gap-2 font-arabic">
+                    <Smartphone className="w-4 h-4" />
+                    {lang === 'ar' ? 'استخدم منطقة الجهاز تلقائياً' : 'Use device timezone automatically'}
+                  </span>
+                  <span className={cn(
+                    'w-9 h-5 rounded-full transition-colors relative flex-shrink-0',
+                    form.timezone_auto ? 'bg-jood-teal-500' : 'bg-muted',
+                  )}>
+                    <span className={cn(
+                      'absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform',
+                      form.timezone_auto ? 'translate-x-4' : 'translate-x-0.5',
+                    )} />
+                  </span>
+                </button>
+                {/* Manual picker — shown when auto is off */}
+                {!form.timezone_auto && (
+                  <select
+                    value={form.timezone}
+                    onChange={e => set('timezone', e.target.value)}
+                    className="w-full h-10 rounded-xl border border-border bg-background px-3 text-sm font-arabic focus:outline-none focus:ring-2 focus:ring-jood-teal-400"
+                    dir="ltr"
+                  >
+                    {TIMEZONE_OPTIONS.map(opt => (
+                      <option key={opt.tz} value={opt.tz}>
+                        {lang === 'ar' ? opt.labelAr : opt.labelEn}
+                      </option>
+                    ))}
+                  </select>
+                )}
+                {form.timezone_auto && (
+                  <p className="text-xs text-muted-foreground flex items-center gap-1">
+                    <CheckCircle2 className="w-3 h-3 text-green-500" />
+                    {lang === 'ar'
+                      ? `المنطقة المكتشفة: ${Intl.DateTimeFormat().resolvedOptions().timeZone}`
+                      : `Detected: ${Intl.DateTimeFormat().resolvedOptions().timeZone}`}
+                  </p>
+                )}
               </div>
 
               {/* Phone */}

@@ -11,6 +11,7 @@ import {
 import { useAuth } from '@/hooks/useAuth';
 import { useProfile, useTasks, useFinancialData } from '@/hooks/useDatabase';
 import { useLanguage } from '@/hooks/useLanguage';
+import { useTimezone } from '@/hooks/useTimezone';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 import { MorningBrief } from './MorningBrief';
@@ -44,6 +45,7 @@ export const HomeOverview: React.FC<HomeOverviewProps> = ({ onNavigate }) => {
   const { financialData, loading: finLoading } = useFinancialData();
 
   const { t, lang } = useLanguage();
+  const { formatTime, todayStr: tzTodayStr, currentHour } = useTimezone();
   const [weather, setWeather] = useState<{ temp: number; descKey: string; icon: React.ComponentType<any> } | null>(null);
   const [prayer, setPrayer] = useState<{ key: string; time: string; minutesTo: number } | null>(null);
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
@@ -80,8 +82,7 @@ export const HomeOverview: React.FC<HomeOverviewProps> = ({ onNavigate }) => {
           ['Fajr', t.Fajr], ['Dhuhr', t.Dhuhr], ['Asr', t.Asr],
           ['Maghrib', t.Maghrib], ['Isha', t.Isha],
         ];
-        const now = new Date();
-        const nowMin = now.getHours() * 60 + now.getMinutes();
+        const nowMin = currentHour * 60 + new Date().getMinutes();
         const next = prayers.find(([, time]) => {
           const [h, m] = time.split(':').map(Number);
           return h * 60 + m > nowMin;
@@ -108,7 +109,7 @@ export const HomeOverview: React.FC<HomeOverviewProps> = ({ onNavigate }) => {
 
   // ── Today stats ─────────────────────────────────────────────────────────
   const today = new Date();
-  const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+  const todayStr = tzTodayStr; // YYYY-MM-DD in user's timezone (default: Asia/Riyadh)
   const todayDayOfWeek = today.getDay(); // 0=Sun
 
   // ── Fetch today's events + habits ───────────────────────────────────────
@@ -248,7 +249,7 @@ export const HomeOverview: React.FC<HomeOverviewProps> = ({ onNavigate }) => {
                 <span className="text-xl font-display text-jood-teal-900">ج</span>
               </motion.div>
               <div className="flex-1 min-w-0">
-                <p className="text-xs text-jood-gold-300/90 font-arabic mb-0.5">{(() => { const h = new Date().getHours(); return h < 5 || h >= 20 ? t('home.greeting.evening') : h < 12 ? t('home.greeting.morning') : h < 17 ? t('home.greeting.afternoon') : t('home.greeting.evening'); })()}</p>
+                <p className="text-xs text-jood-gold-300/90 font-arabic mb-0.5">{currentHour < 5 || currentHour >= 20 ? t('home.greeting.evening') : currentHour < 12 ? t('home.greeting.morning') : currentHour < 17 ? t('home.greeting.afternoon') : t('home.greeting.evening')}</p>
                 <h2 className="text-xl md:text-2xl font-bold font-arabic leading-tight">
                   {t('home.greeting')} {displayName}!
                 </h2>
@@ -462,7 +463,7 @@ export const HomeOverview: React.FC<HomeOverviewProps> = ({ onNavigate }) => {
                   {todayEvents.map(ev => {
                     const startRaw = ev.starts_at || ev.start_at || '';
                     const timeStr = startRaw
-                      ? new Date(startRaw).toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' })
+                      ? formatTime(startRaw)
                       : '';
                     return (
                       <div key={ev.id} className="flex items-center gap-2.5 p-2 rounded-xl bg-muted/30">
@@ -472,7 +473,7 @@ export const HomeOverview: React.FC<HomeOverviewProps> = ({ onNavigate }) => {
                         </div>
                         {timeStr && (
                           <span className="text-[10px] text-muted-foreground font-mono flex-shrink-0">
-                            {new Date(ev.starts_at || ev.start_at || '').toLocaleTimeString(lang === 'ar' ? 'ar-SA' : 'en', { hour: '2-digit', minute: '2-digit' })}
+                            {formatTime(ev.starts_at || ev.start_at || '')}
                           </span>
                         )}
                       </div>
