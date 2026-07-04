@@ -8,6 +8,7 @@ export interface Profile {
   id: string;
   user_id: string;
   display_name: string | null;
+  gender: 'male' | 'female' | null;
   interests: string[] | null;
   income: number;
   base_currency: string;

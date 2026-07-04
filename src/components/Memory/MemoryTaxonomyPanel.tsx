@@ -9,6 +9,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/hooks/useLanguage';
+import { useProfile } from '@/hooks/useDatabase';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -45,17 +46,19 @@ const MemoryTaxonomyPanel: React.FC<{ onMemoryAdded?: () => void }> = ({ onMemor
   const { user } = useAuth();
   const { toast } = useToast();
   const { t, dir } = useLanguage();
+  const { profile } = useProfile();
   const [rows, setRows] = useState<TaxonomyRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [draft, setDraft] = useState('');
   const [saving, setSaving] = useState(false);
 
-  // Build translated categories inside component
+  // Build translated categories — use gender-specific hint if profile is loaded
+  const genderSuffix = profile?.gender === 'female' ? 'f' : 'm';
   const CATEGORIES = CATEGORY_META.map(m => ({
     ...m,
     label: t(`tax.cat.${m.key}` as any),
-    hint:  t(`tax.cat.${m.key}.hint` as any),
+    hint:  t(`tax.cat.${m.key}.hint.${genderSuffix}` as any),
   }));
 
   // ── Load taxonomy ──────────────────────────────────────────────────────────
