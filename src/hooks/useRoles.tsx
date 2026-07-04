@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from './useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -55,23 +55,23 @@ export const useRoles = () => {
     }
   };
 
-  const hasRole = (role: AppRole): boolean => {
+  const hasRole = useCallback((role: AppRole): boolean => {
     if (!userRole) return false;
-    
+
     // Admin has access to everything
     if (userRole === 'admin') return true;
-    
+
     // Moderator has access to moderator and user features
     if (userRole === 'moderator' && (role === 'moderator' || role === 'user')) return true;
-    
+
     // User only has access to user features
     if (userRole === 'user' && role === 'user') return true;
-    
-    return false;
-  };
 
-  const isAdmin = (): boolean => userRole === 'admin';
-  const isModerator = (): boolean => userRole === 'moderator';
+    return false;
+  }, [userRole]);
+
+  const isAdmin = useCallback((): boolean => userRole === 'admin', [userRole]);
+  const isModerator = useCallback((): boolean => userRole === 'moderator', [userRole]);
 
   const assignRole = async (userId: string, role: AppRole) => {
     try {

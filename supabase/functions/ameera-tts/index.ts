@@ -1,15 +1,12 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+import { corsHeadersFor } from "../_shared/cors.ts";
 
 // Ameera Al-Taweel voice profile
 // Primary: Azure Neural ar-SA-ZariyahNeural
 // Fallback: OpenAI TTS nova (English)
 
 serve(async (req) => {
+  const corsHeaders = corsHeadersFor(req);
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   try {

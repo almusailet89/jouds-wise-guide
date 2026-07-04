@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useMemo, useState, ReactNode } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -32,19 +32,22 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Supabase fires onAuthStateChange on every token refresh (and other internal
+    // ticks) with a freshly-constructed session object even when nothing material
+    // changed. Bailing out via the updater form when the access_token is identical
+    // keeps `session`/`user` referentially stable, so effects elsewhere that depend
+    // on them don't re-fire — and re-invoke paid API calls — on every such tick.
+    const applySession = (next: Session | null) => {
+      setSession(prev => (prev?.access_token === next?.access_token ? prev : next));
+      setUser(prev => (prev?.id === next?.user?.id ? prev : (next?.user ?? null)));
+      setLoading(false);
+    };
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
-        setLoading(false);
-      }
+      (event, session) => applySession(session)
     );
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setLoading(false);
-    });
+    supabase.auth.getSession().then(({ data: { session } }) => applySession(session));
 
     return () => subscription.unsubscribe();
   }, []);
@@ -87,6 +90,11 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     return { error };
   };
 
-  const value = { user, session, loading, signUp, signIn, signOut, resetPassword };
+  // Memoized so consumers (e.g. SubscriptionProvider) don't see a "new" context value —
+  // and re-fire effects depending on it — on every render that doesn't actually change auth state.
+  const value = useMemo(
+    () => ({ user, session, loading, signUp, signIn, signOut, resetPassword }),
+    [user, session, loading],
+  );
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

@@ -905,6 +905,37 @@ const strings: Record<Lang, Record<string, string>> = {
     'port.type.crypto':      'تشفير',
     'port.type.real_estate': 'عقار',
     'port.type.other':       'أخرى',
+
+    // ── Planning hub ─────────────────────────────────────────────────────────
+    'planning.tab.calendar': 'التقويم',
+    'planning.tab.list':     'قائمة',
+    'planning.tab.kanban':   'كانبان',
+
+    // ── Kanban Board ─────────────────────────────────────────────────────────
+    'kanban.col.pending':    'قيد الانتظار',
+    'kanban.col.in_progress':'جارٍ',
+    'kanban.col.completed':  'مكتملة',
+    'kanban.col.cancelled':  'ملغاة',
+    'kanban.priority.high':  'عالية',
+    'kanban.priority.medium':'متوسطة',
+    'kanban.priority.low':   'منخفضة',
+    'kanban.subtasks':       'مهام فرعية',
+    'kanban.add.subtask':    'مهمة فرعية',
+    'kanban.subtask.placeholder': 'مهمة فرعية...',
+    'kanban.add.placeholder':'اسم المهمة...',
+    'kanban.add.btn':        'إضافة',
+    'kanban.cancel':         'إلغاء',
+    'kanban.add.card':       'إضافة مهمة',
+    'kanban.empty.col':      'اسحب مهمة هنا',
+    'kanban.delete':         'حذف',
+
+    // ── List view (Planning) ─────────────────────────────────────────────────
+    'list.search.placeholder': 'بحث...',
+    'list.kind.all':         'الكل',
+    'list.kind.task':        'مهام',
+    'list.kind.event':       'مواعيد',
+    'list.hide.completed':   'إخفاء المكتمل',
+    'list.empty':            'لا توجد عناصر مطابقة',
   },
 
   en: {
@@ -1771,6 +1802,37 @@ const strings: Record<Lang, Record<string, string>> = {
     'port.type.crypto':      'Crypto',
     'port.type.real_estate': 'Real Estate',
     'port.type.other':       'Other',
+
+    // ── Planning hub ─────────────────────────────────────────────────────────
+    'planning.tab.calendar': 'Calendar',
+    'planning.tab.list':     'List',
+    'planning.tab.kanban':   'Kanban',
+
+    // ── Kanban Board ─────────────────────────────────────────────────────────
+    'kanban.col.pending':    'Pending',
+    'kanban.col.in_progress':'In Progress',
+    'kanban.col.completed':  'Completed',
+    'kanban.col.cancelled':  'Cancelled',
+    'kanban.priority.high':  'High',
+    'kanban.priority.medium':'Medium',
+    'kanban.priority.low':   'Low',
+    'kanban.subtasks':       'subtasks',
+    'kanban.add.subtask':    'Subtask',
+    'kanban.subtask.placeholder': 'Subtask title...',
+    'kanban.add.placeholder':'Task name...',
+    'kanban.add.btn':        'Add',
+    'kanban.cancel':         'Cancel',
+    'kanban.add.card':       'Add task',
+    'kanban.empty.col':      'Drop tasks here',
+    'kanban.delete':         'Delete',
+
+    // ── List view (Planning) ─────────────────────────────────────────────────
+    'list.search.placeholder': 'Search...',
+    'list.kind.all':         'All',
+    'list.kind.task':        'Tasks',
+    'list.kind.event':       'Events',
+    'list.hide.completed':   'Hide completed',
+    'list.empty':            'No matching items',
   },
 };
 

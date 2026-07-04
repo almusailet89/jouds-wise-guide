@@ -60,7 +60,11 @@ export const useDailyBrief = (lang: Lang = 'ar') => {
     const cachedPeriod  = (brief as any)?.meta?.period;
     const needsRefresh  = !cachedPeriod || cachedPeriod !== currentPeriod;
     generate(needsRefresh);
-  }, [session]); // eslint-disable-line react-hooks/exhaustive-deps
+    // Depend on the stable user id, not the session object — Supabase's
+    // onAuthStateChange emits a new session object on every token refresh,
+    // and this effect calling an OpenAI-backed function on each one was
+    // generating a real daily-brief request far more often than intended.
+  }, [session?.user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Listen for chat-triggered refresh ─────────────────────────────────
   useEffect(() => {

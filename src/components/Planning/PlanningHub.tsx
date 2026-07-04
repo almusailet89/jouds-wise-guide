@@ -1,17 +1,28 @@
-import React, { useState } from 'react';
-import { CalendarDays, Kanban, Grid2x2 } from 'lucide-react';
+import React, { lazy, Suspense, useState } from 'react';
+import { CalendarDays, Kanban, Grid2x2, List } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useLanguage } from '@/hooks/useLanguage';
-import SmartCalendar from '@/components/Calendar/SmartCalendar';
-import { KanbanBoard } from './KanbanBoard';
-import { PriorityMatrix } from './PriorityMatrix';
 
-type View = 'calendar' | 'kanban' | 'matrix';
+const SmartCalendar   = lazy(() => import('@/components/Calendar/SmartCalendar'));
+const KanbanBoard     = lazy(() => import('@/components/Tasks/KanbanBoard'));
+const PriorityMatrix  = lazy(() => import('./PriorityMatrix'));
+const CalendarListView = lazy(() => import('@/components/Calendar/CalendarListView'));
 
-const VIEWS: { id: View; labelAr: string; labelEn: string; icon: React.FC<any> }[] = [
-  { id: 'calendar', labelAr: 'التقويم',      labelEn: 'Calendar', icon: CalendarDays },
-  { id: 'kanban',   labelAr: 'لوحة المهام',  labelEn: 'Kanban',   icon: Kanban },
-  { id: 'matrix',   labelAr: 'مصفوفة الأولويات', labelEn: 'Matrix', icon: Grid2x2 },
+const Skeleton = () => (
+  <div className="space-y-3 animate-pulse">
+    <div className="h-8 bg-muted/50 rounded-xl w-1/3" />
+    <div className="h-32 bg-muted/30 rounded-2xl" />
+    <div className="h-24 bg-muted/20 rounded-2xl" />
+  </div>
+);
+
+type View = 'calendar' | 'kanban' | 'matrix' | 'list';
+
+const VIEWS: { id: View; labelAr: string; labelEn: string; icon: React.FC<{ className?: string }> }[] = [
+  { id: 'calendar', labelAr: 'التقويم',           labelEn: 'Calendar', icon: CalendarDays },
+  { id: 'list',     labelAr: 'القائمة',            labelEn: 'List',     icon: List },
+  { id: 'kanban',   labelAr: 'لوحة المهام',        labelEn: 'Kanban',   icon: Kanban },
+  { id: 'matrix',   labelAr: 'مصفوفة الأولويات',  labelEn: 'Matrix',   icon: Grid2x2 },
 ];
 
 const PlanningHub: React.FC = () => {
@@ -39,10 +50,13 @@ const PlanningHub: React.FC = () => {
         ))}
       </div>
 
-      {/* View content */}
-      {view === 'calendar' && <SmartCalendar />}
-      {view === 'kanban'   && <KanbanBoard />}
-      {view === 'matrix'   && <PriorityMatrix />}
+      {/* Content */}
+      <Suspense fallback={<Skeleton />}>
+        {view === 'calendar' && <SmartCalendar />}
+        {view === 'list'     && <CalendarListView />}
+        {view === 'kanban'   && <KanbanBoard />}
+        {view === 'matrix'   && <PriorityMatrix />}
+      </Suspense>
     </div>
   );
 };

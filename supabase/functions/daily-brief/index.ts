@@ -1,11 +1,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+import { corsHeadersFor } from "../_shared/cors.ts";
 
 // ─── Riyadh-local date (YYYY-MM-DD) ──────────────────────────────────────────
 function riyadhDate(): string {
@@ -64,6 +60,7 @@ async function fetchPrayerTimes(): Promise<Record<string, string> | null> {
 
 // ═══════════════════════════════════════════════════════════════════════════
 serve(async (req) => {
+  const corsHeaders = corsHeadersFor(req);
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   try {

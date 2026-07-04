@@ -22,24 +22,12 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/hooks/useLanguage';
-import { useTasks, Task } from '@/hooks/useDatabase';
+import { useTasks, Task, useEvents, EventRow } from '@/hooks/useDatabase';
 import { cn } from '@/lib/utils';
 import { EmptyState } from '@/components/ui/empty-state';
+import { CATEGORY_COLORS, CATEGORY_KEYS, PRIORITY_COLORS } from './calendarConstants';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-interface EventRow {
-  id: string; user_id: string; title: string; description: string | null;
-  // Wave-3 columns (nullable — legacy table already had start_at/end_at)
-  starts_at: string | null; ends_at: string | null;
-  // Legacy columns (now nullable after migration)
-  start_at: string | null; end_at: string | null;
-  all_day: boolean | null;
-  category: string | null; color: string | null; location: string | null;
-  recurrence: string | null; hijri_anchor: boolean;
-  reminder_min: number | null; prayer_linked: string | null;
-  source: string | null; completed_at: string | null; created_at: string;
-}
-
 interface Habit {
   id: string; user_id: string; name: string;
   frequency: string; target_days: number[] | null;
@@ -58,22 +46,7 @@ type ViewMode = 'month' | 'week' | 'day';
 type AddType = 'event' | 'task' | 'habit';
 
 // ─── Constants (static — no labels here; labels computed via t() inside component) ─
-// Soft-tinted chips — luxury palette stays inside the brand, never loud
-const CATEGORY_COLORS: Record<string, string> = {
-  personal: 'bg-jood-teal-500/15 text-jood-teal-700 dark:text-jood-teal-500 border border-jood-teal-500/25',
-  finance:  'bg-jood-gold-500/15 text-jood-gold-500 border border-jood-gold-500/30',
-  health:   'bg-jood-ok/12 text-jood-ok border border-jood-ok/25',
-  prayer:   'bg-jood-teal-900/10 text-jood-teal-700 dark:text-jood-gold-300 border border-jood-teal-700/25',
-  family:   'bg-jood-warn/12 text-jood-warn border border-jood-warn/25',
-  work:     'bg-foreground/8 text-foreground/80 border border-foreground/15',
-};
-const CATEGORY_KEYS = ['personal', 'finance', 'health', 'prayer', 'family', 'work'] as const;
-type CategoryKey = typeof CATEGORY_KEYS[number];
-
-const PRIORITY_COLORS: Record<string, string> = {
-  high: 'text-red-500', medium: 'text-amber-500', low: 'text-emerald-500',
-};
-
+// Shared with the other Planning views (List, Kanban) — see calendarConstants.ts
 const YEARS = Array.from({ length: 20 }, (_, i) => 2026 + i); // 2026-2045
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -187,6 +160,7 @@ const SmartCalendar: React.FC = () => {
   const { toast } = useToast();
   const { t, dir } = useLanguage();
   const { tasks, updateTask, addTask } = useTasks();
+  const { events, addEvent, deleteEvent: removeEvent } = useEvents();
 
   // ── i18n-computed arrays (inside component so t() is available) ──────────────
   const MONTHS = Array.from({ length: 12 }, (_, i) => t(`cal.month.${i}` as any));
@@ -213,7 +187,6 @@ const SmartCalendar: React.FC = () => {
   const [selected, setSelected] = useState<Date>(now);
   const [showHijri, setShowHijri] = useState(false);
 
-  const [events, setEvents]     = useState<EventRow[]>([]);
   const [habits, setHabits]     = useState<Habit[]>([]);
   const [habitLogs, setHabitLogs] = useState<HabitLog[]>([]);
   const [loading, setLoading]   = useState(true);
@@ -237,14 +210,12 @@ const SmartCalendar: React.FC = () => {
     if (!user) return;
     setLoading(true);
     try {
-      const [evRes, habRes, logRes] = await Promise.all([
-        (supabase as any).from('events').select('*').eq('user_id', user.id).order('starts_at'),
+      const [habRes, logRes] = await Promise.all([
         (supabase as any).from('habits').select('*').eq('user_id', user.id),
         (supabase as any).from('habit_logs').select('*').eq('user_id', user.id)
           .gte('date', `${viewY - 1}-01-01`)
           .lte('date', `${viewY + 1}-12-31`),
       ]);
-      setEvents(evRes.data ?? []);
       setHabits(habRes.data ?? []);
       setHabitLogs(logRes.data ?? []);
     } finally {
@@ -254,12 +225,11 @@ const SmartCalendar: React.FC = () => {
 
   useEffect(() => { load(); }, [load]);
 
-  // ── Realtime subscriptions — refresh calendar when AI or other components write to DB ──
+  // ── Realtime subscriptions — events have their own subscription inside useEvents() ──
   useEffect(() => {
     if (!user) return;
     const channel = supabase
       .channel(`calendar-rt-${user.id}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'events',     filter: `user_id=eq.${user.id}` }, () => load())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'habits',     filter: `user_id=eq.${user.id}` }, () => load())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'habit_logs', filter: `user_id=eq.${user.id}` }, () => load())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks',      filter: `user_id=eq.${user.id}` }, () => load())
@@ -357,8 +327,7 @@ const SmartCalendar: React.FC = () => {
       ? startsAt
       : new Date(new Date(startsAt).getTime() + 60 * 60 * 1000).toISOString();
 
-    const { error } = await (supabase as any).from('events').insert({
-      user_id:     user.id,
+    await addEvent({
       title:       eventForm.title.trim(),
       description: eventForm.description.trim() || null,
       // Wave-3 columns
@@ -369,18 +338,19 @@ const SmartCalendar: React.FC = () => {
       end_at:      endsAt,
       all_day:     eventForm.all_day,
       category:    eventForm.category,
+      color:       null,
       location:    eventForm.location.trim() || null,
       recurrence,
       hijri_anchor: parsed.hijri,
       reminder_min: eventForm.reminder_min || null,
+      prayer_linked: null,
       source:       eventForm.nlPhrase ? 'nlu' : 'user',
+      completed_at: null,
     });
 
     setSaving(false);
-    if (error) { toast({ title: t('cal.toast.save.fail'), description: error.message, variant: 'destructive' }); return; }
     toast({ title: recurrence ? `${t('cal.toast.recur')} ${RECURRENCE_LABELS[recurrence] ?? recurrence}` : t('cal.toast.saved') });
     setAddDialog({ open: false, type: 'event' });
-    load();
   };
 
   // ── Save task ─────────────────────────────────────────────────────────────────
@@ -462,12 +432,6 @@ const SmartCalendar: React.FC = () => {
     }
   };
 
-  // ── Delete event ──────────────────────────────────────────────────────────────
-  const deleteEvent = async (id: string) => {
-    await (supabase as any).from('events').delete().eq('id', id);
-    setEvents(prev => prev.filter(e => e.id !== id));
-  };
-
   // ── Period label ─────────────────────────────────────────────────────────────
   const periodLabel = () => {
     if (viewMode === 'month') return `${MONTHS[viewM]} ${viewY}`;
@@ -532,7 +496,7 @@ const SmartCalendar: React.FC = () => {
                     {e.recurrence && <Repeat className="w-3 h-3 text-jood-teal-400" />}
                   </div>
                 </div>
-                <button onClick={() => deleteEvent(e.id)} className="opacity-0 group-hover:opacity-60 hover:!opacity-100 text-muted-foreground hover:text-destructive">
+                <button onClick={() => removeEvent(e.id)} className="opacity-0 group-hover:opacity-60 hover:!opacity-100 text-muted-foreground hover:text-destructive">
                   <Trash2 className="w-3.5 h-3.5" />
                 </button>
               </div>

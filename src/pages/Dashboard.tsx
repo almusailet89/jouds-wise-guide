@@ -7,6 +7,7 @@ import { useLanguage } from '@/hooks/useLanguage';
 import { useSubscription } from '@/hooks/useSubscription';
 import { useEventReminders } from '@/hooks/useEventReminders';
 import { useRoles } from '@/hooks/useRoles';
+import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { Button } from '@/components/ui/button';
 import { HomeOverview } from '@/components/Home/HomeOverview';
 import { JoodOrb } from '@/components/Voice/JoodOrb';
@@ -124,9 +125,9 @@ const Fade: React.FC<{ children: React.ReactNode }> = ({ children }) => (
 );
 
 // ─── Mobile bottom nav bar ─────────────────────────────────────────────────────
-const MobileBottomNav: React.FC<{ activeTab: string; onTabChange: (t: string) => void }> = ({ activeTab, onTabChange }) => {
+const MobileBottomNav: React.FC<{ activeTab: string; onTabChange: (t: string) => void; flags: Record<string, boolean> }> = ({ activeTab, onTabChange, flags }) => {
   const { t } = useLanguage();
-  const NAV = buildNav(t);
+  const NAV = buildNav(t).filter(item => flags[item.value] !== false);
   return (
   <div className="sm:hidden fixed bottom-0 left-0 right-0 z-40 bg-card/95 backdrop-blur-xl border-t border-jood-gold-500/15 shadow-[0_-4px_20px_rgba(0,0,0,0.06)] safe-area-pb">
     <div className="flex items-center justify-around px-1 py-1.5">
@@ -171,7 +172,8 @@ const Dashboard = () => {
   const { isAdmin } = useRoles();
   const navigate = useNavigate();
   useEventReminders(); // fires event reminders (browser notification + toast) while app is open
-  const NAV = buildNav(t);
+  const { flags } = useFeatureFlags();
+  const NAV = buildNav(t).filter(item => flags[item.value] !== false);
   const [activeTab, setActiveTab] = useState('home');
   const [profileOpen, setProfileOpen] = useState(false);
   const { prayer, sarUsd } = useSaudiSignal();
@@ -189,6 +191,13 @@ const Dashboard = () => {
     }
   }, [(profile as any)?.onboarding_done]);
   const [majlisOpen, setMajlisOpen] = useState(false);
+
+  // If an admin disables the tab the user is currently looking at, fall back to home.
+  React.useEffect(() => {
+    if (activeTab !== 'home' && activeTab !== 'settings' && flags[activeTab] === false) {
+      setActiveTab('home');
+    }
+  }, [activeTab, flags]);
 
   // Phase 4: Listen for Jood navigation commands from chat
   React.useEffect(() => {
@@ -392,43 +401,51 @@ const Dashboard = () => {
           </TabsContent>
 
           {/* ── Chat + Voice ──────────────────────────────────────────────── */}
-          <TabsContent value="chat" className="flex-1 p-4 mt-0">
-            <ErrorBoundary fallbackLabel={t('error.load.chat')} lang={lang}>
-              <ChatVoiceTab onMajlis={() => setMajlisOpen(true)} />
-            </ErrorBoundary>
-          </TabsContent>
+          {flags.chat !== false && (
+            <TabsContent value="chat" className="flex-1 p-4 mt-0">
+              <ErrorBoundary fallbackLabel={t('error.load.chat')} lang={lang}>
+                <ChatVoiceTab onMajlis={() => setMajlisOpen(true)} />
+              </ErrorBoundary>
+            </TabsContent>
+          )}
 
           {/* ── Finance ──────────────────────────────────────────────────── */}
-          <TabsContent value="financial" className="p-4 mt-0">
-            <ErrorBoundary fallbackLabel={t('error.load.finance')} lang={lang}>
-              <Suspense fallback={<TabSkeleton />}>
-                <Fade><FinancialDashboard /></Fade>
-              </Suspense>
-            </ErrorBoundary>
-          </TabsContent>
+          {flags.financial !== false && (
+            <TabsContent value="financial" className="p-4 mt-0">
+              <ErrorBoundary fallbackLabel={t('error.load.finance')} lang={lang}>
+                <Suspense fallback={<TabSkeleton />}>
+                  <Fade><FinancialDashboard /></Fade>
+                </Suspense>
+              </ErrorBoundary>
+            </TabsContent>
+          )}
 
           {/* ── Planning (Calendar + Tasks + Habits) ─────────────────────── */}
-          <TabsContent value="planning" className="p-4 mt-0">
-            <ErrorBoundary fallbackLabel={t('error.load.planning')} lang={lang}>
-              <Suspense fallback={<TabSkeleton />}>
-                <Fade>
-                  <h2 className="text-xl font-bold font-arabic mb-4 text-foreground">{t('tab.planning')}</h2>
-                  <PlanningHub />
-                </Fade>
-              </Suspense>
-            </ErrorBoundary>
-          </TabsContent>
+          {flags.planning !== false && (
+            <TabsContent value="planning" className="p-4 mt-0">
+              <ErrorBoundary fallbackLabel={t('error.load.planning')} lang={lang}>
+                <Suspense fallback={<TabSkeleton />}>
+                  <Fade>
+                    <h2 className="text-xl font-bold font-arabic mb-4 text-foreground">{t('tab.planning')}</h2>
+                    <PlanningHub />
+                  </Fade>
+                </Suspense>
+              </ErrorBoundary>
+            </TabsContent>
+          )}
 
           {/* ── Recommendations (mood tracker lives inside المزاج filter) ── */}
-          <TabsContent value="recommendations" className="p-4 mt-0">
-            <ErrorBoundary fallbackLabel={t('error.load.mood')} lang={lang}>
-              <Suspense fallback={<TabSkeleton />}>
-                <Fade>
-                  <AIRecommendations onNavigate={setActiveTab} />
-                </Fade>
-              </Suspense>
-            </ErrorBoundary>
-          </TabsContent>
+          {flags.recommendations !== false && (
+            <TabsContent value="recommendations" className="p-4 mt-0">
+              <ErrorBoundary fallbackLabel={t('error.load.mood')} lang={lang}>
+                <Suspense fallback={<TabSkeleton />}>
+                  <Fade>
+                    <AIRecommendations onNavigate={setActiveTab} />
+                  </Fade>
+                </Suspense>
+              </ErrorBoundary>
+            </TabsContent>
+          )}
 
           {/* ── Settings (Insights + Memory + Security) ───────────────────── */}
           <TabsContent value="settings" className="p-4 mt-0">
@@ -445,7 +462,7 @@ const Dashboard = () => {
       </div>
 
       {/* ── Mobile bottom nav ────────────────────────────────────────────────────── */}
-      <MobileBottomNav activeTab={activeTab} onTabChange={setActiveTab} />
+      <MobileBottomNav activeTab={activeTab} onTabChange={setActiveTab} flags={flags} />
 
       {/* ── Majlis overlay ───────────────────────────────────────────────────── */}
       <AnimatePresence>

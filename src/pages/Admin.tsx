@@ -19,8 +19,9 @@ import {
   PieChart, CreditCard, FileText, Search, Shield, ArrowLeft,
   Copy, RefreshCw, CheckCircle2, Clock, AlertCircle, Send,
   TrendingUp, TrendingDown, ChevronRight, Plus, Trash2, Edit3,
-  BarChart3, Activity, Database, Bot,
+  BarChart3, Activity, Database, Bot, ToggleLeft,
 } from 'lucide-react';
+import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { cn } from '@/lib/utils';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -56,6 +57,7 @@ const NAV = [
   { key: 'overview',  label: 'Overview',     icon: LayoutDashboard },
   { key: 'users',     label: 'Users',        icon: Users },
   { key: 'support',   label: 'Support',      icon: MessageSquare },
+  { key: 'features',  label: 'Features',     icon: ToggleLeft },
   { key: 'packages',  label: 'Packages',     icon: Package },
   { key: 'discounts', label: 'Discounts',    icon: Tag },
   { key: 'api',       label: 'API Usage',    icon: Zap },
@@ -747,6 +749,33 @@ const CostModelTab = ({ stats }: { stats: SystemStats }) => {
   );
 };
 
+// ─── Features tab ─────────────────────────────────────────────────────────────
+const FeaturesTab = () => {
+  const { rows, loading, setFlag } = useFeatureFlags();
+
+  return (
+    <div className="space-y-6">
+      <Card className="bg-white/5 border-white/10">
+        <CardHeader><CardTitle className="text-white text-sm">App Features</CardTitle></CardHeader>
+        <CardContent className="space-y-3">
+          {loading ? (
+            <p className="text-white/30 text-sm text-center py-8">Loading…</p>
+          ) : rows.map(f => (
+            <div key={f.key} className="flex items-center justify-between py-2 border-b border-white/5 last:border-0">
+              <div className="flex items-center gap-3">
+                <span className="text-white/70 text-sm">{f.label || f.key}</span>
+                <Badge variant="outline" className="text-[10px] text-white/30 border-white/15">{f.key}</Badge>
+              </div>
+              <Switch checked={f.enabled} onCheckedChange={v => setFlag(f.key, v)} />
+            </div>
+          ))}
+          <p className="text-white/25 text-xs pt-2">Disabling a feature hides its tab for every user immediately — changes sync live, no redeploy needed.</p>
+        </CardContent>
+      </Card>
+    </div>
+  );
+};
+
 // ─── Payments tab ─────────────────────────────────────────────────────────────
 const PaymentsTab = () => {
   const [methods, setMethods] = useState([
@@ -800,16 +829,239 @@ const PaymentsTab = () => {
   );
 };
 
+// ─── Legal content (AR-primary, Saudi PDPL/SDAIA-aligned draft) ───────────────
+const AR_TERMS_CONTENT = `شروط الخدمة — JOOD AI
+الإصدار: ٢.٠ · تاريخ النفاذ: يُحدَّث تلقائياً عند النشر
+
+١. مقدمة وقبول الشروط
+نرحب بك في JOOD AI ("الخدمة"، "نحن")، مساعدتك التنفيذية الذكية ثنائية اللغة. باستخدامك لتطبيق JOOD AI أو إنشائك لحساب فيه، فإنك توافق على الالتزام بهذه الشروط وبسياسة الخصوصية المرفقة. إذا لم توافق على أي بند، يرجى عدم استخدام الخدمة.
+
+٢. وصف الخدمة
+يقدّم JOOD AI: محادثة ذكاء اصطناعي ثنائية اللغة (عربي/إنجليزي) لإدارة المهام والتقويم والتذكيرات؛ تتبّعاً مالياً (محفظة نقدية، استثمارات، حاسبة زكاة) وميزانية شخصية؛ تتبّع المزاج والعادات اليومية؛ مساعداً صوتياً ("المجلس") عبر تقنية الذكاء الاصطناعي الصوتي؛ وموجزاً تنفيذياً يومياً وتوصيات ذكية مخصصة.
+
+٣. الأهلية وإنشاء الحساب
+يجب أن يكون عمرك ١٨ سنة فأكثر لاستخدام الخدمة بشكل مستقل. إذا كان عمرك بين ١٣ و١٧ سنة، يلزم إشراف ولي أمر وموافقته على هذه الشروط. أنت مسؤول عن دقة المعلومات التي تقدّمها وعن سرية بيانات تسجيل الدخول الخاصة بك، ويجب إخطارنا فوراً عند الاشتباه بأي استخدام غير مصرّح به لحسابك.
+
+٤. الاشتراكات والفوترة
+تُقدَّم الخدمة بباقتين: Essential (٥٩ ر.س/شهرياً) و Signature (٨٩ ر.س/شهرياً)، إضافة إلى خيارات فوترة فصلية ونصف سنوية وسنوية بأسعار مخفّضة. تُجدَّد الاشتراكات تلقائياً في نهاية كل دورة فوترة ما لم تُلغَ قبل ذلك من إعدادات الحساب. تتم معالجة الدفعات عبر Stripe؛ لا نخزّن بيانات بطاقتك المصرفية على خوادمنا. الرسوم غير قابلة للاسترداد إلا في الحالات التي يُلزم بها النظام السعودي لحماية المستهلك. قد نُعدّل أسعار الاشتراك بإشعار مسبق لا يقل عن ٣٠ يوماً؛ واستمرار استخدامك للخدمة بعد ذلك يُعدّ موافقة على السعر الجديد.
+
+٥. إخلاء مسؤولية مالي وشرعي مهم
+جود AI أداة لتتبّع وتنظيم بياناتك المالية وتقديم معلومات عامة — وهي ليست استشارة مالية أو استثمارية مرخّصة، ولا تُعدّ بديلاً عن مستشار مالي مرخّص من هيئة السوق المالية السعودية. حاسبة الزكاة في التطبيق أداة حسابية تقديرية مبنية على المُدخلات التي تزوّدنا بها وسعر الذهب اللحظي؛ وهي لا تُعدّ فتوى شرعية ولا تحل محل الرجوع إلى عالم شرعي مختص أو هيئة زكاة معتمدة للتحقق من حسابك النهائي قبل الإخراج. أي قرار مالي أو استثماري أو متعلّق بإخراج الزكاة تتخذه بناءً على معلومات التطبيق هو على مسؤوليتك الشخصية الكاملة.
+
+٦. إخلاء مسؤولية محتوى الذكاء الاصطناعي
+ردود "جود" تُولَّد عبر نماذج ذكاء اصطناعي (مثل GPT-4o) وقد تحتوي أحياناً على معلومات غير دقيقة أو غير مكتملة. يجب عليك مراجعة أي معلومة مهمة (مالية، صحية، قانونية) بشكل مستقل قبل الاعتماد عليها.
+
+٧. سياسة الاستخدام المقبول
+يُمنع استخدام الخدمة في: انتهاك الأنظمة المعمول بها في المملكة العربية السعودية، التعدي على حقوق الملكية الفكرية، نشر محتوى ضار أو مخالف للآداب العامة، أو محاولة الوصول غير المصرّح به لأنظمتنا أو بيانات مستخدمين آخرين.
+
+٨. الخصوصية ومعالجة البيانات
+معالجتنا لبياناتك الشخصية، بما في ذلك نقل بعضها لمزوّدي خدمة خارج المملكة (OpenAI لمحرّك الذكاء الاصطناعي، ElevenLabs للصوت، Stripe للدفع)، مفصّلة بالكامل في سياسة الخصوصية المرفقة والتي تُعد جزءاً لا يتجزأ من هذه الشروط.
+
+٩. الملكية الفكرية
+جميع حقوق الملكية الفكرية المتعلقة بتطبيق JOOD AI، تصميمه، وعلامته التجارية محفوظة. يُمنح المستخدم ترخيصاً محدوداً وغير قابل للتحويل لاستخدام التطبيق ضمن هذه الشروط فقط. تحتفظ بملكية المحتوى الذي تُنشئه (مهامك، بياناتك المالية، إلخ) وتمنحنا ترخيصاً محدوداً لمعالجته بغرض تقديم الخدمة لك فقط.
+
+١٠. إنهاء الخدمة
+يمكنك إغلاق حسابك في أي وقت من إعدادات الحساب؛ سيُنفَّذ حذف بياناتك وفق ما هو مفصّل في سياسة الخصوصية. نحتفظ بحق تعليق أو إنهاء حسابك في حال مخالفة هذه الشروط أو الاشتباه في نشاط احتيالي.
+
+١١. حدود المسؤولية
+تُقدَّم الخدمة "كما هي" دون أي ضمانات صريحة أو ضمنية. لا نتحمل مسؤولية الأضرار غير المباشرة أو التبعية الناشئة عن استخدام الخدمة، إلى أقصى حد يسمح به النظام السعودي المعمول به.
+
+١٢. القانون الحاكم والاختصاص القضائي
+تخضع هذه الشروط وتُفسَّر وفقاً لأنظمة المملكة العربية السعودية. تختص المحاكم السعودية المختصة (أو لجان حل المنازعات النظامية، حسب الحال) بالنظر في أي نزاع ينشأ عن هذه الشروط.
+
+١٣. التعديلات على الشروط
+قد نُحدّث هذه الشروط من وقت لآخر. سيُعرض رقم الإصدار وتاريخ النفاذ في أعلى هذه الصفحة، وسيتم إشعارك بالتغييرات الجوهرية عبر التطبيق أو البريد الإلكتروني.
+
+١٤. التواصل
+للاستفسارات القانونية: legal@joudai.com`;
+
+const EN_TERMS_CONTENT = `Terms of Service — JOOD AI
+Version 2.0 · Effective date: set automatically on publish
+
+1. Introduction and Acceptance
+Welcome to JOOD AI ("the Service," "we," "us"), your bilingual AI executive assistant. By creating an account or using the JOOD AI app, you agree to these Terms and the accompanying Privacy Policy. If you do not agree, please do not use the Service.
+
+2. Description of Service
+JOOD AI provides bilingual (Arabic/English) AI chat for tasks, calendar, and reminders; financial tracking (wallet, investments, Zakat calculator) and personal budgeting; mood and habit tracking; a voice assistant ("Majlis") powered by conversational AI; and a personalized daily executive brief with smart recommendations.
+
+3. Eligibility and Account Registration
+You must be 18 or older to use the Service independently. Users aged 13–17 require a parent or legal guardian's supervision and acceptance of these Terms. You are responsible for the accuracy of information you provide and for keeping your login credentials confidential. Notify us immediately of any suspected unauthorized use of your account.
+
+4. Subscriptions and Billing
+The Service is offered in two tiers — Essential (SAR 59/month) and Signature (SAR 89/month) — with discounted quarterly, semi-annual, and annual billing options. Subscriptions renew automatically at the end of each billing cycle unless cancelled in advance via account settings. Payments are processed through Stripe; we never store your card details on our servers. Fees are non-refundable except where required by Saudi consumer protection law. We may change subscription prices with at least 30 days' notice; continued use after a price change constitutes acceptance.
+
+5. Important Financial and Religious Disclaimer
+JOOD AI is a tool for tracking and organizing your financial data and providing general information — it is not licensed financial or investment advice and is not a substitute for an advisor licensed by the Saudi Capital Market Authority (CMA). The in-app Zakat calculator is an estimation tool based on the inputs you provide and live gold prices; it is not a religious ruling (fatwa) and does not replace verification by a qualified Islamic scholar or accredited Zakat authority before you make your final payment. Any financial, investment, or Zakat decision you make based on information from the app is entirely your own responsibility.
+
+6. AI-Generated Content Disclaimer
+Jood's responses are generated by AI models (such as GPT-4o) and may occasionally contain inaccurate or incomplete information. You should independently verify any important information (financial, health, legal) before relying on it.
+
+7. Acceptable Use Policy
+You may not use the Service to: violate applicable laws of the Kingdom of Saudi Arabia; infringe intellectual property rights; distribute harmful or offensive content; or attempt unauthorized access to our systems or other users' data.
+
+8. Privacy and Data Processing
+Our processing of your personal data — including transfers to service providers outside the Kingdom (OpenAI for the AI engine, ElevenLabs for voice, Stripe for payments) — is described in full in the accompanying Privacy Policy, which forms an integral part of these Terms.
+
+9. Intellectual Property
+All intellectual property rights in the JOOD AI app, its design, and branding are reserved. You are granted a limited, non-transferable license to use the app under these Terms only. You retain ownership of content you create (tasks, financial entries, etc.) and grant us a limited license to process it solely to provide the Service to you.
+
+10. Termination
+You may close your account at any time via account settings; your data will be deleted as described in the Privacy Policy. We reserve the right to suspend or terminate your account for violation of these Terms or suspected fraudulent activity.
+
+11. Limitation of Liability
+The Service is provided "as is" without warranties of any kind, express or implied. We are not liable for indirect or consequential damages arising from use of the Service, to the maximum extent permitted under applicable Saudi law.
+
+12. Governing Law and Jurisdiction
+These Terms are governed by and construed in accordance with the laws of the Kingdom of Saudi Arabia. Competent Saudi courts (or statutory dispute-resolution committees, as applicable) shall have exclusive jurisdiction over any dispute arising from these Terms.
+
+13. Changes to These Terms
+We may update these Terms from time to time. The version number and effective date will be shown at the top of this page, and material changes will be communicated via the app or email.
+
+14. Contact
+For legal inquiries: legal@joudai.com`;
+
+const AR_PRIVACY_CONTENT = `سياسة الخصوصية — JOOD AI
+الإصدار: ٢.٠ · تاريخ النفاذ: يُحدَّث تلقائياً عند النشر
+
+١. مقدمة
+تلتزم JOOD AI ("نحن") بحماية خصوصيتك. تشرح هذه السياسة البيانات التي نجمعها، وكيف نستخدمها، ومع من نشاركها، وحقوقك تجاهها، بما يتوافق مع نظام حماية البيانات الشخصية السعودي (PDPL) الصادر تحت إشراف الهيئة السعودية للبيانات والذكاء الاصطناعي (سدايا).
+
+٢. البيانات التي نجمعها
+بيانات الحساب: الاسم، البريد الإلكتروني، رقم الجوال (اختياري)، الجنس (لمخاطبتك بالصيغة اللغوية الصحيحة). بيانات مالية: المعاملات، أرصدة المحفظة، تفاصيل الاستثمار، أهداف الادخار، مدخلات حاسبة الزكاة. بيانات المزاج والعادات: تسجيلات المزاج اليومية، تتبّع العادات. بيانات المحادثة والذاكرة: رسائلك مع "جود"، والحقائق التي تتعلمها جود عنك تلقائياً (الوظيفة، العائلة، الأهداف، التفضيلات) لتقديم ردود أكثر تخصيصاً — يمكنك مراجعتها أو حذفها في أي وقت من "ذاكرة جود". بيانات الصوت: عند استخدامك ميزة "المجلس"، تتم معالجة صوتك عبر ElevenLabs لتحويله إلى نص والرد عليه صوتياً؛ لا تُخزَّن التسجيلات الصوتية الخام بعد معالجتها. بيانات التقويم والمهام: المواعيد، المهام، التذكيرات. بيانات تقنية: نوع الجهاز، عنوان IP، سجلات الأخطاء، لأغراض الأمان وتحسين الأداء.
+
+٣. الأساس النظامي للمعالجة
+نعالج بياناتك بناءً على: تنفيذ العقد المتعلق بتقديم الخدمة، موافقتك الصريحة للميزات الاختيارية (كالصوت والإشعارات)، المصلحة المشروعة في تحسين الخدمة وحمايتها من الاحتيال، والالتزام النظامي عند الطلب من الجهات المختصة.
+
+٤. كيف نستخدم بياناتك
+لتقديم وتخصيص الخدمة (المساعد الذكي، التتبع المالي، التذكيرات)، لمعالجة الفوترة، لتحسين دقة الذكاء الاصطناعي ضمن حسابك فقط، ولأغراض الأمان ومنع الاحتيال. لا نستخدم بياناتك لتدريب نماذج ذكاء اصطناعي عامة تخص أطرافاً أخرى.
+
+٥. مشاركة البيانات ونقلها خارج المملكة
+لا نبيع بياناتك الشخصية لأي طرف. نشارك بيانات محدودة مع مزودي خدمة موثوقين لتشغيل التطبيق، وقد يترتب على ذلك معالجة بياناتك خارج المملكة العربية السعودية على النحو التالي: OpenAI (الولايات المتحدة الأمريكية) لتشغيل محرك الدردشة الذكي (GPT-4o)؛ يُرسل نص محادثتك فقط، دون بيانات حساب مباشرة. ElevenLabs لتحويل النص إلى كلام والكلام إلى نص في ميزة المجلس الصوتية. Stripe (الولايات المتحدة الأمريكية) لمعالجة الدفعات؛ لا نشارك معه سوى البيانات اللازمة للفوترة، ولا نطّلع نحن على بيانات بطاقتك. Supabase لاستضافة قاعدة البيانات والخوادم (منطقة آسيا — جنوب شرق). عند نقل بياناتك خارج المملكة، نتعاقد مع هذه الجهات بموجب بنود تعاقدية تضمن مستوى حماية مكافئاً لما يقتضيه نظام حماية البيانات الشخصية السعودي.
+
+٦. مدة الاحتفاظ بالبيانات
+نحتفظ ببياناتك طالما حسابك نشط. عند طلب حذف الحساب، تُحذف بياناتك الشخصية خلال مدة لا تتجاوز ٣٠ يوماً، باستثناء ما يلزم الاحتفاظ به لأغراض نظامية أو محاسبية (كسجلات الفوترة) للمدة التي يحددها النظام.
+
+٧. حقوقك بموجب نظام حماية البيانات الشخصية
+يحق لك: الوصول إلى بياناتك وطلب نسخة منها، تصحيح البيانات غير الدقيقة، طلب حذف بياناتك ("الحق في النسيان")، تقييد أو الاعتراض على معالجة معيّنة، نقل بياناتك بصيغة قابلة للقراءة الآلية، وسحب موافقتك على المعالجات الاختيارية في أي وقت. يمكنك تنفيذ معظم هذه الحقوق مباشرة من "مركز الخصوصية والأمان" داخل التطبيق، أو بالتواصل معنا على البريد أدناه. إذا لم نستجب لطلبك بشكل مُرضٍ، يحق لك تقديم شكوى إلى الهيئة السعودية للبيانات والذكاء الاصطناعي (سدايا) بصفتها الجهة المختصة بتطبيق نظام حماية البيانات الشخصية.
+
+٨. أمن المعلومات
+نطبّق تشفيراً للبيانات أثناء النقل (TLS) وفي حالة التخزين، وضوابط وصول صارمة على مستوى الصفوف (Row-Level Security) بحيث لا يستطيع أي مستخدم آخر — بمن فيهم فريقنا التقني دون إذن — الوصول إلى بياناتك الشخصية دون تفويض.
+
+٩. خصوصية الأطفال
+لا تستهدف الخدمة من هم دون ١٣ عاماً. للمستخدمين بين ١٣ و١٧ عاماً، يلزم إشراف ولي الأمر وموافقته الصريحة على هذه السياسة.
+
+١٠. ملفات تعريف الارتباط والتحليلات
+نستخدم تخزيناً محلياً أساسياً لتشغيل التطبيق (مثل تفضيلات اللغة)، وقد نستخدم أدوات تحليل مجمّعة وغير معرّفة بهويتك الشخصية لفهم أداء التطبيق وتحسينه.
+
+١١. تحديثات هذه السياسة
+قد نُحدّث هذه السياسة من وقت لآخر؛ سيظهر رقم الإصدار وتاريخ النفاذ في أعلى هذه الصفحة، وسنُعلمك بأي تغيير جوهري عبر التطبيق أو البريد الإلكتروني.
+
+١٢. التواصل
+لأي استفسار يتعلق بخصوصيتك أو لتقديم طلب ممارسة حقوقك:
+البريد الإلكتروني: privacy@joudai.com
+مسؤول حماية البيانات: dpo@joudai.com`;
+
+const EN_PRIVACY_CONTENT = `Privacy Policy — JOOD AI
+Version 2.0 · Effective date: set automatically on publish
+
+1. Introduction
+JOOD AI ("we," "us") is committed to protecting your privacy. This Policy explains what data we collect, how we use it, who we share it with, and your rights — in line with Saudi Arabia's Personal Data Protection Law (PDPL), overseen by the Saudi Data and AI Authority (SDAIA).
+
+2. Information We Collect
+Account data: name, email, phone (optional), gender (so Jood can address you correctly in Arabic). Financial data: transactions, wallet balances, investment details, savings goals, Zakat calculator inputs. Mood and habit data: daily mood logs, habit tracking. Chat and memory data: your messages with Jood, and facts Jood learns about you automatically (work, family, goals, preferences) to personalize responses — reviewable and deletable anytime in "Jood's Memory." Voice data: when you use the "Majlis" voice feature, your speech is processed via ElevenLabs for speech-to-text and text-to-speech; raw audio is not retained after processing. Calendar and task data: appointments, tasks, reminders. Technical data: device type, IP address, error logs, for security and performance.
+
+3. Legal Basis for Processing
+We process your data based on: performance of the contract to provide the Service; your explicit consent for optional features (voice, notifications); legitimate interest in improving and securing the Service; and legal obligation when required by competent authorities.
+
+4. How We Use Your Data
+To provide and personalize the Service (AI assistant, financial tracking, reminders), to process billing, to improve AI accuracy within your own account only, and for security and fraud prevention. We do not use your data to train general-purpose AI models for other parties.
+
+5. Sharing and Cross-Border Transfers
+We do not sell your personal data. We share limited data with trusted service providers to operate the app, which may involve processing your data outside Saudi Arabia: OpenAI (United States) powers the AI chat engine (GPT-4o); only your conversation text is sent, not direct account identifiers. ElevenLabs powers speech-to-text and text-to-speech for the Majlis voice feature. Stripe (United States) processes payments; we share only billing-necessary data and never see your card details ourselves. Supabase hosts our database and servers (Southeast Asia region). Where your data is transferred outside the Kingdom, we contract with these providers under terms designed to ensure a level of protection equivalent to that required under the Saudi PDPL.
+
+6. Data Retention
+We retain your data while your account is active. Upon account deletion, your personal data is deleted within 30 days, except where retention is required for legal or accounting purposes (e.g. billing records) for the period mandated by law.
+
+7. Your Rights Under the PDPL
+You have the right to: access your data and request a copy; correct inaccurate data; request deletion ("right to be forgotten"); restrict or object to specific processing; receive your data in a portable format; and withdraw consent for optional processing at any time. Most of these rights can be exercised directly from the in-app "Security & Privacy Center," or by contacting us at the email below. If you're not satisfied with our response, you may lodge a complaint with the Saudi Data and AI Authority (SDAIA), the competent authority for PDPL enforcement.
+
+8. Security
+We apply encryption in transit (TLS) and at rest, and strict Row-Level Security access controls so that no one else — including our own team without authorization — can access your personal data without permission.
+
+9. Children's Privacy
+The Service is not directed at children under 13. Users aged 13–17 require a parent or legal guardian's supervision and explicit agreement to this Policy.
+
+10. Cookies and Analytics
+We use essential local storage to run the app (e.g. language preference), and may use aggregated, de-identified analytics to understand and improve app performance.
+
+11. Changes to This Policy
+We may update this Policy from time to time; the version number and effective date will appear at the top of this page, and material changes will be communicated via the app or email.
+
+12. Contact
+For privacy questions or to exercise your rights:
+Email: privacy@joudai.com
+Data Protection Officer: dpo@joudai.com`;
+
 // ─── Legal tab ────────────────────────────────────────────────────────────────
+const DEFAULT_LEGAL_CONTENT = {
+  tos: AR_TERMS_CONTENT + '\n\n' + '─'.repeat(60) + '\n\n' + EN_TERMS_CONTENT,
+  privacy: AR_PRIVACY_CONTENT + '\n\n' + '─'.repeat(60) + '\n\n' + EN_PRIVACY_CONTENT,
+};
+
 const LegalTab = () => {
   const [doc, setDoc] = useState<'tos' | 'privacy'>('tos');
-  const [content, setContent] = useState({
-    tos: `شروط الخدمة — JOOD AI\n\nآخر تحديث: يونيو ٢٠٢٦\n\n١. الموافقة على الشروط\nباستخدام خدمات JOOD AI، توافق على هذه الشروط.\n\n٢. الاشتراكات\nتُقدَّم الخدمة باشتراكات شهرية أو سنوية قابلة للإلغاء في أي وقت.\n\n٣. حقوق الملكية الفكرية\nجميع الحقوق محفوظة لـ JOOD AI.\n\n٤. الخصوصية\nنحن نحمي بياناتك وفق سياسة الخصوصية المرفقة وقوانين حماية البيانات السعودية (نظام حماية البيانات الشخصية — نحاسب).`,
-    privacy: `سياسة الخصوصية — JOOD AI\n\nآخر تحديث: يونيو ٢٠٢٦\n\n١. البيانات التي نجمعها\nنجمع البيانات التي تزودنا بها مباشرةً لتحسين تجربتك.\n\n٢. كيف نستخدم بياناتك\nنستخدم بياناتك لتقديم الخدمة وتحسينها، ولن نبيعها لأطراف ثالثة.\n\n٣. حقوقك\nيحق لك طلب حذف بياناتك أو تصديرها في أي وقت.\n\n٤. الامتثال\nنلتزم بنظام حماية البيانات الشخصية السعودي (PDPL) وإرشادات أخلاقيات الذكاء الاصطناعي لـ SDAIA.`,
-  });
+  const [content, setContent] = useState(DEFAULT_LEGAL_CONTENT);
+  const [versions, setVersions] = useState<{ tos: string; privacy: string }>({ tos: '1.0', privacy: '1.0' });
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  const docTypeFor = (d: 'tos' | 'privacy') => (d === 'tos' ? 'terms' : 'privacy');
+
+  const loadLatest = useCallback(async () => {
+    setLoading(true);
+    const [{ data: termsRow }, { data: privacyRow }] = await Promise.all([
+      supabase.from('agreement_versions').select('version, content').eq('type', 'terms').order('effective_date', { ascending: false }).limit(1).maybeSingle(),
+      supabase.from('agreement_versions').select('version, content').eq('type', 'privacy').order('effective_date', { ascending: false }).limit(1).maybeSingle(),
+    ]);
+    // Real published content always wins; the JOOD AI default draft only fills in
+    // if nothing has ever been published, or what's published is just a placeholder stub.
+    setContent({
+      tos: (termsRow?.content && termsRow.content.length > 200) ? termsRow.content : DEFAULT_LEGAL_CONTENT.tos,
+      privacy: (privacyRow?.content && privacyRow.content.length > 200) ? privacyRow.content : DEFAULT_LEGAL_CONTENT.privacy,
+    });
+    setVersions({ tos: termsRow?.version ?? '1.0', privacy: privacyRow?.version ?? '1.0' });
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { loadLatest(); }, [loadLatest]);
+
+  const publish = async () => {
+    setSaving(true);
+    const currentVersion = versions[doc];
+    const nextVersion = (parseFloat(currentVersion || '1.0') + 0.1).toFixed(1);
+    const { error } = await supabase.from('agreement_versions').insert({
+      type: docTypeFor(doc),
+      version: nextVersion,
+      content: content[doc],
+      effective_date: new Date().toISOString(),
+    });
+    if (error) {
+      toast.error('Failed to publish: ' + error.message);
+    } else {
+      setVersions(v => ({ ...v, [doc]: nextVersion }));
+      toast.success(`Published v${nextVersion} — live on /${doc === 'tos' ? 'terms' : 'privacy'} now`);
+    }
+    setSaving(false);
+  };
 
   return (
     <div className="space-y-4">
+      <div className="bg-amber-500/10 border border-amber-400/30 rounded-lg px-4 py-3 flex items-start gap-3">
+        <AlertCircle className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
+        <p className="text-amber-200/90 text-xs leading-relaxed">
+          AI-drafted starting point based on JOOD AI's actual functionality and Saudi PDPL/SDAIA guidance — covers cross-border data transfers (OpenAI, ElevenLabs, Stripe), the Zakat calculator and financial-advice disclaimers, and AI-output disclaimers. <strong>Have a licensed Saudi attorney review this before relying on it for real users.</strong> This banner is only shown here in Admin — it does not appear on the public page.
+        </p>
+      </div>
       <div className="flex gap-2">
         {(['tos', 'privacy'] as const).map(d => (
           <button key={d} onClick={() => setDoc(d)}
@@ -821,20 +1073,27 @@ const LegalTab = () => {
       </div>
       <Card className="bg-white/5 border-white/10">
         <CardHeader className="flex-row items-center justify-between pb-2">
-          <CardTitle className="text-white text-sm">{doc === 'tos' ? 'Terms of Service' : 'Privacy Policy'}</CardTitle>
+          <div>
+            <CardTitle className="text-white text-sm">{doc === 'tos' ? 'Terms of Service' : 'Privacy Policy'}</CardTitle>
+            <p className="text-white/30 text-xs mt-0.5">Live version: {versions[doc]}</p>
+          </div>
           <Button size="sm" className="bg-jood-gold-500 hover:bg-jood-gold-600 text-white h-7 text-xs"
-            onClick={() => toast.success('Document saved (publish via deployment)')}>
-            Save Draft
+            onClick={publish} disabled={saving || loading}>
+            {saving ? 'Publishing…' : 'Publish New Version'}
           </Button>
         </CardHeader>
         <CardContent>
-          <Textarea
-            value={content[doc]}
-            onChange={e => setContent(c => ({ ...c, [doc]: e.target.value }))}
-            className="min-h-[380px] bg-white/5 border-white/15 text-white text-sm font-mono resize-none leading-relaxed"
-            dir="rtl"
-          />
-          <p className="text-white/25 text-xs mt-2">Changes are saved locally. Publish to production by committing the content to your CMS or edge config.</p>
+          {loading ? (
+            <p className="text-white/30 text-sm text-center py-12">Loading current published content…</p>
+          ) : (
+            <Textarea
+              value={content[doc]}
+              onChange={e => setContent(c => ({ ...c, [doc]: e.target.value }))}
+              className="min-h-[480px] bg-white/5 border-white/15 text-white text-sm font-mono resize-none leading-relaxed"
+              dir="rtl"
+            />
+          )}
+          <p className="text-white/25 text-xs mt-2">Publishing inserts a new version row — it goes live on the public page immediately, and previous versions stay archived in agreement_versions.</p>
         </CardContent>
       </Card>
     </div>
@@ -984,6 +1243,7 @@ const Admin = () => {
           {activeTab === 'overview'  && <OverviewTab stats={stats} onRefresh={() => { fetchStats(); fetchUsers(); }} />}
           {activeTab === 'users'     && <UsersTab users={users} loading={userLoading} onAssignRole={assignRole} />}
           {activeTab === 'support'   && <SupportTab />}
+          {activeTab === 'features'  && <FeaturesTab />}
           {activeTab === 'packages'  && <PackagesTab intervals={intervals} setIntervals={setIntervals} />}
           {activeTab === 'discounts' && <DiscountsTab />}
           {activeTab === 'api'       && <ApiUsageTab />}

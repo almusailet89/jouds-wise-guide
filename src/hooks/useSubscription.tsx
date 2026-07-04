@@ -1,4 +1,4 @@
-import { useState, useEffect, createContext, useContext, ReactNode } from 'react';
+import { useState, useEffect, useRef, createContext, useContext, ReactNode } from 'react';
 import { useAuth } from './useAuth';
 import { useRoles } from './useRoles';
 import { supabase } from '@/integrations/supabase/client';
@@ -189,21 +189,31 @@ export const SubscriptionProvider = ({ children }: SubscriptionProviderProps) =>
     return freeFeatures.includes(feature);
   };
 
-  // Check subscription on mount and when user changes
+  // Check subscription on mount and when the logged-in user actually changes.
+  // Depending on the raw `session` object here (instead of a stable primitive like
+  // user?.id) caused this to re-fire on every benign session-object refresh from
+  // Supabase's onAuthStateChange — hammering the check-subscription Stripe call
+  // continuously for any user with the app open.
   useEffect(() => {
     checkSubscription();
-  }, [user, session]);
+  }, [user?.id]);
+
+  // Keep a ref to the latest checkSubscription (closing over the current session)
+  // so the long-lived interval below always uses a fresh access_token instead of
+  // the one captured when the interval was first created.
+  const checkSubscriptionRef = useRef(checkSubscription);
+  checkSubscriptionRef.current = checkSubscription;
 
   // Auto-refresh subscription status every 5 minutes
   useEffect(() => {
     if (!user) return;
 
     const interval = setInterval(() => {
-      checkSubscription();
+      checkSubscriptionRef.current();
     }, 5 * 60 * 1000); // 5 minutes
 
     return () => clearInterval(interval);
-  }, [user]);
+  }, [user?.id]);
 
   const isSubscribed = isAdmin() || subscription?.subscribed || subscription?.inTrial || false;
   const hasPaymentIssue = !isAdmin() && (subscription?.paymentIssue ?? false);

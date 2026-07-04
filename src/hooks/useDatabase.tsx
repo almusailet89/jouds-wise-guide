@@ -44,6 +44,22 @@ export interface Task {
   depends_on?: string | null;
   created_at: string;
   updated_at: string;
+  parent_task_id: string | null;
+  estimated_hours: number | null;
+  depends_on: string | null;
+}
+
+export interface EventRow {
+  id: string; user_id: string; title: string; description: string | null;
+  // Wave-3 columns (nullable — legacy table already had start_at/end_at)
+  starts_at: string | null; ends_at: string | null;
+  // Legacy columns (now nullable after migration)
+  start_at: string | null; end_at: string | null;
+  all_day: boolean | null;
+  category: string | null; color: string | null; location: string | null;
+  recurrence: string | null; hijri_anchor: boolean;
+  reminder_min: number | null; prayer_linked: string | null;
+  source: string | null; completed_at: string | null; created_at: string;
 }
 
 export interface MoodLog {
@@ -276,7 +292,114 @@ export const useTasks = () => {
     }
   };
 
-  return { tasks, loading, addTask, updateTask, refetch: fetchTasks };
+  const deleteTask = async (id: string) => {
+    if (!user) return;
+    const { error } = await supabase
+      .from('tasks')
+      .delete()
+      .eq('id', id)
+      .eq('user_id', user.id);
+    if (error) {
+      toast({ title: "Error deleting task", description: error.message, variant: "destructive" });
+    } else {
+      fetchTasks();
+    }
+  };
+
+  return { tasks, loading, addTask, updateTask, deleteTask, refetch: fetchTasks };
+};
+
+export const useEvents = () => {
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const [events, setEvents] = useState<EventRow[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!user) return;
+    fetchEvents();
+
+    const channel = supabase
+      .channel(`events-rt-${user.id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'events', filter: `user_id=eq.${user.id}` }, () => {
+        fetchEvents();
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [user?.id]);
+
+  const fetchEvents = async () => {
+    if (!user) return;
+
+    setLoading(true);
+    const { data, error } = await supabase
+      .from('events')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('starts_at');
+
+    if (error) {
+      toast({
+        title: "Error fetching events",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+
+    setEvents((data || []) as EventRow[]);
+    setLoading(false);
+  };
+
+  const addEvent = async (event: Omit<EventRow, 'id' | 'user_id' | 'created_at'>) => {
+    if (!user) return;
+
+    const { error } = await supabase
+      .from('events')
+      .insert({ ...event, user_id: user.id });
+
+    if (error) {
+      toast({
+        title: "Error adding event",
+        description: error.message,
+        variant: "destructive",
+      });
+    } else {
+      fetchEvents();
+    }
+  };
+
+  const updateEvent = async (id: string, updates: Partial<EventRow>) => {
+    if (!user) return;
+
+    const { error } = await supabase
+      .from('events')
+      .update(updates)
+      .eq('id', id)
+      .eq('user_id', user.id);
+
+    if (error) {
+      toast({ title: "Error updating event", description: error.message, variant: "destructive" });
+    } else {
+      fetchEvents();
+    }
+  };
+
+  const deleteEvent = async (id: string) => {
+    if (!user) return;
+    const { error } = await supabase
+      .from('events')
+      .delete()
+      .eq('id', id)
+      .eq('user_id', user.id);
+    if (error) {
+      toast({ title: "Error deleting event", description: error.message, variant: "destructive" });
+    } else {
+      fetchEvents();
+    }
+  };
+
+  return { events, loading, addEvent, updateEvent, deleteEvent, refetch: fetchEvents };
 };
 
 export const useMoodLogs = () => {

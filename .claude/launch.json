@@ -19,6 +19,13 @@
       "runtimeExecutable": "python3",
       "runtimeArgs": ["-m", "streamlit", "run", "main_dashboard.py", "--server.port", "8501"],
       "port": 8501
+    },
+    {
+      "name": "paperclip-agents",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["--version"],
+      "port": 3100,
+      "autoPort": false
     }
   ]
 }

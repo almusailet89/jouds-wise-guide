@@ -1,11 +1,8 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import Stripe from "https://esm.sh/stripe@18.5.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+import { corsHeadersFor } from "../_shared/cors.ts";
+import { checkAndIncrementRateLimit } from "../_shared/rate-limit.ts";
 
 const logStep = (step: string, details?: any) => {
   const detailsStr = details ? ` - ${JSON.stringify(details)}` : '';
@@ -13,6 +10,7 @@ const logStep = (step: string, details?: any) => {
 };
 
 serve(async (req) => {
+  const corsHeaders = corsHeadersFor(req);
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
@@ -39,6 +37,16 @@ serve(async (req) => {
     const user = data.user;
     if (!user?.email) throw new Error("User not authenticated or email not available");
     logStep("User authenticated", { userId: user.id, email: user.email });
+
+    // Strict limit — abuse here means flooding Stripe with checkout-session creates, not normal usage.
+    const rl = await checkAndIncrementRateLimit(supabaseClient, user.id, 'create-checkout', 5);
+    if (rl.limited) {
+      return new Response(JSON.stringify({
+        error: 'rate_limited',
+        message: 'لقد تجاوزتِ حد محاولات الدفع المسموح بها في الساعة. حاولي مرة أخرى بعد قليل.',
+        limit: rl.limit, used: rl.used, resets_at: rl.resetsAt,
+      }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
 
     const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY") || "", { 
       apiVersion: "2025-08-27.basil" 

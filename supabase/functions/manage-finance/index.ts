@@ -1,12 +1,10 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { corsHeadersFor } from "../_shared/cors.ts";
+import { checkAndIncrementRateLimit, getPlanTier } from "../_shared/rate-limit.ts";
 
 serve(async (req) => {
+  const corsHeaders = corsHeadersFor(req);
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -44,6 +42,22 @@ serve(async (req) => {
     }
 
     const { method, body } = await req.json();
+
+    // Rate-limit writes only (POST/PATCH/DELETE) — reads aren't the abuse vector.
+    if (method !== 'GET') {
+      const { isAdmin, isSignature } = await getPlanTier(supabase, user.id);
+      if (!isAdmin) {
+        const limit = isSignature ? 100 : 30;
+        const rl = await checkAndIncrementRateLimit(supabase, user.id, 'manage-finance-write', limit);
+        if (rl.limited) {
+          return new Response(JSON.stringify({
+            error: 'rate_limited',
+            message: `لقد تجاوزتِ حد ${limit} عملية مالية في الساعة. يُعاد التعيين بداية الساعة التالية.`,
+            limit: rl.limit, used: rl.used, resets_at: rl.resetsAt,
+          }), { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        }
+      }
+    }
 
     switch (method) {
       case 'GET': {

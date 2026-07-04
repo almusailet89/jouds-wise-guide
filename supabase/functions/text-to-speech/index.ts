@@ -1,11 +1,8 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
+import { corsHeadersFor } from "../_shared/cors.ts"
 
 serve(async (req) => {
+  const corsHeaders = corsHeadersFor(req)
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }

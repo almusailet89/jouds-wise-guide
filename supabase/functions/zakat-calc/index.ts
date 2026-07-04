@@ -1,10 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+import { corsHeadersFor } from "../_shared/cors.ts";
 
 // Nisab floor: 85g gold equivalent — fetched daily from gold price API
 const GOLD_GRAMS_NISAB = 85;
@@ -26,6 +22,7 @@ async function getGoldPriceInSAR(): Promise<number> {
 }
 
 serve(async (req) => {
+  const corsHeaders = corsHeadersFor(req);
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   try {
@@ -39,8 +36,9 @@ serve(async (req) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: corsHeaders });
 
-    const { user_id, hawl_start_date } = await req.json();
-    const uid = user_id ?? user.id;
+    const { hawl_start_date } = await req.json();
+    // Always the authenticated caller's own id — never trust a client-supplied user_id.
+    const uid = user.id;
 
     // Fetch holdings
     const { data: holdings, error } = await supabase
