@@ -53,7 +53,7 @@ const DEFAULTS: Prefs = {
 export const SecurityCenter: React.FC = () => {
   const { user, signOut } = useAuth();
   const { toast } = useToast();
-  const { t, lang, dir } = useLanguage();
+  const { t, tg, lang, dir } = useLanguage();
 
   const [prefs, setPrefs] = useState<Prefs>(DEFAULTS);
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -274,7 +274,7 @@ export const SecurityCenter: React.FC = () => {
             </Badge>
           </div>
           <p className="text-[11px] text-muted-foreground font-arabic mb-4">
-            {t('sec.data.subtitle')}
+            {tg('sec.data.subtitle')}
           </p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
             {SCOPE_KEYS.map(key => {

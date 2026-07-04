@@ -27,7 +27,7 @@ const CATEGORIES_EN = {
 
 export const AddEntryModal: React.FC<AddEntryModalProps> = ({ open, onOpenChange }) => {
   const { addFinancialEntry } = useFinancialDashboard();
-  const { t, lang, dir } = useLanguage();
+  const { t, tg, lang, dir } = useLanguage();
   const CATEGORIES = lang === 'ar' ? CATEGORIES_AR : CATEGORIES_EN;
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({
@@ -78,7 +78,7 @@ export const AddEntryModal: React.FC<AddEntryModalProps> = ({ open, onOpenChange
               <Label className="font-arabic text-xs">{t('entry.type')} *</Label>
               <Select value={form.type} onValueChange={v => set('type', v as any)}>
                 <SelectTrigger className="font-arabic">
-                  <SelectValue placeholder={t('entry.type.placeholder')} />
+                  <SelectValue placeholder={tg('entry.type.placeholder')} />
                 </SelectTrigger>
                 <SelectContent>
                   {(['income', 'expense', 'savings'] as const).map(t => (
@@ -136,7 +136,7 @@ export const AddEntryModal: React.FC<AddEntryModalProps> = ({ open, onOpenChange
               <Label className="font-arabic text-xs">{t('entry.category')}</Label>
               <Select value={form.category} onValueChange={v => set('category', v)}>
                 <SelectTrigger className="font-arabic">
-                  <SelectValue placeholder={t('entry.category.placeholder')} />
+                  <SelectValue placeholder={tg('entry.category.placeholder')} />
                 </SelectTrigger>
                 <SelectContent>
                   {CATEGORIES[form.type]?.map(cat => (

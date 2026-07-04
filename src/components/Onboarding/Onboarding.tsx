@@ -74,7 +74,7 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
   const { user } = useAuth();
   const { profile } = useProfile();
   const { toast } = useToast();
-  const { t, lang, dir } = useLanguage();
+  const { t, tg, lang, dir } = useLanguage();
 
   const [step, setStep] = useState(0);
   const [form, setForm] = useState<FormState>(DEFAULT);
@@ -84,8 +84,8 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
   const STEPS = STEP_IDS.map((id, i) => ({
     id,
     icon: STEP_ICONS[i],
-    title: t(`ob.step.${id}.title` as any),
-    desc:  t(`ob.step.${id}.desc` as any),
+    title: tg(`ob.step.${id}.title` as any),
+    desc:  tg(`ob.step.${id}.desc` as any),
   }));
 
   const GOALS = GOAL_META.map(g => ({
@@ -298,7 +298,7 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
                 >
                   <div className="text-center mb-4">
                     <h2 className="text-xl font-bold font-arabic mb-1">{t('ob.goals.title')}</h2>
-                    <p className="text-xs text-muted-foreground font-arabic">{t('ob.goals.sub')}</p>
+                    <p className="text-xs text-muted-foreground font-arabic">{tg('ob.goals.sub')}</p>
                   </div>
 
                   <div className="grid grid-cols-2 gap-2">
@@ -325,7 +325,7 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
                     })}
                   </div>
                   <p className="text-[10px] text-center text-muted-foreground font-arabic mt-3">
-                    {t('ob.goals.min')}
+                    {tg('ob.goals.min')}
                   </p>
                 </motion.div>
               )}
@@ -428,7 +428,7 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
                   transition={{ duration: 0.3 }}
                 >
                   <div className="text-center mb-4">
-                    <h2 className="text-xl font-bold font-arabic mb-1">{t('ob.avatar.title')}</h2>
+                    <h2 className="text-xl font-bold font-arabic mb-1">{tg('ob.avatar.title')}</h2>
                     <p className="text-xs text-muted-foreground font-arabic">{t('ob.avatar.sub')}</p>
                   </div>
 

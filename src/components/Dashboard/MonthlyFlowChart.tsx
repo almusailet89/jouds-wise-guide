@@ -20,7 +20,7 @@ interface MonthlyFlowChartProps {
 }
 
 export const MonthlyFlowChart: React.FC<MonthlyFlowChartProps> = ({ data, currency }) => {
-  const { t, dir } = useLanguage();
+  const { t, tg, dir } = useLanguage();
 
   const fmt = (n: number) => {
     if (n >= 1000000) return `${(n / 1000000).toFixed(1)}M`;
@@ -101,7 +101,7 @@ export const MonthlyFlowChart: React.FC<MonthlyFlowChartProps> = ({ data, curren
             <BarChart3 className="w-10 h-10 text-muted-foreground/40" />
             <p className="font-arabic text-sm text-muted-foreground">{t('chart.flow.empty')}</p>
             <p className="font-arabic text-xs text-muted-foreground/60">
-              {t('chart.flow.empty.hint')}
+              {tg('chart.flow.empty.hint')}
             </p>
           </div>
         )}

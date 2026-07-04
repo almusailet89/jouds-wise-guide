@@ -39,7 +39,7 @@ function filterByPeriod(entries: any[], period: Period) {
 
 // ═══════════════════════════════════════════════════════════════════════════
 export const FinancialDashboard: React.FC = () => {
-  const { t, dir } = useLanguage();
+  const { t, tg, dir } = useLanguage();
   const [period, setPeriod] = useState<Period>('month');
 
   const PERIODS: { value: Period; label: string }[] = [
@@ -215,7 +215,7 @@ export const FinancialDashboard: React.FC = () => {
             className="gap-1.5 font-arabic text-xs"
           >
             <Plus className="w-3.5 h-3.5" />
-            {t('fin.portfolio.add.first')}
+            {tg('fin.portfolio.add.first')}
           </Button>
         </div>
       )}

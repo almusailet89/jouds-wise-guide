@@ -31,7 +31,7 @@ const KIND_ICONS: Array<{
 // ═══════════════════════════════════════════════════════════════════════════
 const MemoryCenter: React.FC = () => {
   const { memories, loading, remove, toggle, add, clearAll } = useMemories();
-  const { t, dir } = useLanguage();
+  const { t, tg, dir } = useLanguage();
 
   const KINDS = KIND_ICONS.map(k => ({
     ...k,
@@ -86,7 +86,7 @@ const MemoryCenter: React.FC = () => {
             {t('mem.title')}
           </h2>
           <p className="text-sm text-muted-foreground font-arabic mt-1">
-            {t('mem.subtitle')}
+            {tg('mem.subtitle')}
           </p>
         </div>
 
@@ -266,7 +266,7 @@ const MemoryCenter: React.FC = () => {
                   <div>
                     <h3 className="font-arabic font-bold text-base">{t('mem.confirm.clear.title')}</h3>
                     <p className="font-arabic text-xs text-muted-foreground mt-1">
-                      {t('mem.confirm.clear.desc')}
+                      {tg('mem.confirm.clear.desc')}
                     </p>
                   </div>
                 </div>

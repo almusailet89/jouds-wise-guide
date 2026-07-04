@@ -128,7 +128,7 @@ export default function Index() {
 
             <div className="flex flex-col sm:flex-row gap-3">
               <button onClick={() => navigate('/pricing')} className="jood-btn-primary text-base px-8 py-3.5">
-                ابدئي التجربة المجّانية <ChevronRight className="w-4 h-4" />
+                ابدأ التجربة المجّانية <ChevronRight className="w-4 h-4" />
               </button>
               <button onClick={() => navigate('/auth')}
                 className="inline-flex items-center justify-center gap-2 px-8 py-3.5 rounded-full font-semibold text-sm border-2 border-white/30 text-white hover:bg-white/10 transition-colors">

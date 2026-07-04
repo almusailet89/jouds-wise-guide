@@ -12,7 +12,7 @@ interface PortfolioTableProps {
 
 export const PortfolioTable: React.FC<PortfolioTableProps> = ({ holdings }) => {
   const { deletePortfolioHolding } = useFinancialDashboard();
-  const { t, lang, dir } = useLanguage();
+  const { t, tg, lang, dir } = useLanguage();
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const handleDelete = async (id: string) => {
@@ -81,7 +81,7 @@ export const PortfolioTable: React.FC<PortfolioTableProps> = ({ holdings }) => {
                 <div className="flex flex-col items-center gap-2">
                   <TrendingUp className="h-12 w-12 opacity-50" />
                   <p className="font-medium font-arabic">{t('port.empty.title')}</p>
-                  <p className="text-sm font-arabic">{t('port.empty.hint')}</p>
+                  <p className="text-sm font-arabic">{tg('port.empty.hint')}</p>
                 </div>
               </TableCell>
             </TableRow>

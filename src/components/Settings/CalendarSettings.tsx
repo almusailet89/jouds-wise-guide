@@ -14,7 +14,7 @@ const SAUDI_DEFAULTS = { working_days: [0,1,2,3,4], weekend_days: [5,6], week_st
 const CalendarSettings: React.FC = () => {
   const { user } = useAuth();
   const { toast } = useToast();
-  const { t } = useLanguage();
+  const { t, tg } = useLanguage();
   const [loading, setLoading]   = useState(true);
   const [saving, setSaving]     = useState(false);
   const [working, setWorking]   = useState<number[]>(SAUDI_DEFAULTS.working_days);
@@ -100,7 +100,7 @@ const CalendarSettings: React.FC = () => {
       {/* Working / Weekend split */}
       <div className="space-y-3">
         <p className="text-xs text-muted-foreground font-arabic">
-          {t('cal.hint')}
+          {tg('cal.hint')}
         </p>
 
         <div className="grid grid-cols-7 gap-1.5">

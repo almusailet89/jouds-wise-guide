@@ -48,7 +48,7 @@ interface SpendingBreakdownChartProps {
 }
 
 export const SpendingBreakdownChart: React.FC<SpendingBreakdownChartProps> = ({ entries, currency }) => {
-  const { t, lang, dir } = useLanguage();
+  const { t, tg, lang, dir } = useLanguage();
 
   const data = useMemo(() => {
     const expenseEntries = entries.filter(e => e.type === 'expense');
@@ -143,7 +143,7 @@ export const SpendingBreakdownChart: React.FC<SpendingBreakdownChartProps> = ({ 
             <EmptyState
               orbSize={80}
               title={t('chart.spending.empty')}
-              hint={t('chart.spending.empty.hint')}
+              hint={tg('chart.spending.empty.hint')}
               className="py-0"
             />
           </div>

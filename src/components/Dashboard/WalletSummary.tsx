@@ -23,7 +23,7 @@ interface WalletSummaryProps {
 export const WalletSummary: React.FC<WalletSummaryProps> = ({
   entries, monthlyBudget, currency, onUpdateBudget, periodLabel,
 }) => {
-  const { t, dir } = useLanguage();
+  const { t, tg, dir } = useLanguage();
   const [editingBudget, setEditingBudget] = useState(false);
   const [budgetInput, setBudgetInput] = useState('');
 
@@ -151,7 +151,7 @@ export const WalletSummary: React.FC<WalletSummaryProps> = ({
                 onClick={() => { setEditingBudget(true); setBudgetInput(monthlyBudget ? String(monthlyBudget) : ''); }}
                 className="flex items-center gap-1 text-xs text-muted-foreground hover:text-jood-teal-700 transition-colors font-arabic group"
               >
-                {monthlyBudget > 0 ? `${fmt(monthlyBudget)} ${currency}` : t('wallet.budget.set')}
+                {monthlyBudget > 0 ? `${fmt(monthlyBudget)} ${currency}` : tg('wallet.budget.set')}
                 <Pencil className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
               </button>
             )}
@@ -204,7 +204,7 @@ export const WalletSummary: React.FC<WalletSummaryProps> = ({
             <div className="flex items-center gap-2 mt-1">
               <div className="h-3 rounded-full bg-muted/40 flex-1" />
               <span className="text-xs text-muted-foreground font-arabic">
-                {t('wallet.budget.hint')}
+                {tg('wallet.budget.hint')}
               </span>
             </div>
           )}

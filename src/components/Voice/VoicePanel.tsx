@@ -66,7 +66,7 @@ function getBestMimeType(): string {
 export const VoicePanel: React.FC = () => {
   const { session } = useAuth();
   const { toast } = useToast();
-  const { lang } = useLanguage();
+  const { lang, gender } = useLanguage();
   const { sendMessage, speakMessage, stopSpeaking, messages, loading, speaking, speakingIntensity } = useChat();
 
   const [mode, setMode] = useState<VoiceMode>('idle');
@@ -279,6 +279,9 @@ export const VoicePanel: React.FC = () => {
 
   const cfg = MODE_CONFIG[mode];
   const isActive = mode === 'listening' || mode === 'speaking';
+  // Gender-aware label for idle mode
+  const idleArLabel = gender === 'female' ? 'اضغطي للتحدث مع جود' : 'اضغط للتحدث مع جود';
+  const cfgAr = mode === 'idle' ? idleArLabel : cfg.ar;
 
   return (
     <div className="flex flex-col items-center gap-6 py-6 px-4">
@@ -344,7 +347,7 @@ export const VoicePanel: React.FC = () => {
           exit={{ opacity: 0 }}
           className="text-base font-arabic font-semibold text-foreground text-center"
         >
-          {lang === 'ar' ? cfg.ar : cfg.en}
+          {lang === 'ar' ? cfgAr : cfg.en}
         </motion.p>
       </AnimatePresence>
 
@@ -410,11 +413,11 @@ export const VoicePanel: React.FC = () => {
       {/* Hint */}
       <p className="text-[10px] text-muted-foreground text-center font-arabic">
         {mode === 'idle'
-          ? (lang === 'ar' ? 'اضغطي المايك للتحدث · للمجلس الكامل استخدمي الزر أعلاه' : 'Tap the mic to talk · For full session use the button above')
+          ? (lang === 'ar' ? (gender === 'female' ? 'اضغطي المايك للتحدث · للمجلس الكامل استخدمي الزر أعلاه' : 'اضغط المايك للتحدث · للمجلس الكامل استخدم الزر أعلاه') : 'Tap the mic to talk · For full session use the button above')
           : mode === 'listening'
-          ? (lang === 'ar' ? 'اضغطي مجدداً عند الانتهاء' : 'Tap again when done')
+          ? (lang === 'ar' ? (gender === 'female' ? 'اضغطي مجدداً عند الانتهاء' : 'اضغط مجدداً عند الانتهاء') : 'Tap again when done')
           : mode === 'speaking'
-          ? (lang === 'ar' ? 'اضغطي المايك لمقاطعة جود' : 'Tap the mic to interrupt Jood')
+          ? (lang === 'ar' ? (gender === 'female' ? 'اضغطي المايك لمقاطعة جود' : 'اضغط المايك لمقاطعة جود') : 'Tap the mic to interrupt Jood')
           : ''}
       </p>
 

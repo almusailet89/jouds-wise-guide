@@ -38,28 +38,10 @@ import { cn } from '@/lib/utils';
 // ─── Suggested prompts ───────────────────────────────────────────────────────
 type Cat = 'all' | 'finance' | 'health' | 'planning' | 'personal';
 
-const SUGGESTED_PROMPTS: { icon: string; ar: string; en: string; cat: Cat }[] = [
-  // Finance
-  { icon: '💸', ar: 'أنفقت ١٥٠ ريال على الغداء اليوم',              en: 'I spent 150 SAR on lunch today',                              cat: 'finance'  },
-  { icon: '🎯', ar: 'حطّي هدف توفير سيارة ٦٠٠٠٠ ريال بنهاية السنة', en: 'Set a savings goal of 60,000 SAR for a car by year end',       cat: 'finance'  },
-  { icon: '🤲', ar: 'احسبي لي الزكاة بناءً على ثروتي الحالية',      en: 'Calculate my zakat based on my current wealth',               cat: 'finance'  },
-  { icon: '📊', ar: 'كيف حال محفظتي الاستثمارية هذا الشهر؟',       en: 'How is my investment portfolio doing this month?',            cat: 'finance'  },
-  { icon: '📈', ar: 'أضيفي ٥٠٠ سهم أرامكو بسعر ٢٨ ريال للمحفظة',  en: 'Add 500 Aramco shares at 28 SAR to my portfolio',             cat: 'finance'  },
-  // Planning
-  { icon: '✅', ar: 'أضيفي مهمة مراجعة الميزانية الشهرية',           en: 'Add a task: review monthly budget',                           cat: 'planning' },
-  { icon: '📆', ar: 'احجزي اجتماع غداً الساعة ١٠ صباحاً',           en: 'Schedule a meeting tomorrow at 10 AM',                        cat: 'planning' },
-  { icon: '⭐', ar: 'عوّديني على المشي ٣٠ دقيقة يومياً الساعة ٧',   en: 'Build a habit: walk 30 minutes daily at 7 AM',                cat: 'planning' },
-  // Personal / Spiritual
-  { icon: '🕌', ar: 'ذكّريني بمواعيد الصلاة الخمس اليوم',           en: "Remind me of today's prayer times",                           cat: 'personal' },
-  { icon: '🌙', ar: 'كم باقي على رمضان؟',                            en: 'How many days until Ramadan?',                                cat: 'personal' },
-  // Health
-  { icon: '💚', ar: 'كيف أحسّن نومي وطاقتي اليومية؟',               en: 'How can I improve my sleep and daily energy?',                cat: 'health'   },
-  { icon: '😊', ar: 'سجّلي إن مزاجي اليوم ممتاز — ١٠ من ١٠',       en: 'Log my mood today as excellent — 10 out of 10',               cat: 'health'   },
-];
-
 // ─── Smart-reply chip generator ───────────────────────────────────────────────
-const generateSmartReplies = (lastAssistant: string, lang: 'ar' | 'en'): string[] => {
+const generateSmartReplies = (lastAssistant: string, lang: 'ar' | 'en', gender: 'male' | 'female' | null): string[] => {
   const has = (...needles: string[]) => needles.some(n => lastAssistant.includes(n));
+  const f = gender === 'female';
   if (lang === 'en') {
     if (has('zakat'))                              return ['Calculate now', 'Add to calendar', 'Send reminder'];
     if (has('portfolio', 'stock', 'investment'))   return ['Show portfolio', '5-year forecast', 'Investment suggestion'];
@@ -70,13 +52,13 @@ const generateSmartReplies = (lastAssistant: string, lang: 'ar' | 'en'): string[
     if (has('habit', 'streak'))                    return ['My streak?', 'Add habit', 'Daily reminder'];
     return ['Tell me more', 'Give me an example', 'Save this'];
   }
-  if (has('زكاة'))                        return ['احسبيها الآن', 'أضيفيها للتقويم', 'أرسلي تذكيراً'];
+  if (has('زكاة'))                        return [f ? 'احسبيها الآن' : 'احسبها الآن', f ? 'أضيفيها للتقويم' : 'أضفها للتقويم', f ? 'أرسلي تذكيراً' : 'أرسل تذكيراً'];
   if (has('سهم', 'محفظة', 'استثمار'))    return ['اعرضي لي المحفظة', 'التوقع لخمس سنوات', 'اقتراح استثمار'];
   if (has('مصروف', 'صرف', 'أنفقت'))      return ['كم صرفت هذا الشهر؟', 'صنّفيها', 'احذفي آخر إدخال'];
-  if (has('صلاة', 'الفجر', 'الظهر'))     return ['ذكّريني بـ١٠ دقائق', 'أضيفي للتقويم', 'وقت الصلاة القادمة'];
-  if (has('مهمة', 'مهام', 'تذكير'))      return ['مهام اليوم', 'أضيفي مهمة', 'علّمي كمكتمل'];
-  if (has('مزاج', 'متوتر', 'سعيد'))      return ['ليش؟', 'عطيني نصيحة', 'سجّلي مرة ثانية'];
-  if (has('عادة', 'سلسلة'))              return ['كم سلسلتي؟', 'أضيفي عادة', 'تذكير يومي'];
+  if (has('صلاة', 'الفجر', 'الظهر'))     return ['ذكّريني بـ١٠ دقائق', f ? 'أضيفي للتقويم' : 'أضف للتقويم', 'وقت الصلاة القادمة'];
+  if (has('مهمة', 'مهام', 'تذكير'))      return ['مهام اليوم', f ? 'أضيفي مهمة' : 'أضف مهمة', f ? 'علّمي كمكتمل' : 'علّم كمكتمل'];
+  if (has('مزاج', 'متوتر', 'سعيد'))      return ['ليش؟', 'عطيني نصيحة', f ? 'سجّلي مرة ثانية' : 'سجّل مرة ثانية'];
+  if (has('عادة', 'سلسلة'))              return ['كم سلسلتي؟', f ? 'أضيفي عادة' : 'أضف عادة', 'تذكير يومي'];
   return ['اشرحي أكثر', 'أعطني مثالاً', 'احفظي هذا'];
 };
 
@@ -360,7 +342,26 @@ interface ChatInterfaceProps {
 export const ChatInterface: React.FC<ChatInterfaceProps> = ({ onMessage }) => {
   const { canAccessFeature } = useSubscription();
   const { toast } = useToast();
-  const { lang, t } = useLanguage();
+  const { lang, t, tg, gender } = useLanguage();
+
+  const SUGGESTED_PROMPTS: { icon: string; ar: string; en: string; cat: Cat }[] = [
+    // Finance
+    { icon: '💸', ar: 'أنفقت ١٥٠ ريال على الغداء اليوم',                                                               en: 'I spent 150 SAR on lunch today',                         cat: 'finance'  },
+    { icon: '🎯', ar: 'حطّي هدف توفير سيارة ٦٠٠٠٠ ريال بنهاية السنة',                                                  en: 'Set a savings goal of 60,000 SAR for a car by year end', cat: 'finance'  },
+    { icon: '🤲', ar: 'احسبي لي الزكاة بناءً على ثروتي الحالية',                                                        en: 'Calculate my zakat based on my current wealth',          cat: 'finance'  },
+    { icon: '📊', ar: 'كيف حال محفظتي الاستثمارية هذا الشهر؟',                                                          en: 'How is my investment portfolio doing this month?',       cat: 'finance'  },
+    { icon: '📈', ar: gender === 'female' ? 'أضيفي ٥٠٠ سهم أرامكو بسعر ٢٨ ريال للمحفظة' : 'أضف ٥٠٠ سهم أرامكو بسعر ٢٨ ريال للمحفظة', en: 'Add 500 Aramco shares at 28 SAR to my portfolio', cat: 'finance' },
+    // Planning
+    { icon: '✅', ar: gender === 'female' ? 'أضيفي مهمة مراجعة الميزانية الشهرية' : 'أضف مهمة مراجعة الميزانية الشهرية', en: 'Add a task: review monthly budget',                    cat: 'planning' },
+    { icon: '📆', ar: 'احجزي اجتماع غداً الساعة ١٠ صباحاً',                                                            en: 'Schedule a meeting tomorrow at 10 AM',                   cat: 'planning' },
+    { icon: '⭐', ar: 'عوّديني على المشي ٣٠ دقيقة يومياً الساعة ٧',                                                    en: 'Build a habit: walk 30 minutes daily at 7 AM',           cat: 'planning' },
+    // Personal / Spiritual
+    { icon: '🕌', ar: 'ذكّريني بمواعيد الصلاة الخمس اليوم',                                                            en: "Remind me of today's prayer times",                      cat: 'personal' },
+    { icon: '🌙', ar: 'كم باقي على رمضان؟',                                                                             en: 'How many days until Ramadan?',                           cat: 'personal' },
+    // Health
+    { icon: '💚', ar: 'كيف أحسّن نومي وطاقتي اليومية؟',                                                                en: 'How can I improve my sleep and daily energy?',           cat: 'health'   },
+    { icon: '😊', ar: gender === 'female' ? 'سجّلي إن مزاجي اليوم ممتاز — ١٠ من ١٠' : 'سجّل إن مزاجي اليوم ممتاز — ١٠ من ١٠', en: 'Log my mood today as excellent — 10 out of 10', cat: 'health'  },
+  ];
 
   const CATS: { value: Cat; label: string; icon: string }[] = [
     { value: 'all',      label: t('chat.cat.all'),      icon: '✨' },
@@ -405,7 +406,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ onMessage }) => {
   const toggleListening = useCallback(() => {
     const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SR) {
-      toast({ title: t('chat.voice.unsupported'), description: t('chat.voice.use.browser'), variant: 'destructive' });
+      toast({ title: t('chat.voice.unsupported'), description: tg('chat.voice.use.browser'), variant: 'destructive' });
       return;
     }
     if (listening) { recognitionRef.current?.stop(); setListening(false); return; }
@@ -502,7 +503,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ onMessage }) => {
                 <div className="text-center py-12 px-4" dir="rtl">
                   <MessageSquare className="w-8 h-8 mx-auto text-muted-foreground/30 mb-2" />
                   <p className="text-xs text-muted-foreground font-arabic leading-relaxed">
-                    {t('chat.empty.title')}<br />{t('chat.empty.hint')}
+                    {t('chat.empty.title')}<br />{tg('chat.empty.hint')}
                   </p>
                 </div>
               ) : (
@@ -688,7 +689,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ onMessage }) => {
                     className="flex flex-wrap gap-2 px-4 pb-4 pr-16"
                     dir="rtl"
                   >
-                    {generateSmartReplies(messages[messages.length - 1].content, lang).map((chip, i) => (
+                    {generateSmartReplies(messages[messages.length - 1].content, lang, gender).map((chip, i) => (
                       <motion.button
                         key={chip}
                         initial={{ opacity: 0, scale: 0.92 }}

@@ -23,7 +23,7 @@ const priorityColors = {
 
 const TasksPlanner: React.FC = () => {
   const { tasks, loading, addTask, updateTask } = useTasks();
-  const { t, lang, dir } = useLanguage();
+  const { t, tg, lang, dir } = useLanguage();
   const [newTask, setNewTask] = useState('');
   const [dueDate, setDueDate] = useState(new Date().toISOString().split('T')[0]);
 
@@ -94,7 +94,7 @@ const TasksPlanner: React.FC = () => {
           <div className="flex flex-col gap-2">
             <div className="flex gap-2">
               <Input
-                placeholder={t('tasks.add.placeholder')}
+                placeholder={tg('tasks.add.placeholder')}
                 value={newTask}
                 onChange={(e) => setNewTask(e.target.value)}
                 onKeyPress={(e) => e.key === 'Enter' && handleAddTask()}
@@ -147,7 +147,7 @@ const TasksPlanner: React.FC = () => {
             <div className="text-center py-8 text-muted-foreground">
               <Calendar className="h-12 w-12 mx-auto mb-3 opacity-50" />
               <p className="text-lg font-medium mb-2 font-arabic">{t('tasks.empty.title')}</p>
-              <p className="text-sm font-arabic">{t('tasks.empty.hint')}</p>
+              <p className="text-sm font-arabic">{tg('tasks.empty.hint')}</p>
             </div>
           ) : (
             tasks.map((task) => (
@@ -210,13 +210,13 @@ const TasksPlanner: React.FC = () => {
         <CardContent>
           <div className="space-y-2">
             <div className="p-3 rounded-lg bg-primary/10 border border-primary/20">
-              <p className="text-sm font-arabic">{t('tasks.ai.savings')}</p>
+              <p className="text-sm font-arabic">{tg('tasks.ai.savings')}</p>
             </div>
             <div className="p-3 rounded-lg bg-primary/10 border border-primary/20">
-              <p className="text-sm font-arabic">{t('tasks.ai.portfolio')}</p>
+              <p className="text-sm font-arabic">{tg('tasks.ai.portfolio')}</p>
             </div>
             <div className="p-3 rounded-lg bg-primary/10 border border-primary/20">
-              <p className="text-sm font-arabic">{t('tasks.ai.wellness')}</p>
+              <p className="text-sm font-arabic">{tg('tasks.ai.wellness')}</p>
             </div>
           </div>
         </CardContent>

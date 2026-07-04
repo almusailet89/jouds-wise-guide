@@ -61,7 +61,7 @@ interface AIRecommendationsProps {
 export const AIRecommendations: React.FC<AIRecommendationsProps> = ({ onNavigate }) => {
   const { user } = useAuth();
   const { toast } = useToast();
-  const { t } = useLanguage();
+  const { t, tg } = useLanguage();
 
   const [items, setItems] = useState<Recommendation[]>([]);
   const [filter, setFilter] = useState<string>('all');
@@ -136,7 +136,7 @@ export const AIRecommendations: React.FC<AIRecommendationsProps> = ({ onNavigate
       const { error } = await supabase.functions.invoke('generate-recommendations');
       if (error) throw error;
       await load();
-      if (!silent) toast({ title: t('rec.toast.generated'), description: t('rec.toast.generated.desc') });
+      if (!silent) toast({ title: t('rec.toast.generated'), description: tg('rec.toast.generated.desc') });
     } catch (err) {
       if (!silent) toast({ title: t('rec.toast.failed'), description: String(err), variant: 'destructive' });
     } finally {

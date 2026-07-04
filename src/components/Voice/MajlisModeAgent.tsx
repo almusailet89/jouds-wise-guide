@@ -97,7 +97,7 @@ interface MajlisModeAgentProps {
 export const MajlisModeAgent: React.FC<MajlisModeAgentProps> = ({ onClose }) => {
   const { session } = useAuth();
   const { toast } = useToast();
-  const { t, lang, dir } = useLanguage();
+  const { t, tg, lang, dir, gender } = useLanguage();
 
   const [mode, setMode] = useState<Mode>('idle');
   const [transcript, setTranscript] = useState('');       // User's speech (live)
@@ -110,11 +110,11 @@ export const MajlisModeAgent: React.FC<MajlisModeAgentProps> = ({ onClose }) => 
   const intensityIntervalRef = useRef<number | null>(null);
 
   const MODE_LABELS: Record<Mode, { label: string; sub: string }> = {
-    idle:       { label: t('majlis.idle'),       sub: lang === 'ar' ? 'اضغطي الاتصال للبدء' : 'Press call to start' },
+    idle:       { label: tg('majlis.idle'),       sub: lang === 'ar' ? (gender === 'female' ? 'اضغطي الاتصال للبدء' : 'اضغط الاتصال للبدء') : 'Press call to start' },
     connecting: { label: lang === 'ar' ? 'جاري الاتصال…' : 'Connecting…', sub: lang === 'ar' ? 'تحضير جود…' : 'Preparing Jood…' },
-    listening:  { label: t('majlis.listening'),  sub: t('majlis.listening.sub') },
-    thinking:   { label: t('majlis.thinking'),   sub: t('majlis.thinking.sub') },
-    speaking:   { label: t('majlis.speaking'),   sub: t('majlis.speaking.sub') },
+    listening:  { label: t('majlis.listening'),   sub: tg('majlis.listening.sub') },
+    thinking:   { label: t('majlis.thinking'),    sub: t('majlis.thinking.sub') },
+    speaking:   { label: t('majlis.speaking'),    sub: tg('majlis.speaking.sub') },
   };
 
   // ── Get signed URL from our edge function ───────────────────────────────────
@@ -445,7 +445,7 @@ export const MajlisModeAgent: React.FC<MajlisModeAgentProps> = ({ onClose }) => 
       <p className="absolute bottom-2 inset-x-0 text-center text-[10px] text-white/40 font-arabic">
         {connected
           ? (lang === 'ar' ? 'تحدث بشكل طبيعي — جود تسمعك وتجاوبك فوراً' : 'Speak naturally — Jood hears you and responds instantly')
-          : (lang === 'ar' ? 'اضغطي زر الاتصال لبدء المحادثة مع جود' : 'Press the call button to start talking to Jood')
+          : (lang === 'ar' ? (gender === 'female' ? 'اضغطي زر الاتصال لبدء المحادثة مع جود' : 'اضغط زر الاتصال لبدء المحادثة مع جود') : 'Press the call button to start talking to Jood')
         }
       </p>
     </motion.div>

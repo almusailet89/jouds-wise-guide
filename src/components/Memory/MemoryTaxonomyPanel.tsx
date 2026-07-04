@@ -45,7 +45,7 @@ interface TaxonomyRow {
 const MemoryTaxonomyPanel: React.FC<{ onMemoryAdded?: () => void }> = ({ onMemoryAdded }) => {
   const { user } = useAuth();
   const { toast } = useToast();
-  const { t, dir } = useLanguage();
+  const { t, tg, dir } = useLanguage();
   const { profile } = useProfile();
   const [rows, setRows] = useState<TaxonomyRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -122,9 +122,9 @@ const MemoryTaxonomyPanel: React.FC<{ onMemoryAdded?: () => void }> = ({ onMemor
       {/* Header + progress */}
       <div className="flex items-center justify-between gap-3">
         <div>
-          <h3 className="font-arabic font-semibold text-sm">{t('tax.title')}</h3>
+          <h3 className="font-arabic font-semibold text-sm">{tg('tax.title')}</h3>
           <p className="text-xs text-muted-foreground font-arabic mt-0.5">
-            {t('tax.subtitle')}
+            {tg('tax.subtitle')}
           </p>
         </div>
         <div className="text-left">

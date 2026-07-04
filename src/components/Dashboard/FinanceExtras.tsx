@@ -43,7 +43,7 @@ export const FinanceExtras: React.FC = () => {
   const { profile } = useProfile();
   const { financialData } = useFinancialData();
   const { goals, loading: goalsLoading, updateGoal } = useGoals();
-  const { t, lang, dir } = useLanguage();
+  const { t, tg, lang, dir } = useLanguage();
 
   const [editingGoalId, setEditingGoalId] = useState<string | null>(null);
   const [addAmount, setAddAmount]         = useState('');
@@ -129,7 +129,7 @@ export const FinanceExtras: React.FC = () => {
               </div>
             ) : (
               <p className="text-[10px] text-muted-foreground font-arabic mt-2 italic">
-                {t('fin.salary.no.income')}
+                {tg('fin.salary.no.income')}
               </p>
             )}
           </CardContent>
@@ -168,7 +168,7 @@ export const FinanceExtras: React.FC = () => {
                   {t('fin.goals.empty')}
                 </p>
                 <p className="text-[10px] text-muted-foreground/60 font-arabic mt-1">
-                  {t('fin.goals.empty.hint')}
+                  {tg('fin.goals.empty.hint')}
                 </p>
               </div>
             ) : (
@@ -222,7 +222,7 @@ export const FinanceExtras: React.FC = () => {
         <DialogContent className="max-w-sm" dir={dir}>
           <DialogHeader>
             <DialogTitle className="font-arabic">
-              {t('fin.goals.add.title')} — «{editingGoal?.title ?? ''}»
+              {tg('fin.goals.add.title')} — «{editingGoal?.title ?? ''}»
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-2">

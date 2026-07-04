@@ -22,7 +22,7 @@ const scoreToOption = (score: number) =>
 
 const MoodTracker: React.FC = () => {
   const { moodLogs, loading, addMoodLog } = useMoodLogs();
-  const { t, lang } = useLanguage();
+  const { t, tg, lang } = useLanguage();
   const [selected, setSelected] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -92,7 +92,7 @@ const MoodTracker: React.FC = () => {
                 className="mt-4 p-3 rounded-xl bg-jood-teal-500/10 border border-jood-teal-500/20"
               >
                 <p className="text-sm font-arabic text-jood-teal-700">
-                  ✨ {t('mood.logged')}
+                  ✨ {tg('mood.logged')}
                 </p>
               </motion.div>
             )}

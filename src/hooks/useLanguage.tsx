@@ -1,11 +1,13 @@
 import { createContext, useContext, useEffect, useState, useCallback, type ReactNode } from 'react';
 import { useProfile } from './useProfile';
-import { translate, type Lang } from '@/lib/i18n';
+import { translate, translateGendered, type Lang } from '@/lib/i18n';
 
 interface LanguageContextValue {
   lang: Lang;
   dir: 'rtl' | 'ltr';
   t: (key: string) => string;
+  tg: (key: string) => string;
+  gender: 'male' | 'female' | null;
   setLang: (lang: Lang) => Promise<void>;
 }
 
@@ -13,6 +15,8 @@ const LanguageContext = createContext<LanguageContextValue>({
   lang: 'ar',
   dir: 'rtl',
   t: (key) => key,
+  tg: (key) => key,
+  gender: null,
   setLang: async () => {},
 });
 
@@ -46,10 +50,13 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     await save({ app_language: newLang } as any);
   }, [save]);
 
+  const gender = (profile?.gender ?? null) as 'male' | 'female' | null;
+
   const t = useCallback((key: string) => translate(lang, key), [lang]);
+  const tg = useCallback((key: string) => translateGendered(lang, key, gender), [lang, gender]);
 
   return (
-    <LanguageContext.Provider value={{ lang, dir: lang === 'ar' ? 'rtl' : 'ltr', t, setLang }}>
+    <LanguageContext.Provider value={{ lang, dir: lang === 'ar' ? 'rtl' : 'ltr', t, tg, gender, setLang }}>
       {children}
     </LanguageContext.Provider>
   );
