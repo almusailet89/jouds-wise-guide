@@ -598,6 +598,14 @@ const strings: Record<Lang, Record<string, string>> = {
     'auth.error.legal': 'يجب الموافقة على الشروط وسياسة الخصوصية',
     'auth.success.signup': 'تم إنشاء حسابك! تفقد بريدك الإلكتروني لتأكيد الحساب.',
     'auth.error.signup': 'فشل إنشاء الحساب',
+    'auth.forgot': 'نسيت كلمة المرور؟',
+    'auth.reset.title': 'استعادة كلمة المرور',
+    'auth.reset.desc': 'أدخل بريدك الإلكتروني وسنرسل لك رابط إعادة التعيين',
+    'auth.reset.send': 'إرسال رابط الاستعادة',
+    'auth.reset.sending': 'جارٍ الإرسال…',
+    'auth.reset.success': 'تم إرسال رابط إعادة التعيين إلى بريدك الإلكتروني',
+    'auth.reset.error': 'فشل إرسال الرابط، تأكد من البريد الإلكتروني',
+    'auth.reset.back': 'العودة لتسجيل الدخول',
 
     // ── SmartCalendar ─────────────────────────────────────────────────────────
     'cal.month.0': 'يناير', 'cal.month.1': 'فبراير', 'cal.month.2': 'مارس',
@@ -1471,6 +1479,14 @@ const strings: Record<Lang, Record<string, string>> = {
     'auth.error.legal': 'You must agree to the Terms and Privacy Policy',
     'auth.success.signup': 'Account created! Check your email to confirm.',
     'auth.error.signup': 'Failed to create account',
+    'auth.forgot': 'Forgot password?',
+    'auth.reset.title': 'Reset Password',
+    'auth.reset.desc': 'Enter your email and we\'ll send you a reset link',
+    'auth.reset.send': 'Send Reset Link',
+    'auth.reset.sending': 'Sending…',
+    'auth.reset.success': 'Reset link sent to your email',
+    'auth.reset.error': 'Failed to send link, check your email address',
+    'auth.reset.back': 'Back to sign in',
 
     // ── SmartCalendar ─────────────────────────────────────────────────────────
     'cal.month.0': 'January', 'cal.month.1': 'February', 'cal.month.2': 'March',

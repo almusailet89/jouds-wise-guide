@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Sparkles } from 'lucide-react';
+import { Sparkles, ArrowRight } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
@@ -25,14 +25,31 @@ export default function Auth() {
   const [loading, setLoading]                 = useState(false);
   const [agreedToTerms, setAgreedToTerms]     = useState(false);
   const [agreedToPrivacy, setAgreedToPrivacy] = useState(false);
+  const [showForgot, setShowForgot]           = useState(false);
+  const [resetEmail, setResetEmail]           = useState('');
+  const [resetSent, setResetSent]             = useState(false);
+  const [resetLoading, setResetLoading]       = useState(false);
 
-  const { signIn, signUp, user } = useAuth();
+  const { signIn, signUp, user, resetPassword } = useAuth();
   const { acceptAgreement, getLatestVersion } = useLegalAgreements();
   const navigate = useNavigate();
 
   useEffect(() => {
     if (user) navigate('/dashboard');
   }, [user, navigate]);
+
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setResetLoading(true);
+    const { error } = await resetPassword(resetEmail);
+    setResetLoading(false);
+    if (error) {
+      toast.error(t('auth.reset.error'));
+    } else {
+      setResetSent(true);
+      toast.success(t('auth.reset.success'));
+    }
+  };
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -102,27 +119,76 @@ export default function Auth() {
 
                 {/* ── Sign In ── */}
                 <TabsContent value="signin">
-                  <form onSubmit={handleSignIn} className="space-y-4">
-                    <div className="space-y-1.5">
-                      <Label htmlFor="si-email" className="font-arabic text-sm">{t('auth.email')}</Label>
-                      <Input
-                        id="si-email" type="email" placeholder="example@email.com"
-                        value={email} onChange={e => setEmail(e.target.value)}
-                        required className="h-11 text-left text-base" dir="ltr"
-                      />
+                  {showForgot ? (
+                    <div className="space-y-4">
+                      {resetSent ? (
+                        <div className="text-center space-y-3 py-2">
+                          <div className="w-12 h-12 rounded-full bg-emerald-500/10 flex items-center justify-center mx-auto">
+                            <Sparkles className="w-6 h-6 text-emerald-600" />
+                          </div>
+                          <p className="font-arabic text-sm text-muted-foreground">{t('auth.reset.success')}</p>
+                        </div>
+                      ) : (
+                        <form onSubmit={handleResetPassword} className="space-y-4">
+                          <div className="space-y-1">
+                            <p className="font-arabic text-sm font-semibold">{t('auth.reset.title')}</p>
+                            <p className="font-arabic text-xs text-muted-foreground">{t('auth.reset.desc')}</p>
+                          </div>
+                          <div className="space-y-1.5">
+                            <Label htmlFor="reset-email" className="font-arabic text-sm">{t('auth.email')}</Label>
+                            <Input
+                              id="reset-email" type="email" placeholder="example@email.com"
+                              value={resetEmail} onChange={e => setResetEmail(e.target.value)}
+                              required className="h-11 text-left text-base" dir="ltr"
+                              autoFocus
+                            />
+                          </div>
+                          <Button type="submit" className="w-full h-11 jood-btn-primary font-arabic text-sm" disabled={resetLoading}>
+                            {resetLoading ? t('auth.reset.sending') : t('auth.reset.send')}
+                          </Button>
+                        </form>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => { setShowForgot(false); setResetSent(false); setResetEmail(''); }}
+                        className="flex items-center gap-1 text-xs font-arabic text-muted-foreground hover:text-foreground transition-colors mx-auto"
+                      >
+                        <ArrowRight className="w-3 h-3" />
+                        {t('auth.reset.back')}
+                      </button>
                     </div>
-                    <div className="space-y-1.5">
-                      <Label htmlFor="si-password" className="font-arabic text-sm">{t('auth.password')}</Label>
-                      <Input
-                        id="si-password" type="password" placeholder="••••••••"
-                        value={password} onChange={e => setPassword(e.target.value)}
-                        required className="h-11 text-base"
-                      />
-                    </div>
-                    <Button type="submit" className="w-full h-11 jood-btn-primary font-arabic text-sm mt-2" disabled={loading}>
-                      {loading ? t('auth.signing.in') : t('auth.enter')}
-                    </Button>
-                  </form>
+                  ) : (
+                    <form onSubmit={handleSignIn} className="space-y-4">
+                      <div className="space-y-1.5">
+                        <Label htmlFor="si-email" className="font-arabic text-sm">{t('auth.email')}</Label>
+                        <Input
+                          id="si-email" type="email" placeholder="example@email.com"
+                          value={email} onChange={e => setEmail(e.target.value)}
+                          required className="h-11 text-left text-base" dir="ltr"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <div className="flex items-center justify-between">
+                          <Label htmlFor="si-password" className="font-arabic text-sm">{t('auth.password')}</Label>
+                          <button
+                            type="button"
+                            onClick={() => setShowForgot(true)}
+                            className="text-[11px] font-arabic text-muted-foreground hover:text-primary transition-colors"
+                          >
+                            {t('auth.forgot')}
+                          </button>
+                        </div>
+                        <Input
+                          id="si-password" type="password" placeholder="••••••••"
+                          value={password} onChange={e => setPassword(e.target.value)}
+                          required className="h-11 text-base"
+                        />
+                      </div>
+                      <Button type="submit" className="w-full h-11 jood-btn-primary font-arabic text-sm mt-2" disabled={loading}>
+                        {loading ? t('auth.signing.in') : t('auth.enter')}
+                      </Button>
+                    </form>
+                  )}
                 </TabsContent>
 
                 {/* ── Sign Up ── */}
