@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "timeout": 15,
+            "statusMessage": "Checking for unpushed changes...",
+            "command": "STAGED=$(git status --porcelain 2>/dev/null); UNPUSHED=$(git log --oneline origin/main..HEAD 2>/dev/null); if [ -n \"$STAGED\" ] || [ -n \"$UNPUSHED\" ]; then MSG=\"END-OF-SESSION: There are local changes not yet on GitHub.\"; [ -n \"$STAGED\" ] && MSG=\"$MSG Uncommitted: $(echo \"$STAGED\" | wc -l | tr -d ' ') file(s).\"; [ -n \"$UNPUSHED\" ] && MSG=\"$MSG Unpushed commits: $(echo \"$UNPUSHED\" | wc -l | tr -d ' ').\"; echo \"{\\\"continue\\\": true, \\\"hookSpecificOutput\\\": {\\\"hookEventName\\\": \\\"Stop\\\", \\\"additionalContext\\\": \\\"$MSG Ask the user: 'There are changes not yet pushed to GitHub — would you like me to commit and push them now?' If they approve, stage all changes, commit with a clear summary, and push to origin main.\\\"}}\"; fi"
+          }
+        ]
+      }
+    ]
+  }
+}
