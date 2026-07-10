@@ -14,11 +14,13 @@ export interface UserMemory {
   id: string;
   user_id: string;
   kind: MemoryKind;
+  category: string | null;
   content: string;
   metadata: Record<string, any>;
   confidence: number;
   importance: number;
   active: boolean;
+  is_template: boolean;
   use_count: number;
   last_used_at: string | null;
   created_at: string;
@@ -50,7 +52,15 @@ export const useMemories = () => {
     }
   }, [session?.user?.id]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+    if (!session?.user?.id) return;
+    const channel = (supabase as any)
+      .channel(`memories-rt-${session.user.id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'user_memories', filter: `user_id=eq.${session.user.id}` }, () => load())
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [load, session?.user?.id]);
 
   const remove = useCallback(async (id: string) => {
     setMemories(prev => prev.filter(m => m.id !== id)); // optimistic

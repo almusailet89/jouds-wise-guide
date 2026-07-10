@@ -23,6 +23,7 @@ interface Recommendation {
   title: string;
   body: string | null;
   cta_label: string | null;
+  cta_target: string | null;
   confidence: number | null;
   dismissed_at: string | null;
   created_at: string;
@@ -228,7 +229,13 @@ export const HomeOverview: React.FC<HomeOverviewProps> = ({ onNavigate }) => {
     <div className="space-y-5 max-w-4xl mx-auto">
 
       {/* ── Morning Brief (memory-driven hero) ────────────────────────────── */}
-      <MorningBrief onActionClick={() => onNavigate('chat')} />
+      <MorningBrief onActionClick={(kind) => {
+        const tab = kind === 'finance' ? 'financial'
+          : kind === 'event' || kind === 'prayer' ? 'planning'
+          : kind === 'memory' ? 'settings'
+          : 'chat';
+        onNavigate(tab);
+      }} />
 
       {/* ── Greeting card (Slide 4) ────────────────────────────────────────── */}
       <motion.div

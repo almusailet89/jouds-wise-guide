@@ -272,7 +272,7 @@ export default function ProfileDialog({ open, onOpenChange }: Props) {
                 {form.app_language === 'en' && (
                   <p className="text-xs text-muted-foreground flex items-center gap-1">
                     <CheckCircle2 className="w-3 h-3 text-green-500" />
-                    App UI will switch to English after saving
+                    {t('profile.lang.switch.hint')}
                   </p>
                 )}
               </div>
@@ -386,6 +386,7 @@ export default function ProfileDialog({ open, onOpenChange }: Props) {
                   value={form.date_of_birth}
                   onChange={e => set('date_of_birth', e.target.value)}
                   type="date"
+                  max={new Date().toISOString().split('T')[0]}
                   className="h-11 text-base"
                   dir="ltr"
                 />

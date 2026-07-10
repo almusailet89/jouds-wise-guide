@@ -203,7 +203,7 @@ const Dashboard = () => {
   React.useEffect(() => {
     const handler = (e: Event) => {
       const tab = (e as CustomEvent).detail?.tab;
-      if (tab && ['home','chat','financial','planning','recommendations','mood','settings'].includes(tab)) {
+      if (tab && ['home','chat','financial','planning','recommendations','settings'].includes(tab)) {
         setActiveTab(tab);
       }
     };
@@ -453,7 +453,7 @@ const Dashboard = () => {
               <Suspense fallback={<TabSkeleton />}>
                 <Fade>
                   <h2 className="text-xl font-bold font-arabic mb-4 text-foreground">{t('tab.settings')}</h2>
-                  <SettingsHub onNavigate={setActiveTab} />
+                  <SettingsHub onNavigate={setActiveTab} onOpenProfile={() => setProfileOpen(true)} />
                 </Fade>
               </Suspense>
             </ErrorBoundary>

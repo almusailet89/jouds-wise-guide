@@ -79,7 +79,7 @@ export const FinanceExtras: React.FC = () => {
     setAddAmount('');
   };
 
-  const fmt = (n: number) => new Intl.NumberFormat('en').format(Math.round(n));
+  const fmt = (n: number) => new Intl.NumberFormat(lang === 'ar' ? 'ar-SA' : 'en-US').format(Math.round(n));
   const editingGoal = goals.find(g => g.id === editingGoalId);
 
   return (

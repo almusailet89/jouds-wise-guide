@@ -21,7 +21,7 @@ const ICON: Record<string, React.ComponentType<{ className?: string }>> = {
   tip:     Lightbulb,
 };
 
-interface Props { onActionClick?: () => void; }
+interface Props { onActionClick?: (primaryKind?: string) => void; }
 
 export const MorningBrief: React.FC<Props> = ({ onActionClick }) => {
   const { lang } = useLanguage();
@@ -259,7 +259,7 @@ export const MorningBrief: React.FC<Props> = ({ onActionClick }) => {
 
               {brief.suggested_action && onActionClick && (
                 <button
-                  onClick={onActionClick}
+                  onClick={() => onActionClick(brief.highlights?.[0]?.kind)}
                   className="p-2 rounded-md text-jood-gold-300 hover:text-jood-gold-200 hover:bg-white/10 transition"
                   title={lang === 'ar' ? 'كلّم جود' : 'Ask Jood'}
                 >

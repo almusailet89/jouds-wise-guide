@@ -15,16 +15,17 @@ type SettingsTab = 'profile' | 'voice' | 'memory' | 'calendar' | 'security' | 'i
 
 interface SettingsHubProps {
   onNavigate?: (tab: string) => void;
+  onOpenProfile?: () => void;
 }
 
-const SettingsHub: React.FC<SettingsHubProps> = ({ onNavigate }) => {
+const SettingsHub: React.FC<SettingsHubProps> = ({ onNavigate, onOpenProfile }) => {
   const { t, lang } = useLanguage();
   const { isAdmin } = useRoles();
   const [active, setActive] = useState<SettingsTab>('profile');
 
   const TABS: { value: SettingsTab; label: string; icon: React.ElementType; adminOnly?: boolean }[] = [
     { value: 'profile',       label: lang === 'ar' ? 'الحساب' : 'Account',       icon: UserCog },
-    { value: 'voice',         label: lang === 'ar' ? 'الصوت' : 'Voice',          icon: Mic2, adminOnly: true },
+    { value: 'voice',         label: lang === 'ar' ? 'الصوت' : 'Voice',          icon: Mic2 },
     { value: 'calendar',      label: t('settings.tab.calendar'),                  icon: CalendarDays },
     { value: 'memory',        label: t('settings.tab.memory'),                    icon: BookHeart },
     { value: 'integrations',  label: t('settings.tab.integrations'),              icon: Link2 },
@@ -65,9 +66,17 @@ const SettingsHub: React.FC<SettingsHubProps> = ({ onNavigate }) => {
           transition={{ duration: 0.2 }}
         >
           {active === 'profile'       && (
-            <div className="text-center py-8 text-muted-foreground text-sm font-arabic">
-              <UserCog className="w-8 h-8 mx-auto mb-2 opacity-40" />
-              {lang === 'ar' ? 'انقر على صورتك في الشريط العلوي لتعديل ملفك الشخصي' : 'Click your avatar in the top bar to edit your profile'}
+            <div className="text-center py-8 space-y-3">
+              <UserCog className="w-8 h-8 mx-auto opacity-40" />
+              <p className="text-sm text-muted-foreground font-arabic">
+                {lang === 'ar' ? 'عدّل اسمك وجنسك وعملتك وكل تفاصيل حسابك' : 'Edit your name, gender, currency, and account details'}
+              </p>
+              <button
+                onClick={() => onOpenProfile?.()}
+                className="px-4 py-2 rounded-xl bg-jood-teal-500 text-white text-sm font-arabic font-semibold hover:bg-jood-teal-600 transition-colors"
+              >
+                {lang === 'ar' ? 'تعديل الملف الشخصي' : 'Edit Profile'}
+              </button>
             </div>
           )}
           {active === 'voice'         && <VoiceSettings />}
