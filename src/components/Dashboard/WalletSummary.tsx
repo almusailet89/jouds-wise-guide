@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import {
   TrendingUp, TrendingDown, Wallet, Target, Pencil, Check, X,
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn, normalizeNumerals } from '@/lib/utils';
 import { useLanguage } from '@/hooks/useLanguage';
 import type { FinancialEntry } from '@/hooks/useFinancialDashboard';
 
@@ -130,9 +130,10 @@ export const WalletSummary: React.FC<WalletSummaryProps> = ({
             {editingBudget ? (
               <div className="flex items-center gap-1.5">
                 <Input
-                  type="number"
+                  type="text"
+                  inputMode="decimal"
                   value={budgetInput}
-                  onChange={e => setBudgetInput(e.target.value)}
+                  onChange={e => setBudgetInput(normalizeNumerals(e.target.value))}
                   placeholder={monthlyBudget ? String(monthlyBudget) : '٠'}
                   className="h-7 w-28 text-sm text-right font-arabic"
                   onKeyDown={e => { if (e.key === 'Enter') handleSaveBudget(); if (e.key === 'Escape') setEditingBudget(false); }}

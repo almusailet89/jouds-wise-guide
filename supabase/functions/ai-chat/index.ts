@@ -1197,9 +1197,9 @@ serve(async (req) => {
     const model = (voice_mode || isSimple) ? "gpt-4o-mini" : "gpt-4o";
     // Voice mode: slim context to last 4 messages (faster inference, fewer tokens)
     // Text mode: last 8 messages for richer context
-    const contextWindow = voice_mode ? 4 : 8;
+    const contextWindow = voice_mode ? 6 : 8;
     const trimmedContext = Array.isArray(context)
-      ? context.slice(-contextWindow).filter((m: any) => m && m.role && m.content).map((m: any) => ({ role: m.role, content: String(m.content).slice(0, voice_mode ? 200 : 2000) }))
+      ? context.slice(-contextWindow).filter((m: any) => m && m.role && m.content).map((m: any) => ({ role: m.role, content: String(m.content).slice(0, voice_mode ? 600 : 2000) }))
       : [];
 
     // System prompt
@@ -1224,7 +1224,7 @@ serve(async (req) => {
     const modeRules = voice_mode
       ? `وضع صوتي — شخصية جود الأنيقة (إلهام أميرة الطويل):
 • عربي سعودي أنيق مع كلمات إنجليزية طبيعية: schedule, budget, deadline, portfolio
-• جملتين أو ثلاث بالكثير — الإيجاز أناقة
+• ثلاث إلى ست جمل — طبيعية ومريحة للاستماع، لا مقطوعة ولا طويلة
 • ممنوع: markdown، قوائم، نقاط، رموز تعبيرية
 • عبارات جود: سويتها لك حبيبي، أكيد خليه عليّ، قولي وش تحتاج وأنا أرتبه لك
 • تأكيد قبل التنفيذ: يعني تبيني أضيف كذا ليوم كذا صح؟
@@ -1406,7 +1406,7 @@ ${modeRules}
       model,
       messages,
       max_tokens: voice_mode
-        ? (responseMode === 'command' ? 60 : responseMode === 'planning' ? 120 : 100)
+        ? (responseMode === 'command' ? 200 : responseMode === 'planning' ? 350 : 280)
         : isSimple ? 350
         : responseMode === 'finance' || responseMode === 'planning' ? 1500
         : 1200,

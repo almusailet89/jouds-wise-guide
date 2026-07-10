@@ -13,6 +13,7 @@ import {
   Wallet, CalendarClock, Target, TrendingUp, Plus, Sparkles, Loader2,
 } from 'lucide-react';
 import { useProfile, useFinancialData, useGoals } from '@/hooks/useDatabase';
+import { normalizeNumerals } from '@/lib/utils';
 import { useLanguage } from '@/hooks/useLanguage';
 import { cn } from '@/lib/utils';
 
@@ -228,10 +229,11 @@ export const FinanceExtras: React.FC = () => {
           <div className="space-y-2">
             <Label className="font-arabic text-xs">{t('fin.goals.add.label')}</Label>
             <Input
-              type="number"
+              type="text"
+              inputMode="decimal"
               placeholder="500"
               value={addAmount}
-              onChange={e => setAddAmount(e.target.value)}
+              onChange={e => setAddAmount(normalizeNumerals(e.target.value))}
               onKeyDown={e => e.key === 'Enter' && addToGoal()}
               className="text-sm"
               autoFocus

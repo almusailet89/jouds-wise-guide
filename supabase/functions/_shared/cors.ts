@@ -4,10 +4,18 @@
 //
 // Override/extend via the ALLOWED_ORIGINS secret (comma-separated), e.g.:
 //   supabase secrets set ALLOWED_ORIGINS=https://your-production-domain,http://localhost:8080
+// Add your production domain to the ALLOWED_ORIGINS Supabase secret:
+//   supabase secrets set ALLOWED_ORIGINS=https://your-app.vercel.app,https://yourdomain.com
 const DEFAULT_ALLOWED_ORIGINS = [
   "https://almusailet89.github.io",
-  "http://localhost:8080",
+  "https://jouds-wise-guide.vercel.app",
+  "http://localhost:3000",
+  "http://localhost:4173",
   "http://localhost:5173",
+  "http://localhost:8080",
+  "http://localhost:8081",
+  "http://localhost:8082",
+  "http://localhost:8083",
 ];
 
 function allowedOrigins(): string[] {

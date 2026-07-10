@@ -560,7 +560,7 @@ export const HomeOverview: React.FC<HomeOverviewProps> = ({ onNavigate }) => {
                       <Button
                         size="sm"
                         className="h-7 text-[11px] jood-btn-primary flex-1"
-                        onClick={() => onNavigate('chat')}
+                        onClick={() => onNavigate(rec.cta_target ?? 'chat')}
                       >
                         {rec.cta_label ?? t('home.tips.action')}
                       </Button>

@@ -8,6 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useFinancialDashboard } from '@/hooks/useFinancialDashboard';
 import { useLanguage } from '@/hooks/useLanguage';
 import { Loader2 } from 'lucide-react';
+import { normalizeNumerals } from '@/lib/utils';
 
 interface AddEntryModalProps {
   open: boolean;
@@ -91,12 +92,11 @@ export const AddEntryModal: React.FC<AddEntryModalProps> = ({ open, onOpenChange
             <div className="space-y-1.5">
               <Label className="font-arabic text-xs">{t('entry.amount')} *</Label>
               <Input
-                type="number"
-                step="0.01"
-                min="0.01"
+                type="text"
+                inputMode="decimal"
                 placeholder="٠٫٠٠"
                 value={form.amount}
-                onChange={e => set('amount', e.target.value)}
+                onChange={e => set('amount', normalizeNumerals(e.target.value))}
                 className="text-right"
                 required
               />
