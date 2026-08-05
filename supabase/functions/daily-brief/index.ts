@@ -64,8 +64,8 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   try {
-    const openAIApiKey = Deno.env.get("OPENAI_API_KEY");
-    if (!openAIApiKey) throw new Error("OPENAI_API_KEY not configured");
+    const anthropicApiKey = Deno.env.get("ANTHROPIC_API_KEY");
+    if (!anthropicApiKey) throw new Error("ANTHROPIC_API_KEY not configured");
 
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
@@ -248,24 +248,31 @@ PERIOD: ${period}
 
 Write the bilingual brief now. Use only the data above.`;
 
-    // ── Call OpenAI ────────────────────────────────────────────────────────
-    const aiRes = await fetch('https://api.openai.com/v1/chat/completions', {
+    // ── Call Claude (same key as all other functions) ──────────────────────
+    const aiRes = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
-      headers: { 'Authorization': `Bearer ${openAIApiKey}`, 'Content-Type': 'application/json' },
+      headers: {
+        'x-api-key': anthropicApiKey,
+        'anthropic-version': '2023-06-01',
+        'content-type': 'application/json',
+      },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        messages: [{ role: 'system', content: SYSTEM_PROMPT }, { role: 'user', content: USER_PROMPT }],
-        response_format: { type: 'json_object' },
-        temperature: 0.4,
-        max_tokens: 500,
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 600,
+        system: SYSTEM_PROMPT,
+        messages: [{ role: 'user', content: USER_PROMPT }],
       }),
     });
 
-    if (!aiRes.ok) throw new Error(`OpenAI failed: ${await aiRes.text()}`);
+    if (!aiRes.ok) throw new Error(`Claude failed: ${await aiRes.text()}`);
 
     const aiJson = await aiRes.json();
     let parsed: any;
-    try { parsed = JSON.parse(aiJson.choices?.[0]?.message?.content ?? '{}'); } catch {
+    try {
+      const raw = aiJson.content?.[0]?.text ?? '{}';
+      const cleaned = raw.replace(/```json|```/g, '').trim();
+      parsed = JSON.parse(cleaned);
+    } catch {
       throw new Error('Brief generator returned non-JSON');
     }
 
@@ -277,7 +284,7 @@ Write the bilingual brief now. Use only the data above.`;
       highlights:       Array.isArray(parsed.highlights) ? parsed.highlights : [],
       suggested_action: CTA_AR,
       meta: {
-        model: 'gpt-4o-mini', period,
+        model: 'claude-haiku-4-5-20251001', period,
         events_today: events.length, tasks_today: tasks.length,
         prayer_ar: prayerLineAr, prayer_en: prayerLineEn,
         greeting_en: parsed.greeting_en ?? `${greetingEn}${displayName ? `, ${displayName}` : ''}`,

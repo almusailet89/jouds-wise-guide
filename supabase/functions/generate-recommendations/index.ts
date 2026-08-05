@@ -95,14 +95,14 @@ serve(async (req) => {
 Rules:
 - Output ONLY a JSON array, no markdown, no explanation.
 - Each item: { "kind": "finance|health|planning|spiritual|mood", "title": "short Arabic title ≤ 8 words", "body": "1–2 Arabic sentences with a specific insight or gentle nudge", "cta_label": "Arabic button label ≤ 4 words or null", "cta_target": "financial|planning|chat|null", "confidence": 0.0–1.0, "priority": 1–10 }
-- finance: factual observations only — wallet trends, goal progress, portfolio composition. No advice. No "you should invest". Just: "دخلك هذا الشهر ارتفع ١٢٪" or "محفظتك متنوعة بين ٣ فئات أصول".
-- health/mood: gentle, based on mood logs and habits. Encouraging tone.
+- finance: ONLY generate if finance.transactions_count > 0 OR portfolio.holdings_count > 0. If both are 0, skip finance entirely. Never invent numbers.
+- health/mood: ONLY generate if mood_summary.total_logs > 0. If no logs, skip.
 - planning: based on overdue tasks, upcoming deadlines, habit streaks.
 - spiritual: based on memory/preferences about religious practice.
 - Higher priority (8–10) for time-sensitive or high-importance items.
 - Confidence reflects how much data supports the recommendation.
-- Generate at least 1 recommendation per category if data exists.
-- Do not invent data. Only use what's in the context.`;
+- Generate at least 1 recommendation per category IF AND ONLY IF real data exists for it.
+- CRITICAL: Do not invent numbers, amounts, or events. If a field is 0 or null, treat that category as empty.`;
 
   const userPrompt = `User context (JSON):\n${JSON.stringify(context, null, 2)}\n\nGenerate recommendations now.`;
 

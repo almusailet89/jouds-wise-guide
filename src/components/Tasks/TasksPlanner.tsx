@@ -46,6 +46,9 @@ const TasksPlanner: React.FC = () => {
       category: 'general',
       due_date: dueDate,
       completed_at: null,
+      parent_task_id: null,
+      estimated_hours: null,
+      depends_on: null,
     });
     setNewTask('');
     setDueDate(new Date().toISOString().split('T')[0]);
