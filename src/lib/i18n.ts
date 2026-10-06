@@ -10,6 +10,7 @@ const strings: Record<Lang, Record<string, string>> = {
     'nav.planning':        'تخطيطي',
     'nav.mood':            'المزاج',
     'nav.recommendations': 'توصيات',
+    'nav.command':   'القيادة',
     'nav.settings':  'الإعدادات',
 
     // Header
@@ -71,6 +72,7 @@ const strings: Record<Lang, Record<string, string>> = {
     'pay.issue': '⚠️ فشل تجديد اشتراكك — يرجى تحديث بيانات الدفع للاستمرار في الوصول.',
     'pay.update': 'تحديث الدفع',
     'error.load.home':     'تعذّر تحميل الرئيسية',
+    'error.load.command':  'تعذّر تحميل مركز القيادة',
     'error.load.chat':     'تعذّر تحميل المحادثة',
     'error.load.finance':  'تعذّر تحميل لوحة المالية',
     'error.load.planning': 'تعذّر تحميل التخطيط',
@@ -947,6 +949,7 @@ const strings: Record<Lang, Record<string, string>> = {
     'nav.planning':        'Planning',
     'nav.mood':            'Mood',
     'nav.recommendations': 'Insights',
+    'nav.command':   'Command',
     'nav.settings':  'Settings',
 
     // Header
@@ -1008,6 +1011,7 @@ const strings: Record<Lang, Record<string, string>> = {
     'pay.issue': '⚠️ Your subscription renewal failed — please update your payment details to keep access.',
     'pay.update': 'Update Payment',
     'error.load.home':     'Failed to load Home',
+    'error.load.command':  'Failed to load Command Center',
     'error.load.chat':     'Failed to load Chat',
     'error.load.finance':  'Failed to load Finance',
     'error.load.planning': 'Failed to load Planning',
