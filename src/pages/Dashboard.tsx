@@ -19,6 +19,7 @@ const MoodTracker         = lazy(() => import('@/components/Mood/MoodTracker'));
 const ExportPanel         = lazy(() => import('@/components/Export/ExportPanel').then(m => ({ default: m.ExportPanel })));
 const PlanningHub         = lazy(() => import('@/components/Planning/PlanningHub'));
 const SettingsHub         = lazy(() => import('@/components/Settings/SettingsHub'));
+const JoodCommandCenter   = lazy(() => import('@/components/Command/JoodCommandCenter'));
 const AIRecommendations   = lazy(() => import('@/components/Recommendations/AIRecommendations').then(m => ({ default: m.AIRecommendations })));
 
 // Chat tab — react-markdown + react-syntax-highlighter are heavy; load on demand
@@ -33,7 +34,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   MessageSquare, TrendingUp, Heart, Home,
-  LogOut, Download, Sparkles, CalendarCheck, Settings, Bell, Moon, Sun, ShieldCheck, Brain,
+  LogOut, Download, Sparkles, CalendarCheck, Settings, Bell, Moon, Sun, ShieldCheck, Brain, Radar,
 } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { cn } from '@/lib/utils';
@@ -84,6 +85,7 @@ const useSaudiSignal = () => {
 // ─── Nav items (6 tabs) — built at render time so labels are translated ───────
 const buildNav = (t: (k: string) => string) => [
   { value: 'home',      label: t('nav.home'),      icon: Home },
+  { value: 'command',   label: t('nav.command'),   icon: Radar },
   { value: 'chat',      label: t('nav.chat'),      icon: MessageSquare },
   { value: 'financial', label: t('nav.financial'), icon: TrendingUp },
   { value: 'planning',  label: t('nav.planning'),  icon: CalendarCheck },
@@ -399,6 +401,17 @@ const Dashboard = () => {
               <Fade><HomeOverview onNavigate={setActiveTab} /></Fade>
             </ErrorBoundary>
           </TabsContent>
+
+          {/* ── Command Center (Jarvis-style brief + voice) ───────────────── */}
+          {flags.command !== false && (
+            <TabsContent value="command" className="p-4 mt-0">
+              <ErrorBoundary fallbackLabel={t('error.load.command')} lang={lang}>
+                <Suspense fallback={<TabSkeleton />}>
+                  <Fade><JoodCommandCenter onOpenMajlis={() => setMajlisOpen(true)} onNavigate={setActiveTab} /></Fade>
+                </Suspense>
+              </ErrorBoundary>
+            </TabsContent>
+          )}
 
           {/* ── Chat + Voice ──────────────────────────────────────────────── */}
           {flags.chat !== false && (
