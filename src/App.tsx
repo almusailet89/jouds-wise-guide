@@ -20,10 +20,9 @@ const Terms     = lazy(() => import("./pages/Terms"));
 const Privacy   = lazy(() => import("./pages/Privacy"));
 const Admin     = lazy(() => import("./pages/Admin"));
 const NotFound  = lazy(() => import("./pages/NotFound"));
-
 /* Branded fallback — the Jood orb breathes while a chunk loads */
 const PageLoader = () => (
-  <div className="min-h-screen flex items-center justify-center bg-background">
+  <div className="min-h-screen flex items-center justify-center jood-ambient">
     <JoodOrb mode="connecting" size={72} withRings={false} />
   </div>
 );

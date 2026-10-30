@@ -1,8 +1,7 @@
 import React, { useMemo } from 'react';
-import {
-  PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer,
-} from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { GlassDonut } from './GlassDonut';
+import { PALETTE, compactNumber } from './chartTheme';
 import { PieChart as PieIcon } from 'lucide-react';
 import type { FinancialEntry } from '@/hooks/useFinancialDashboard';
 import { useLanguage } from '@/hooks/useLanguage';
@@ -35,13 +34,6 @@ const CAT_EN: Record<string, string> = {
   'صندوق الطوارئ': 'Emergency Fund', 'هدف': 'Goal', 'أخرى': 'Other',
 };
 
-const COLORS = [
-  'hsl(var(--jood-teal-700))', 'hsl(var(--jood-gold-500))',
-  'hsl(var(--jood-teal-500))', 'hsl(var(--jood-warn))',
-  'hsl(var(--jood-gold-300))', 'hsl(var(--jood-teal-300))',
-  'hsl(var(--jood-gold-700))', 'hsl(var(--jood-muted))',
-];
-
 interface SpendingBreakdownChartProps {
   entries: FinancialEntry[];
   currency: string;
@@ -72,33 +64,7 @@ export const SpendingBreakdownChart: React.FC<SpendingBreakdownChartProps> = ({ 
 
   const total = data.reduce((s, d) => s + d.value, 0);
   const fmt   = (n: number) => new Intl.NumberFormat('en', { maximumFractionDigits: 0 }).format(n);
-
-  const CustomTooltip = ({ active, payload }: any) => {
-    if (!active || !payload?.length) return null;
-    const d = payload[0];
-    const pct = total > 0 ? ((d.value / total) * 100).toFixed(1) : '0';
-    return (
-      <div className="bg-card/95 backdrop-blur border border-border/50 rounded-xl p-3 shadow-elegant" dir={dir}>
-        <p className="font-arabic font-semibold text-sm text-foreground">{d.name}</p>
-        <p className="font-arabic text-sm mt-0.5">
-          <span className="font-bold">{fmt(d.value)}</span>
-          <span className="text-muted-foreground mr-1">{currency}</span>
-        </p>
-        <p className="text-xs text-muted-foreground font-arabic">{pct}{t('chart.spending.pct.suffix')}</p>
-      </div>
-    );
-  };
-
-  const CustomLegend = ({ payload }: any) => (
-    <div className="flex flex-wrap justify-center gap-x-4 gap-y-1.5 mt-3" dir={dir}>
-      {payload?.map((entry: any, i: number) => (
-        <div key={i} className="flex items-center gap-1.5">
-          <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: entry.color }} />
-          <span className="text-xs font-arabic text-muted-foreground">{entry.value}</span>
-        </div>
-      ))}
-    </div>
-  );
+  const slices = data.map((d, i) => ({ name: d.name, value: d.value, color: PALETTE[i % PALETTE.length] }));
 
   return (
     <Card className="luxury-card" dir={dir}>
@@ -108,36 +74,24 @@ export const SpendingBreakdownChart: React.FC<SpendingBreakdownChartProps> = ({ 
             <PieIcon className="w-3.5 h-3.5 text-white" />
           </div>
           {t('chart.spending.title')}
-          {data.length > 0 && (
-            <span className="text-xs font-normal text-muted-foreground mr-auto">
-              {t('chart.spending.total')} {fmt(total)} {currency}
-            </span>
-          )}
         </CardTitle>
       </CardHeader>
       <CardContent>
         {data.length > 0 ? (
-          <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={data}
-                  cx="50%"
-                  cy="45%"
-                  innerRadius={52}
-                  outerRadius={85}
-                  paddingAngle={2}
-                  dataKey="value"
-                >
-                  {data.map((_, index) => (
-                    <Cell key={index} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip content={<CustomTooltip />} />
-                <Legend content={<CustomLegend />} />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
+          <GlassDonut
+            data={slices}
+            dir={dir}
+            centerLabel={t('chart.spending.total').replace(/[:：]\s*$/, '')}
+            centerValue={compactNumber(total)}
+            centerSub={currency}
+            formatValue={(slice, share) => (
+              <>
+                <span className="font-mono font-bold text-foreground">{fmt(slice.value)}</span>
+                <span className="text-muted-foreground mx-1">{currency}</span>
+                <span className="text-muted-foreground">· {(share * 100).toFixed(1)}%</span>
+              </>
+            )}
+          />
         ) : (
           <div className="h-64 flex items-center justify-center">
             <EmptyState
