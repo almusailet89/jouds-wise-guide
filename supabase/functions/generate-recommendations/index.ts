@@ -138,13 +138,6 @@ Rules:
     return new Response(JSON.stringify({ error: 'generation_failed' }), { status: 500, headers: cors });
   }
 
-  // Replace the previous active batch only after a new batch has been parsed.
-  // Keeping multiple active generations produced duplicate and stale advice.
-  await supabase.from('ai_recommendations')
-    .delete()
-    .eq('user_id', userId)
-    .is('dismissed_at', null);
-
   const rows = recs.map(r => {
     const kind = r.kind ?? 'planning';
     return {
@@ -160,7 +153,13 @@ Rules:
     };
   });
 
+  // Replace the previous active batch only when a non-empty new batch exists.
+  // Keeping multiple active generations produced duplicate and stale advice.
   if (rows.length > 0) {
+    await supabase.from('ai_recommendations')
+      .delete()
+      .eq('user_id', userId)
+      .is('dismissed_at', null);
     await supabase.from('ai_recommendations').insert(rows);
   }
 
