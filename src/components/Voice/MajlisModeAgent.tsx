@@ -1,13 +1,35 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
-import { X, Mic, MicOff, Sparkles, Phone, PhoneOff } from 'lucide-react';
+import { X, Mic, MicOff, Sparkles, Phone, PhoneOff, RotateCcw, MessageSquare, WifiOff } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
-import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { JoodOrb, type OrbMode } from './JoodOrb';
 import { useLanguage } from '@/hooks/useLanguage';
+import { supabase } from '@/integrations/supabase/client';
 import { Conversation } from '@11labs/client';
+
+// ─── Microphone availability ─────────────────────────────────────────────────
+type CallIssue = 'denied' | 'no-device' | 'busy' | 'unsupported' | 'insecure' | 'connection';
+
+async function checkMicAvailability(): Promise<CallIssue | null> {
+  if (!window.isSecureContext) return 'insecure';
+  if (!navigator.mediaDevices?.getUserMedia) return 'unsupported';
+  try {
+    const status = await navigator.permissions?.query({ name: 'microphone' as PermissionName });
+    if (status?.state === 'denied') return 'denied';
+  } catch {
+    // Some browsers can't query microphone permission; getUserMedia will tell us.
+  }
+  return null;
+}
+
+function issueFromMediaError(err: unknown): CallIssue {
+  const name = (err as DOMException | undefined)?.name;
+  if (name === 'NotAllowedError' || name === 'SecurityError') return 'denied';
+  if (name === 'NotFoundError' || name === 'OverconstrainedError') return 'no-device';
+  return 'busy';
+}
 
 // ─── Audio-reactive visualizer rings ─────────────────────────────────────────
 const PulseRings: React.FC<{ active: boolean; intensity: number }> = ({ active, intensity }) => (
@@ -96,15 +118,15 @@ interface MajlisModeAgentProps {
 
 export const MajlisModeAgent: React.FC<MajlisModeAgentProps> = ({ onClose }) => {
   const { session } = useAuth();
-  const { toast } = useToast();
   const { t, tg, lang, dir, gender } = useLanguage();
 
   const [mode, setMode] = useState<Mode>('idle');
-  const [transcript, setTranscript] = useState('');       // User's speech (live)
+  const [transcript, setTranscript] = useState('');       // User's last utterance
   const [lastReply, setLastReply] = useState('');          // Jood's last response
   const [isMuted, setIsMuted] = useState(false);
   const [intensity, setIntensity] = useState(0);
   const [connected, setConnected] = useState(false);
+  const [issue, setIssue] = useState<CallIssue | null>(null);
 
   const conversationRef = useRef<any>(null);
   const intensityIntervalRef = useRef<number | null>(null);
@@ -119,34 +141,45 @@ export const MajlisModeAgent: React.FC<MajlisModeAgentProps> = ({ onClose }) => 
 
   // ── Get signed URL from our edge function ───────────────────────────────────
   const getSignedUrl = useCallback(async (): Promise<string> => {
-    const supabaseUrl = 'https://neadnclykbukvmlquepg.supabase.co';
-    const anonKey     = import.meta.env.VITE_SUPABASE_ANON_KEY;
-
-    const res = await fetch(`${supabaseUrl}/functions/v1/elevenlabs-agent-sign`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${session?.access_token}`,
-        'Content-Type':  'application/json',
-        ...(anonKey ? { apikey: anonKey } : {}),
-      },
-    });
-
-    if (!res.ok) throw new Error(`Sign URL failed: ${res.status}`);
-    const data = await res.json();
-    if (!data.signed_url) throw new Error('No signed URL returned');
+    const { data, error } = await supabase.functions.invoke<{ signed_url?: string }>('elevenlabs-agent-sign');
+    if (error) throw error;
+    if (!data?.signed_url) throw new Error('No signed URL returned');
     return data.signed_url;
-  }, [session]);
+  }, []);
+
+  const stopMeter = useCallback(() => {
+    if (intensityIntervalRef.current) {
+      clearInterval(intensityIntervalRef.current);
+      intensityIntervalRef.current = null;
+    }
+    setIntensity(0);
+  }, []);
 
   // ── Start conversation with ElevenLabs Agent ────────────────────────────────
   const startConversation = useCallback(async () => {
     if (!session) return;
+    setIssue(null);
     setMode('connecting');
 
-    try {
-      // Request mic permission
-      await navigator.mediaDevices.getUserMedia({ audio: true });
+    const preflightIssue = await checkMicAvailability();
+    if (preflightIssue) {
+      setIssue(preflightIssue);
+      setMode('idle');
+      return;
+    }
 
-      // Get signed URL (auth gateway)
+    try {
+      // Ask for permission, then release the probe stream at once; the SDK opens its own.
+      const probe = await navigator.mediaDevices.getUserMedia({ audio: true });
+      probe.getTracks().forEach(track => track.stop());
+    } catch (err) {
+      console.error('[Majlis Agent] Microphone error:', err);
+      setIssue(issueFromMediaError(err));
+      setMode('idle');
+      return;
+    }
+
+    try {
       const signedUrl = await getSignedUrl();
 
       // Start the ElevenLabs conversation — pass user_id so webhook tools know who's talking
@@ -156,29 +189,31 @@ export const MajlisModeAgent: React.FC<MajlisModeAgentProps> = ({ onClose }) => 
           user_id: session.user.id,
         },
         onConnect: () => {
-          console.log('[Majlis Agent] Connected');
           setConnected(true);
           setMode('listening');
         },
         onDisconnect: () => {
-          console.log('[Majlis Agent] Disconnected');
+          stopMeter();
+          conversationRef.current = null;
           setConnected(false);
+          setIsMuted(false);
           setMode('idle');
           setTranscript('');
         },
-        onMessage: (message: any) => {
-          // Agent message (Jood's response text)
-          if (message.message) {
-            setLastReply(message.message);
+        onMessage: ({ message, source }) => {
+          if (!message) return;
+          if (source === 'user') {
+            setTranscript(message);
+            setMode('thinking');
+          } else {
+            setTranscript('');
+            setLastReply(message);
           }
         },
-        onError: (error: any) => {
+        onError: (error: unknown) => {
           console.error('[Majlis Agent] Error:', error);
-          toast({
-            title: lang === 'ar' ? 'خطأ في الاتصال' : 'Connection error',
-            description: String(error),
-            variant: 'destructive',
-          });
+          stopMeter();
+          setIssue('connection');
           setMode('idle');
           setConnected(false);
         },
@@ -208,54 +243,75 @@ export const MajlisModeAgent: React.FC<MajlisModeAgentProps> = ({ onClose }) => 
         }
       }, 100);
 
-    } catch (err: any) {
+    } catch (err) {
       console.error('[Majlis Agent] Start error:', err);
-
-      if (err.name === 'NotAllowedError' || err.message?.includes('permission')) {
-        toast({
-          title: lang === 'ar' ? 'تعذّر الوصول للميكروفون' : 'Microphone access denied',
-          description: lang === 'ar'
-            ? 'افتح إعدادات المتصفح واسمح بالميكروفون لهذا الموقع'
-            : 'Allow microphone access in browser settings',
-          variant: 'destructive',
-        });
-      } else {
-        toast({
-          title: lang === 'ar' ? 'تعذّر الاتصال بجود' : 'Could not connect to Jood',
-          description: String(err.message || err),
-          variant: 'destructive',
-        });
-      }
+      stopMeter();
+      setIssue('connection');
       setMode('idle');
     }
-  }, [session, getSignedUrl, toast, lang]);
+  }, [session, getSignedUrl, stopMeter]);
 
   // ── End conversation ────────────────────────────────────────────────────────
   const endConversation = useCallback(async () => {
-    if (intensityIntervalRef.current) {
-      clearInterval(intensityIntervalRef.current);
-      intensityIntervalRef.current = null;
-    }
+    stopMeter();
     if (conversationRef.current) {
       try { await conversationRef.current.endSession(); } catch { /* ignore */ }
       conversationRef.current = null;
     }
     setConnected(false);
+    setIsMuted(false);
     setMode('idle');
-    setIntensity(0);
-  }, []);
+  }, [stopMeter]);
 
-  // ── Toggle mute ─────────────────────────────────────────────────────────────
+  // ── Toggle mute (the user's microphone, not Jood's voice) ──────────────────
   const toggleMute = useCallback(() => {
     if (!conversationRef.current) return;
-    const newMuted = !isMuted;
-    setIsMuted(newMuted);
-    if (newMuted) {
-      conversationRef.current.setVolume?.({ volume: 0 });
-    } else {
-      conversationRef.current.setVolume?.({ volume: 1 });
-    }
+    const next = !isMuted;
+    conversationRef.current.setMicMuted?.(next);
+    setIsMuted(next);
   }, [isMuted]);
+
+  const continueByText = useCallback(() => {
+    endConversation();
+    window.dispatchEvent(new CustomEvent('jood:navigate', { detail: { tab: 'chat' } }));
+    onClose();
+  }, [endConversation, onClose]);
+
+  const ar = lang === 'ar';
+  const g = (male: string, female: string) => (gender === 'female' ? female : male);
+  const isIOS = typeof navigator !== 'undefined' && /iPad|iPhone|iPod/.test(navigator.userAgent);
+
+  const ISSUE_COPY: Record<CallIssue, { title: string; body: string; note?: string }> = {
+    denied: {
+      title: ar ? 'الميكروفون غير مسموح' : 'Microphone access is off',
+      body: isIOS
+        ? (ar ? g('من شريط العنوان اضغط «aA» ← إعدادات الموقع ← الميكروفون ← سماح، ثم أعد المحاولة.', 'من شريط العنوان اضغطي «aA» ← إعدادات الموقع ← الميكروفون ← سماح، ثم أعيدي المحاولة.')
+              : 'Tap “aA” in the address bar → Website Settings → Microphone → Allow, then try again.')
+        : (ar ? g('اضغط رمز القفل بجانب عنوان الموقع ← الميكروفون ← سماح، ثم أعد المحاولة.', 'اضغطي رمز القفل بجانب عنوان الموقع ← الميكروفون ← سماح، ثم أعيدي المحاولة.')
+              : 'Click the lock icon next to the site address → Microphone → Allow, then try again.'),
+      note: ar ? g('إذا فتحت جود داخل تطبيق آخر، افتحه في Safari أو Chrome.', 'إذا فتحتِ جود داخل تطبيق آخر، افتحيه في Safari أو Chrome.') : 'If JOOD is open inside another app, open it in Safari or Chrome.',
+    },
+    'no-device': {
+      title: ar ? 'لم نجد ميكروفوناً' : 'No microphone found',
+      body: ar ? g('وصّل ميكروفوناً أو سماعة، ثم أعد المحاولة.', 'وصّلي ميكروفوناً أو سماعة، ثم أعيدي المحاولة.') : 'Connect a microphone or headset, then try again.',
+    },
+    busy: {
+      title: ar ? 'الميكروفون مشغول' : 'The microphone is in use',
+      body: ar ? g('أغلق التطبيقات أو الصفحات التي تستخدم الميكروفون، ثم أعد المحاولة.', 'أغلقي التطبيقات أو الصفحات التي تستخدم الميكروفون، ثم أعيدي المحاولة.') : 'Close other apps or tabs using the microphone, then try again.',
+    },
+    unsupported: {
+      title: ar ? 'هذا المتصفح لا يدعم المحادثة الصوتية' : "This browser can't use voice",
+      body: ar ? g('افتح جود في أحدث إصدار من Safari أو Chrome للتحدث معها.', 'افتحي جود في أحدث إصدار من Safari أو Chrome للتحدث معها.') : 'Open JOOD in the latest Safari or Chrome to talk with Jood.',
+    },
+    insecure: {
+      title: ar ? 'الصوت يحتاج اتصالاً آمناً' : 'Voice needs a secure connection',
+      body: ar ? g('افتح جود من رابطه الآمن (https) لاستخدام الميكروفون.', 'افتحي جود من رابطه الآمن (https) لاستخدام الميكروفون.') : 'Open JOOD from its https:// address to use the microphone.',
+    },
+    connection: {
+      title: ar ? 'تعذّر الاتصال بجود' : "Couldn't reach Jood",
+      body: ar ? g('تحقق من اتصالك بالإنترنت، ثم أعد المحاولة.', 'تحققي من اتصالك بالإنترنت، ثم أعيدي المحاولة.') : 'Check your internet connection, then try again.',
+    },
+  };
 
   // ── Cleanup on unmount ──────────────────────────────────────────────────────
   useEffect(() => {
@@ -274,7 +330,7 @@ export const MajlisModeAgent: React.FC<MajlisModeAgentProps> = ({ onClose }) => 
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       transition={{ duration: 0.4 }}
-      className="fixed inset-0 z-50 bg-gradient-to-br from-jood-teal-900 via-jood-teal-700 to-jood-teal-900 overflow-hidden"
+      className="dark fixed inset-0 z-50 bg-gradient-to-br from-jood-teal-900 via-jood-teal-700 to-jood-teal-900 overflow-hidden"
       dir={dir}
     >
       {/* Ambient particles */}
@@ -324,43 +380,87 @@ export const MajlisModeAgent: React.FC<MajlisModeAgentProps> = ({ onClose }) => 
       <div className="absolute inset-0 flex flex-col items-center justify-center px-6">
 
         {/* Pulse rings + the Jood Orb — النواة */}
-        <div className="relative w-80 h-80 flex items-center justify-center">
-          <PulseRings active={isActive} intensity={intensity} />
+        <div className={cn('relative flex items-center justify-center transition-all duration-300', issue ? 'w-48 h-48' : 'w-80 h-80')}>
+          {!issue && <PulseRings active={isActive} intensity={intensity} />}
           <JoodOrb
             mode={mode as OrbMode}
             intensity={intensity}
-            size={260}
-            withRings
+            size={issue ? 160 : 260}
+            withRings={!issue}
             className="relative z-10"
           />
         </div>
 
-        {/* Frequency bars / thinking dots */}
-        <div className="mt-6">
-          {mode === 'connecting' || mode === 'thinking'
-            ? <ThinkingDots />
-            : <FreqBars active={isActive} />
-          }
-        </div>
+        {!issue && (
+          <>
+            {/* Frequency bars / thinking dots */}
+            <div className="mt-6">
+              {mode === 'connecting' || mode === 'thinking'
+                ? <ThinkingDots />
+                : <FreqBars active={isActive} />
+              }
+            </div>
 
-        {/* Status label */}
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={mode}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            transition={{ duration: 0.3 }}
-            className="text-center mt-4"
-          >
-            <p className="text-white text-2xl font-arabic font-bold">{labels.label}</p>
-            <p className="text-jood-gold-300/80 text-xs font-arabic mt-1">{labels.sub}</p>
-          </motion.div>
+            {/* Status label */}
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={mode}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{ duration: 0.3 }}
+                className="text-center mt-4"
+              >
+                <p className="text-white text-2xl font-arabic font-bold">{labels.label}</p>
+                <p className="text-jood-gold-300/80 text-xs font-arabic mt-1">{labels.sub}</p>
+              </motion.div>
+            </AnimatePresence>
+          </>
+        )}
+
+        {/* Microphone / connection problem — calm, actionable, never raw error text */}
+        <AnimatePresence>
+          {issue && (
+            <motion.div
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 8 }}
+              transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+              className="mt-6 max-w-md w-full"
+            >
+              <div role="alert" className="glass rounded-2xl p-5 text-start">
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-jood-gold-500/15 flex items-center justify-center flex-shrink-0">
+                    {issue === 'connection'
+                      ? <WifiOff className="w-5 h-5 text-jood-gold-300" />
+                      : <MicOff className="w-5 h-5 text-jood-gold-300" />}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-arabic font-bold text-foreground">{ISSUE_COPY[issue].title}</p>
+                    <p className="font-arabic text-sm text-muted-foreground mt-1 leading-relaxed">{ISSUE_COPY[issue].body}</p>
+                    {ISSUE_COPY[issue].note && (
+                      <p className="font-arabic text-xs text-muted-foreground/80 mt-2">{ISSUE_COPY[issue].note}</p>
+                    )}
+                  </div>
+                </div>
+                <div className="flex gap-2 mt-4">
+                  <button onClick={startConversation} className="jood-btn-primary flex-1 !px-3 !py-2.5 whitespace-nowrap font-arabic">
+                    <RotateCcw className="w-4 h-4" />
+                    {ar ? g('أعد المحاولة', 'أعيدي المحاولة') : 'Try again'}
+                  </button>
+                  <button onClick={continueByText} className="jood-btn-outline flex-1 !px-3 !py-2.5 whitespace-nowrap font-arabic">
+                    <MessageSquare className="w-4 h-4" />
+                    {ar ? g('أكمل بالكتابة', 'أكملي بالكتابة') : 'Continue by text'}
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          )}
         </AnimatePresence>
 
         {/* Live transcript */}
         <AnimatePresence>
-          {transcript && (
+          {!issue && transcript && (
             <motion.div
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
@@ -378,7 +478,7 @@ export const MajlisModeAgent: React.FC<MajlisModeAgentProps> = ({ onClose }) => 
 
         {/* Last AI reply */}
         <AnimatePresence>
-          {!transcript && lastReply && (mode === 'speaking' || mode === 'listening' || mode === 'idle') && (
+          {!issue && !transcript && lastReply && (mode === 'speaking' || mode === 'listening' || mode === 'idle') && (
             <motion.div
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
@@ -404,6 +504,10 @@ export const MajlisModeAgent: React.FC<MajlisModeAgentProps> = ({ onClose }) => 
           size="icon"
           onClick={toggleMute}
           disabled={!connected}
+          aria-pressed={isMuted}
+          aria-label={isMuted
+            ? (ar ? 'تشغيل الميكروفون' : 'Unmute microphone')
+            : (ar ? 'كتم الميكروفون' : 'Mute microphone')}
           className={cn(
             'rounded-full h-12 w-12 flex-shrink-0 text-white hover:bg-white/10 disabled:opacity-30',
             isMuted && 'bg-red-500/20 border border-red-300/40',
