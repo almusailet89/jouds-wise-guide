@@ -207,7 +207,7 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
         transition={{ duration: 0.4 }}
         className="w-full max-w-xl relative z-10"
       >
-        <Card className="shadow-luxury bg-card/95 backdrop-blur">
+        <Card className="shadow-luxury">
           {/* ── Header / progress ──────────────────────────────────────────── */}
           <div className="border-b border-border/40 p-5 pb-3">
             <div className="flex items-center justify-between mb-3">

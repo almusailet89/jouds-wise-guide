@@ -12,7 +12,7 @@ export const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-4">
+      <div className="min-h-screen jood-ambient flex flex-col items-center justify-center gap-4">
         <JoodOrb mode="connecting" size={88} withRings={false} />
         <p className="text-muted-foreground text-sm font-arabic animate-pulse">جود AI</p>
       </div>

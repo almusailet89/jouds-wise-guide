@@ -485,7 +485,7 @@ const SmartCalendar: React.FC = () => {
           <div className="space-y-1">
             <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide font-arabic">{t('cal.section.events')}</p>
             {items.events.map(e => (
-              <div key={e.id} className="flex items-center gap-2 p-2 rounded-xl border border-border/30 bg-card group">
+              <div key={e.id} className="flex items-center gap-2 p-2 rounded-xl border border-border/30 bg-card/50 group">
                 <span className={cn('w-2 h-2 rounded-full flex-shrink-0', cat(e.category).color.replace('text-white', ''))} />
                 <div className="flex-1 min-w-0">
                   <p className="text-xs font-arabic font-medium truncate">{e.title}</p>
@@ -541,7 +541,7 @@ const SmartCalendar: React.FC = () => {
                 key={t.id}
                 onClick={() => toggleTask(t)}
                 className={cn(
-                  'w-full flex items-center gap-2.5 p-2 rounded-xl border border-border/30 bg-card hover:bg-muted/30 transition-colors text-right',
+                  'w-full flex items-center gap-2.5 p-2 rounded-xl border border-border/30 bg-card/50 hover:bg-muted/30 transition-colors text-right',
                   t.status === 'completed' && 'opacity-60',
                 )}
               >
@@ -579,7 +579,7 @@ const SmartCalendar: React.FC = () => {
                   key={h.id}
                   onClick={() => toggleHabit(h.id, day)}
                   className={cn(
-                    'w-full flex items-center gap-2.5 p-2 rounded-xl border border-border/30 bg-card hover:bg-muted/30 transition-colors text-right',
+                    'w-full flex items-center gap-2.5 p-2 rounded-xl border border-border/30 bg-card/50 hover:bg-muted/30 transition-colors text-right',
                     done && 'border-jood-teal-500/40 bg-jood-teal-500/5',
                   )}
                 >
@@ -834,7 +834,7 @@ const SmartCalendar: React.FC = () => {
                   key={i}
                   onClick={() => setSelected(day)}
                   className={cn(
-                    'p-2 rounded-xl border border-border/30 bg-card text-right transition-all min-h-[120px] flex flex-col gap-1.5',
+                    'p-2 rounded-xl border border-border/30 bg-card/50 text-right transition-all min-h-[120px] flex flex-col gap-1.5',
                     isSel && 'border-jood-teal-700/60 ring-2 ring-jood-teal-700/30',
                     isToday_ && !isSel && 'border-jood-gold-300/60',
                   )}

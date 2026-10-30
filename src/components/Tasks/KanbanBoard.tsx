@@ -109,7 +109,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
       draggable
       onDragStart={() => onDragStart(task.id)}
       className={cn(
-        'group bg-card border border-border/50 rounded-xl p-3 shadow-sm cursor-grab active:cursor-grabbing',
+        'group bg-card/60 border border-border/50 rounded-xl p-3 shadow-sm cursor-grab active:cursor-grabbing',
         'hover:shadow-md hover:border-border transition-all duration-150 select-none',
         task.status === 'completed' && 'opacity-60',
       )}
@@ -344,7 +344,7 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({
 
         {/* Add task inline */}
         {adding ? (
-          <div className="bg-card border border-border/50 rounded-xl p-2 space-y-2">
+          <div className="glass rounded-xl p-2 space-y-2">
             <Input
               autoFocus
               value={newTitle}

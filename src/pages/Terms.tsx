@@ -229,7 +229,7 @@ These Terms of Service, together with our Privacy Policy, constitute the entire 
   `;
 
   return (
-    <div className="min-h-screen bg-gradient-primary">
+    <div className="dark min-h-screen jood-ambient text-foreground">
       <div className="container max-w-4xl mx-auto px-4 py-8">
         <div className="mb-6">
           <Link to="/">
@@ -240,7 +240,7 @@ These Terms of Service, together with our Privacy Policy, constitute the entire 
           </Link>
         </div>
         
-        <Card className="bg-white/10 backdrop-blur-lg border-white/20">
+        <Card>
           <CardHeader>
             <CardTitle className="text-3xl font-bold text-white text-center">
               Terms of Service

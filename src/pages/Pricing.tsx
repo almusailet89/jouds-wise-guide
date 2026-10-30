@@ -15,10 +15,10 @@ export default function Pricing() {
     : ['Early access to ready features', 'A chance to shape Jood’s development', 'Clear notice before any paid plan launches'];
 
   return (
-    <div className="min-h-screen bg-background text-foreground" dir={dir}>
-      <header className="border-b border-border/40 bg-background/80 backdrop-blur-md">
+    <div className="min-h-screen jood-ambient text-foreground" dir={dir}>
+      <header className="glass border-x-0 border-t-0">
         <div className="container mx-auto px-4 h-14 flex items-center justify-between">
-          <button onClick={() => navigate('/')} className="font-tajawal font-bold text-lg tracking-wide text-jood-teal-900">
+          <button onClick={() => navigate('/')} className="font-tajawal font-bold text-lg tracking-wide text-jood-teal-900 dark:text-jood-cream">
             JOOD<span className="mx-0.5 text-jood-gold-500">·</span>AI
           </button>
           <Button variant="ghost" size="sm" onClick={() => navigate(user ? '/dashboard' : '/auth')} className="gap-1.5">

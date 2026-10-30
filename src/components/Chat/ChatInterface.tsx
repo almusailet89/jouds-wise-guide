@@ -527,7 +527,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ onMessage }) => {
             exit={{ x: '100%', opacity: 0 }}
             transition={{ duration: 0.22, ease: [0.4, 0, 0.2, 1] }}
             className={cn(
-              'flex-shrink-0 flex flex-col bg-card border-l border-border/40 overflow-hidden',
+              'flex-shrink-0 flex flex-col glass rounded-none border-y-0 border-r-0 overflow-hidden',
               'md:relative md:z-auto',
               'absolute right-0 top-0 bottom-0 z-30 w-72 shadow-2xl md:shadow-none md:w-64',
             )}
@@ -592,7 +592,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ onMessage }) => {
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
 
         {/* ── Top bar ──────────────────────────────────────────────────────── */}
-        <div className="flex items-center gap-2 px-3 py-2.5 border-b border-border/30 bg-card/60 backdrop-blur-sm flex-shrink-0" dir="rtl">
+        <div className="flex items-center gap-2 px-3 py-2.5 glass border-x-0 border-t-0 flex-shrink-0" dir="rtl">
           {/* Sidebar toggle */}
           <button
             onClick={() => setSidebarOpen(v => !v)}
@@ -731,7 +731,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ onMessage }) => {
         </ScrollArea>
 
         {/* ── Input bar ─────────────────────────────────────────────────────── */}
-        <div className="border-t border-border/30 bg-card/60 backdrop-blur-sm px-3 py-3 flex-shrink-0">
+        <div className="glass border-x-0 border-b-0 px-3 py-3 flex-shrink-0">
           <div className="max-w-3xl mx-auto">
             <div className="flex items-end gap-2 bg-background border border-border/60 rounded-2xl px-3 py-2 shadow-sm focus-within:border-jood-teal-400/60 focus-within:shadow-md transition-all" dir="rtl">
 

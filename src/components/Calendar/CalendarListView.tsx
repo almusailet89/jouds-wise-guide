@@ -148,7 +148,7 @@ const CalendarListView: React.FC = () => {
             <div
               key={`${item.kind}-${item.id}`}
               className={cn(
-                'group flex items-center gap-3 px-3 py-2 rounded-lg border border-border/40 bg-card hover:border-border transition-colors',
+                'group flex items-center gap-3 px-3 py-2 rounded-lg border border-border/40 bg-card/50 hover:border-border transition-colors',
                 item.completed && 'opacity-60',
               )}
             >

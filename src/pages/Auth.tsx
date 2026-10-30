@@ -87,7 +87,7 @@ export default function Auth() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-primary flex items-center justify-center p-4" dir={dir}>
+    <div className="min-h-screen jood-ambient flex items-center justify-center p-4" dir={dir}>
       <div className="w-full max-w-sm">
 
         {/* Brand */}
@@ -100,8 +100,8 @@ export default function Auth() {
           <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-jood-gold-500 to-amber-600 flex items-center justify-center mx-auto mb-4 shadow-gold">
             <Sparkles className="w-8 h-8 text-white" />
           </div>
-          <h1 className="text-3xl font-bold text-white font-arabic mb-1">جود AI</h1>
-          <p className="text-white/75 text-sm font-arabic">{t('auth.tagline')}</p>
+          <h1 className="text-3xl font-bold text-foreground font-arabic mb-1">جود AI</h1>
+          <p className="text-muted-foreground text-sm font-arabic">{t('auth.tagline')}</p>
         </motion.div>
 
         <motion.div
@@ -109,7 +109,7 @@ export default function Auth() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.1 }}
         >
-          <Card className="bg-card/95 backdrop-blur border-white/10 shadow-luxury">
+          <Card>
             <CardContent className="p-5">
               <Tabs defaultValue="signin" className="w-full">
                 <TabsList className="grid w-full grid-cols-2 mb-4 h-10">
@@ -319,7 +319,7 @@ export default function Auth() {
           </Card>
         </motion.div>
 
-        <p className="text-center text-white/50 text-[11px] mt-4 font-arabic">
+        <p className="text-center text-muted-foreground text-[11px] mt-4 font-arabic">
           {t('auth.pdpl')}
         </p>
       </div>

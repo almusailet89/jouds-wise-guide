@@ -185,7 +185,7 @@ const MemoryTaxonomyPanel: React.FC<{ onMemoryAdded?: () => void }> = ({ onMemor
                   initial={{ opacity: 0, height: 0 }}
                   animate={{ opacity: 1, height: 'auto' }}
                   exit={{ opacity: 0, height: 0 }}
-                  className="mt-1.5 space-y-1.5 p-2 rounded-lg bg-card border border-border/40"
+                  className="mt-1.5 space-y-1.5 p-2 rounded-lg bg-card/50 border border-border/40"
                 >
                   <Input
                     value={draft}

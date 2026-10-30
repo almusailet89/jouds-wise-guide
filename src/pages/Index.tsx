@@ -77,12 +77,12 @@ export default function Index() {
   }
 
   return (
-    <div className="min-h-screen bg-background text-foreground overflow-x-hidden" dir={dir}>
+    <div className="min-h-screen jood-ambient text-foreground overflow-x-hidden" dir={dir}>
 
       {/* Header */}
-      <header className="sticky top-0 z-50 border-b border-border/40 backdrop-blur-md bg-background/80">
+      <header className="sticky top-0 z-50 glass border-x-0 border-t-0">
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
-          <span className="font-tajawal font-bold text-xl tracking-wide" style={{ color: "hsl(var(--jood-teal-900))" }}>
+          <span className="font-tajawal font-bold text-xl tracking-wide text-jood-teal-900 dark:text-jood-cream">
             JOOD<span style={{ color: "hsl(var(--jood-gold-500))" }} className="mx-0.5">·</span>AI
           </span>
           <div className="flex items-center gap-3">
@@ -174,7 +174,7 @@ export default function Index() {
       </section>
 
       {/* Saudi Signal Strip */}
-      <div className="border-y border-border/40 bg-card/60 backdrop-blur-sm">
+      <div className="glass border-x-0">
         <div className="container mx-auto px-4 py-3 flex flex-wrap items-center justify-center gap-3">
           {signal.hijri && (
             <span className="signal-chip">
@@ -250,11 +250,11 @@ export default function Index() {
       </section>
 
       {/* Footer */}
-      <footer className="border-t border-border/40 bg-card/40">
+      <footer className="glass border-x-0 border-b-0">
         <div className="container mx-auto px-4 py-7">
           <div className="flex flex-col md:flex-row items-center justify-between gap-4">
             <div>
-              <span className="font-tajawal font-bold text-lg" style={{ color: "hsl(var(--jood-teal-900))" }}>
+              <span className="font-tajawal font-bold text-lg text-jood-teal-900 dark:text-jood-cream">
                 JOOD<span style={{ color: "hsl(var(--jood-gold-500))" }} className="mx-0.5">·</span>AI
               </span>
               <p className="text-xs text-muted-foreground mt-1">مساعدتك الذكية السعودية · Your Saudi AI companion</p>

@@ -337,7 +337,7 @@ For the most current version of this Privacy Policy, please check our website or
   `;
 
   return (
-    <div className="min-h-screen bg-gradient-primary">
+    <div className="dark min-h-screen jood-ambient text-foreground">
       <div className="container max-w-4xl mx-auto px-4 py-8">
         <div className="mb-6">
           <Link to="/">
@@ -348,7 +348,7 @@ For the most current version of this Privacy Policy, please check our website or
           </Link>
         </div>
         
-        <Card className="bg-white/10 backdrop-blur-lg border-white/20">
+        <Card>
           <CardHeader>
             <CardTitle className="text-3xl font-bold text-white text-center">
               Privacy Policy

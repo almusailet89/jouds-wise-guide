@@ -1176,7 +1176,7 @@ const Admin = () => {
   };
 
   if (roleLoading) return (
-    <div className="min-h-screen bg-[#1a1208] flex items-center justify-center">
+    <div className="dark min-h-screen jood-ambient flex items-center justify-center">
       <div className="text-amber-300 animate-pulse font-semibold">Loading…</div>
     </div>
   );
@@ -1186,10 +1186,10 @@ const Admin = () => {
   const activeNav = NAV.find(n => n.key === activeTab)!;
 
   return (
-    <div className="min-h-screen bg-[#0f0e0b] flex" dir="ltr">
+    <div className="dark min-h-screen jood-ambient flex" dir="ltr">
 
       {/* ── Sidebar ─────────────────────────────────────────────────────────── */}
-      <aside className="w-56 flex-shrink-0 bg-[#1a1208] border-r border-white/8 flex flex-col">
+      <aside className="w-56 flex-shrink-0 glass border-y-0 border-l-0 flex flex-col">
         {/* Brand */}
         <div className="px-5 py-5 border-b border-white/8">
           <button onClick={() => navigate('/dashboard')}

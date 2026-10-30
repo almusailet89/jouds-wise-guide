@@ -108,7 +108,7 @@ export const ExportPanel = () => {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {exportOptions.map((option) => (
-          <Card key={option.id} className="bg-card/80 backdrop-blur border-white/10">
+          <Card key={option.id}>
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
@@ -167,7 +167,7 @@ export const ExportPanel = () => {
         ))}
       </div>
 
-      <Card className="bg-card/80 backdrop-blur border-white/10">
+      <Card>
         <CardContent className="p-6">
           <h3 className="font-semibold mb-3">Export Information</h3>
           <ul className="space-y-2 text-sm text-muted-foreground">
