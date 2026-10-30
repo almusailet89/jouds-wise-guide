@@ -85,18 +85,14 @@ export const useLegalAgreements = () => {
   };
 
   const acceptAgreement = async (type: 'terms' | 'privacy', version: string) => {
+    if (!user) return false;
     try {
-      // Get user's IP and user agent
-      const ipResponse = await fetch('https://api.ipify.org?format=json');
-      const ipData = await ipResponse.json();
-      
       const { error } = await supabase
         .from('user_agreements')
         .insert({
-          user_id: user!.id,
+          user_id: user.id,
           agreement_type: type,
           version: version,
-          ip_address: ipData.ip,
           user_agent: navigator.userAgent,
         });
 
