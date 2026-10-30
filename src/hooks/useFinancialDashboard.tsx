@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/hooks/useAuth';
+import { useLanguage } from '@/hooks/useLanguage';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -38,6 +39,14 @@ export interface Insight {
   timeframe: string;
 }
 
+interface RefreshPricesResult {
+  success: boolean;
+  updated_count: number;
+  skipped_count: number;
+  updated: { id: string; symbol: string; price: number; currency: string }[];
+  skipped: { id: string; symbol: string; reason: string }[];
+}
+
 export interface SavingsTarget {
   monthly_savings_target: number;
   savings_target_date: string;
@@ -65,6 +74,7 @@ const summarizePortfolio = (holdings: PortfolioHolding[]) => {
 
 export const useFinancialDashboard = () => {
   const { user, session } = useAuth();
+  const { lang } = useLanguage();
   const [financialEntries, setFinancialEntries] = useState<FinancialEntry[]>([]);
   const [portfolioHoldings, setPortfolioHoldings] = useState<PortfolioHolding[]>([]);
   const [insights, setInsights] = useState<Insight[]>([]);
@@ -213,23 +223,58 @@ export const useFinancialDashboard = () => {
     }
   }, [user]);
 
-  // Refresh prices
+  // Refresh prices — only the signed-in user's crypto holdings get live quotes;
+  // holdings without a reliable price source are reported back as skipped.
   const refreshPrices = useCallback(async () => {
+    if (!user) return;
+    const ar = lang === 'ar';
     setLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke('refresh-prices');
+      const { data, error } = await supabase.functions.invoke<RefreshPricesResult>('refresh-prices', {
+        method: 'POST',
+      });
 
-      if (error) throw error;
-      
-      toast.success(`Updated ${data.updated_count} asset prices`);
+      if (error) {
+        // Non-2xx responses carry a JSON body (rate limit, disabled, …) on error.context.
+        const body = await (error as { context?: Response }).context?.json?.().catch(() => null);
+        if (body?.error === 'rate_limited') {
+          toast.error(ar ? 'وصلت لحد تحديث الأسعار لهذه الساعة' : 'Price refresh limit reached for this hour', {
+            description: ar ? 'حاول مرة أخرى في الساعة القادمة.' : 'Try again next hour.',
+          });
+          return;
+        }
+        if (body?.error === 'refresh_disabled') {
+          toast.info(ar ? 'تحديث الأسعار متوقف مؤقتاً' : 'Price refresh is temporarily unavailable');
+          return;
+        }
+        throw error;
+      }
+
+      const updatedCount = data?.updated_count ?? 0;
+      const skipped = data?.skipped ?? [];
+      const skippedSymbols = [...new Set(skipped.map((s) => s.symbol).filter(Boolean))].join(', ');
+      const description = skipped.length > 0
+        ? (ar ? `لم تُحدَّث (لا يوجد مصدر سعر موثوق): ${skippedSymbols}` : `Not refreshed (no reliable price source): ${skippedSymbols}`)
+        : undefined;
+
+      if (updatedCount > 0) {
+        toast.success(
+          ar ? `تم تحديث ${updatedCount} من الأصول` : `Refreshed ${updatedCount} holding${updatedCount === 1 ? '' : 's'}`,
+          { description },
+        );
+      } else if (skipped.length > 0) {
+        toast.info(ar ? 'لم يُحدَّث أي سعر' : 'No prices were refreshed', { description });
+      } else {
+        toast.info(ar ? 'لا توجد أسهم أو عملات رقمية للتحديث' : 'No stock or crypto holdings to refresh');
+      }
       await fetchPortfolioHoldings();
     } catch (error) {
       console.error('Error refreshing prices:', error);
-      toast.error('Failed to refresh prices');
+      toast.error(ar ? 'تعذّر تحديث الأسعار' : 'Failed to refresh prices');
     } finally {
       setLoading(false);
     }
-  }, [fetchPortfolioHoldings]);
+  }, [user, lang, fetchPortfolioHoldings]);
 
   // Add financial entry
   const addFinancialEntry = useCallback(async (entry: Omit<FinancialEntry, 'id' | 'created_at'>) => {
