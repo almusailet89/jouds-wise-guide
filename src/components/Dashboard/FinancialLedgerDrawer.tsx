@@ -4,17 +4,18 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useFinancialDashboard } from '@/hooks/useFinancialDashboard';
+import type { FinancialEntry } from '@/hooks/useFinancialDashboard';
 import { Search, Download, Edit, Trash2, Filter } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 interface FinancialLedgerDrawerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  entries: FinancialEntry[];
+  onDelete: (id: string) => Promise<void>;
 }
 
-export const FinancialLedgerDrawer: React.FC<FinancialLedgerDrawerProps> = ({ open, onOpenChange }) => {
-  const { financialEntries, deleteFinancialEntry } = useFinancialDashboard();
+export const FinancialLedgerDrawer: React.FC<FinancialLedgerDrawerProps> = ({ open, onOpenChange, entries: financialEntries, onDelete }) => {
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState<string>('all');
@@ -36,7 +37,7 @@ export const FinancialLedgerDrawer: React.FC<FinancialLedgerDrawerProps> = ({ op
   const handleDelete = async (id: string) => {
     if (confirm('Are you sure you want to delete this entry?')) {
       try {
-        await deleteFinancialEntry(id);
+        await onDelete(id);
       } catch (error) {
         console.error('Error deleting entry:', error);
       }

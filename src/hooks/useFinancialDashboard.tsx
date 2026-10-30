@@ -45,6 +45,24 @@ export interface SavingsTarget {
 
 const AR_MONTHS = ['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
 
+const summarizePortfolio = (holdings: PortfolioHolding[]) => {
+  const totals: Record<string, number> = {};
+  let totalValue = 0;
+
+  for (const holding of holdings) {
+    const value = Number(holding.quantity ?? 1) * Number(holding.current_price ?? holding.avg_price ?? 0);
+    const kind = holding.asset_type || 'other';
+    totals[kind] = (totals[kind] ?? 0) + value;
+    totalValue += value;
+  }
+
+  const assetAllocation = Object.fromEntries(
+    Object.entries(totals).map(([kind, value]) => [kind, totalValue > 0 ? (value / totalValue) * 100 : 0]),
+  );
+
+  return { total_value: totalValue, asset_allocation: assetAllocation, holdings_count: holdings.length };
+};
+
 export const useFinancialDashboard = () => {
   const { user, session } = useAuth();
   const [financialEntries, setFinancialEntries] = useState<FinancialEntry[]>([]);
@@ -58,62 +76,60 @@ export const useFinancialDashboard = () => {
 
   // Fetch financial entries
   const fetchFinancialEntries = useCallback(async (range?: string) => {
-    if (!user || !session) return;
+    if (!user) return;
 
     try {
-      const { data, error } = await supabase.functions.invoke('manage-finance', {
-        body: { method: 'GET', body: { range } },
-        headers: {
-          Authorization: `Bearer ${session.access_token}`,
-        },
-      });
+      let query = supabase
+        .from('financial_data')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('date', { ascending: false });
+
+      if (range) {
+        const now = new Date();
+        const start = range === '7d'
+          ? new Date(now.getTime() - 7 * 86400000)
+          : range === '30d'
+            ? new Date(now.getTime() - 30 * 86400000)
+            : range === 'ytd'
+              ? new Date(now.getFullYear(), 0, 1)
+              : null;
+        if (start) query = query.gte('date', start.toISOString());
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
-      setFinancialEntries(data.data || []);
+      setFinancialEntries((data ?? []) as FinancialEntry[]);
     } catch (error) {
       console.error('Error fetching financial entries:', error);
-      toast.error('Failed to fetch financial entries');
     }
-  }, [user, session]);
+  }, [user?.id]);
 
   // Fetch portfolio holdings
   const fetchPortfolioHoldings = useCallback(async () => {
-    if (!user || !session) return;
+    if (!user) return;
 
     try {
-      const { data, error } = await supabase.functions.invoke('manage-portfolio', {
-        body: { method: 'GET' },
-        headers: {
-          Authorization: `Bearer ${session.access_token}`,
-        },
-      });
+      const { data, error } = await supabase
+        .from('portfolio_holdings')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setPortfolioHoldings(data.data || []);
+      const holdings = (data ?? []) as PortfolioHolding[];
+      setPortfolioHoldings(holdings);
+      setPortfolioSummary(summarizePortfolio(holdings));
     } catch (error) {
       console.error('Error fetching portfolio holdings:', error);
-      toast.error('Failed to fetch portfolio holdings');
     }
-  }, [user, session]);
+  }, [user?.id]);
 
   // Fetch portfolio summary
   const fetchPortfolioSummary = useCallback(async () => {
-    if (!user || !session) return;
-
-    try {
-      const { data, error } = await supabase.functions.invoke('manage-portfolio', {
-        body: { method: 'SUMMARY' },
-        headers: {
-          Authorization: `Bearer ${session.access_token}`,
-        },
-      });
-
-      if (error) throw error;
-      setPortfolioSummary(data.data || {});
-    } catch (error) {
-      console.error('Error fetching portfolio summary:', error);
-    }
-  }, [user, session]);
+    setPortfolioSummary(summarizePortfolio(portfolioHoldings));
+  }, [portfolioHoldings]);
 
   // Fetch savings target
   const fetchSavingsTarget = useCallback(async () => {
@@ -207,14 +223,13 @@ export const useFinancialDashboard = () => {
       
       toast.success(`Updated ${data.updated_count} asset prices`);
       await fetchPortfolioHoldings();
-      await fetchPortfolioSummary();
     } catch (error) {
       console.error('Error refreshing prices:', error);
       toast.error('Failed to refresh prices');
     } finally {
       setLoading(false);
     }
-  }, [fetchPortfolioHoldings, fetchPortfolioSummary]);
+  }, [fetchPortfolioHoldings]);
 
   // Add financial entry
   const addFinancialEntry = useCallback(async (entry: Omit<FinancialEntry, 'id' | 'created_at'>) => {
@@ -303,14 +318,13 @@ export const useFinancialDashboard = () => {
       
       toast.success('Holding added');
       await fetchPortfolioHoldings();
-      await fetchPortfolioSummary();
       return data.data;
     } catch (error) {
       console.error('Error adding portfolio holding:', error);
       toast.error(error.message || 'Failed to add holding');
       throw error;
     }
-  }, [user, session, fetchPortfolioHoldings, fetchPortfolioSummary]);
+  }, [user, session, fetchPortfolioHoldings]);
 
   // Update portfolio holding
   const updatePortfolioHolding = useCallback(async (id: string, updates: Partial<PortfolioHolding>) => {
@@ -328,14 +342,13 @@ export const useFinancialDashboard = () => {
       
       toast.success('Holding updated');
       await fetchPortfolioHoldings();
-      await fetchPortfolioSummary();
       return data.data;
     } catch (error) {
       console.error('Error updating portfolio holding:', error);
       toast.error('Failed to update holding');
       throw error;
     }
-  }, [user, session, fetchPortfolioHoldings, fetchPortfolioSummary]);
+  }, [user, session, fetchPortfolioHoldings]);
 
   // Delete portfolio holding
   const deletePortfolioHolding = useCallback(async (id: string) => {
@@ -353,13 +366,12 @@ export const useFinancialDashboard = () => {
       
       toast.success('Holding deleted');
       await fetchPortfolioHoldings();
-      await fetchPortfolioSummary();
     } catch (error) {
       console.error('Error deleting portfolio holding:', error);
       toast.error('Failed to delete holding');
       throw error;
     }
-  }, [user, session, fetchPortfolioHoldings, fetchPortfolioSummary]);
+  }, [user, session, fetchPortfolioHoldings]);
 
   // Calculate current month savings progress
   const getCurrentMonthSavings = useCallback(() => {
@@ -499,7 +511,6 @@ export const useFinancialDashboard = () => {
 
     fetchFinancialEntries();
     fetchPortfolioHoldings();
-    fetchPortfolioSummary();
     fetchInsights();
     fetchSavingsTarget();
     fetchMonthlyBudget();
@@ -509,7 +520,6 @@ export const useFinancialDashboard = () => {
       .channel(`fin-entries-rt-${user.id}`)
       .on('postgres_changes' as any, { event: '*', schema: 'public', table: 'financial_data', filter: `user_id=eq.${user.id}` }, () => {
         fetchFinancialEntries();
-        fetchPortfolioSummary();
         fetchInsights();
       })
       .subscribe();
@@ -519,7 +529,6 @@ export const useFinancialDashboard = () => {
       .channel(`fin-holdings-rt-${user.id}`)
       .on('postgres_changes' as any, { event: '*', schema: 'public', table: 'portfolio_holdings', filter: `user_id=eq.${user.id}` }, () => {
         fetchPortfolioHoldings();
-        fetchPortfolioSummary();
       })
       .subscribe();
 
@@ -527,7 +536,7 @@ export const useFinancialDashboard = () => {
       supabase.removeChannel(entriesChannel);
       supabase.removeChannel(holdingsChannel);
     };
-  }, [user?.id, session?.access_token]);
+  }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Fetch news when holdings change
   useEffect(() => {

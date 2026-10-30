@@ -252,7 +252,7 @@ const SupportTab = () => {
     toast.success('Reply sent');
   };
 
-  const updateStatus = async (ticketId: string, status: string) => {
+  const updateStatus = async (ticketId: string, status: DbTicket['status']) => {
     await supabase.from('support_tickets').update({ status }).eq('id', ticketId);
     setTickets(prev => prev.map(t => t.id === ticketId ? { ...t, status: status as DbTicket['status'] } : t));
     if (selected?.id === ticketId) setSelected(s => s ? { ...s, status: status as DbTicket['status'] } : s);
@@ -305,7 +305,11 @@ const SupportTab = () => {
                 <p className="text-white font-semibold text-sm">{selected.user_name}</p>
                 <p className="text-white/40 text-xs">{selected.subject}</p>
               </div>
-              <Select value={selected.status} onValueChange={v => updateStatus(selected.id, v)}>
+              <Select value={selected.status} onValueChange={v => {
+                if (v === 'open' || v === 'in_progress' || v === 'resolved') {
+                  updateStatus(selected.id, v);
+                }
+              }}>
                 <SelectTrigger className="w-32 h-7 bg-white/5 border-white/15 text-white text-xs">
                   <SelectValue />
                 </SelectTrigger>
@@ -465,7 +469,7 @@ const DiscountsTab = () => {
   const [codes, setCodes] = useState<DiscountCode[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({ code: '', type: 'percent', value: 20, max_uses: '', expires_at: '' });
+  const [form, setForm] = useState({ code: '', type: 'percent' as DiscountCode['type'], value: 20, max_uses: '', expires_at: '' });
 
   const loadCodes = useCallback(async () => {
     setLoading(true);
@@ -530,7 +534,7 @@ const DiscountsTab = () => {
             </div>
             <div>
               <Label className="text-white/60 text-xs mb-1 block">Type</Label>
-              <Select value={form.type} onValueChange={v => setForm(f => ({ ...f, type: v }))}>
+              <Select value={form.type} onValueChange={v => setForm(f => ({ ...f, type: v as DiscountCode['type'] }))}>
                 <SelectTrigger className="bg-white/5 border-white/15 text-white text-sm">
                   <SelectValue />
                 </SelectTrigger>

@@ -21,17 +21,15 @@ export default defineConfig(({ mode }) => ({
       filename: "sw.js",
       manifest: false, // We ship our own /public/manifest.json
       workbox: {
-        // Cache strategy: network-first for API/auth calls, cache-first for assets
+        // Remove private responses cached by older releases on worker activation.
+        importScripts: ['clear-private-cache.js'],
+        // Only public resources are eligible for offline caching.
         runtimeCaching: [
           {
-            // Supabase API — network-first, 10s timeout, fallback to cache
+            // Never store authenticated responses or reuse another session's data.
             urlPattern: /^https:\/\/.*\.supabase\.co\//,
-            handler: "NetworkFirst",
-            options: {
-              cacheName: "supabase-api",
-              networkTimeoutSeconds: 10,
-              expiration: { maxEntries: 50, maxAgeSeconds: 300 },
-            },
+            handler: "NetworkOnly",
+            options: { fetchOptions: { cache: 'no-store' } },
           },
           {
             // External data APIs (prayer times, weather, exchange rates)

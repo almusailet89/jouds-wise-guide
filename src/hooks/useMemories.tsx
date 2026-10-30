@@ -44,7 +44,11 @@ export const useMemories = () => {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setMemories((data ?? []) as UserMemory[]);
+      const meaningful = ((data ?? []) as UserMemory[]).filter(memory => {
+        const content = memory.content?.trim();
+        return Boolean(content && content !== '(لم تُملأ بعد)' && content !== '(not filled yet)');
+      });
+      setMemories(meaningful);
     } catch (err) {
       console.error('[useMemories] load failed:', err);
     } finally {

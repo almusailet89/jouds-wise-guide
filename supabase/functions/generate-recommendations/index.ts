@@ -138,13 +138,12 @@ Rules:
     return new Response(JSON.stringify({ error: 'generation_failed' }), { status: 500, headers: cors });
   }
 
-  // ── Persist — replace non-dismissed recs older than 3 days ──────────────────
-  const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString();
+  // Replace the previous active batch only after a new batch has been parsed.
+  // Keeping multiple active generations produced duplicate and stale advice.
   await supabase.from('ai_recommendations')
     .delete()
     .eq('user_id', userId)
-    .is('dismissed_at', null)
-    .lt('created_at', threeDaysAgo);
+    .is('dismissed_at', null);
 
   const rows = recs.map(r => {
     const kind = r.kind ?? 'planning';

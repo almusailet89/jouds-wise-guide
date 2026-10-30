@@ -23,7 +23,7 @@ const SettingsHub: React.FC<SettingsHubProps> = ({ onNavigate, onOpenProfile }) 
   const { isAdmin } = useRoles();
   const [active, setActive] = useState<SettingsTab>('profile');
 
-  const TABS: { value: SettingsTab; label: string; icon: React.ElementType; adminOnly?: boolean }[] = [
+  const tabs: { value: SettingsTab; label: string; icon: React.ElementType; adminOnly?: boolean }[] = [
     { value: 'profile',       label: lang === 'ar' ? 'الحساب' : 'Account',       icon: UserCog },
     { value: 'voice',         label: lang === 'ar' ? 'الصوت' : 'Voice',          icon: Mic2 },
     { value: 'calendar',      label: t('settings.tab.calendar'),                  icon: CalendarDays },
@@ -31,7 +31,8 @@ const SettingsHub: React.FC<SettingsHubProps> = ({ onNavigate, onOpenProfile }) 
     { value: 'integrations',  label: t('settings.tab.integrations'),              icon: Link2 },
     { value: 'notifications', label: t('settings.tab.notifications'),             icon: Bell },
     { value: 'security',      label: t('settings.tab.security'),                  icon: Shield },
-  ].filter(tab => !tab.adminOnly || isAdmin());
+  ];
+  const TABS = tabs.filter(tab => !tab.adminOnly || isAdmin());
 
   return (
     <div className="space-y-4">

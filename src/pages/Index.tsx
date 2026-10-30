@@ -49,7 +49,7 @@ function useSaudiSignal() {
 /* ─── Features ───────────────────────────────────────────────────── */
 const features = [
   { icon: MessageSquare, titleAr: "مساعد ذكي",    titleEn: "AI Chat",          descEn: "Natural bilingual conversations in Arabic and English, always on point." },
-  { icon: TrendingUp,    titleAr: "تحليل مالي",    titleEn: "Financial Advisor", descEn: "Portfolio, budget, and Zakat engine built for Saudi wealth." },
+  { icon: TrendingUp,    titleAr: "تنظيم مالي",    titleEn: "Money Organizer", descEn: "Track budgets, personal records, goals, and Zakat estimates in Saudi Riyal." },
   { icon: Calendar,      titleAr: "مخطط ذكي",     titleEn: "Smart Planner",     descEn: "Prayer-aware scheduling that respects your day and your deen." },
   { icon: Heart,         titleAr: "متابعة المزاج", titleEn: "Mood Tracker",      descEn: "Gentle daily check-ins with insights that actually help." },
   { icon: Mic,           titleAr: "صوت جود",       titleEn: "Jood Voice",      descEn: "Premium Saudi Arabic voice. Speaks your language, your register." },
@@ -58,7 +58,7 @@ const features = [
 
 const whyPoints = [
   { icon: Globe,  titleEn: "Saudi-Native", descEn: "Hijri calendar, prayer times, Zakat engine, SAR. All built-in, not bolted on." },
-  { icon: Shield, titleEn: "PDPL-Ready",   descEn: "Data processed within Kingdom frameworks. Your information stays yours.", pdpl: true },
+  { icon: Shield, titleEn: "Privacy Controls", descEn: "Review what Jood remembers and manage your personal information from one place." },
   { icon: Zap,    titleEn: "One App",      descEn: "Money, time, wellness, and voice. One app instead of five." },
 ];
 
@@ -87,7 +87,7 @@ export default function Index() {
           </span>
           <div className="flex items-center gap-3">
             <button onClick={() => navigate('/auth')} className="jood-btn-outline text-sm px-4 py-2">Sign In</button>
-            <button onClick={() => navigate('/pricing')} className="jood-btn-primary text-sm px-4 py-2">Start Free</button>
+            <button onClick={() => navigate('/auth')} className="jood-btn-primary text-sm px-4 py-2">Join Beta</button>
           </div>
         </div>
       </header>
@@ -109,7 +109,7 @@ export default function Index() {
           <div className="text-white entrance">
             <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-white/20 bg-white/10 text-xs font-medium text-white/80 mb-6">
               <Star className="w-3 h-3" style={{ color: "hsl(var(--jood-gold-300))" }} />
-              مساعدتك الذكية السعودية الأولى
+              مساعدتك الذكية بفهم سعودي
             </div>
 
             <h1 dir="rtl" className="font-tajawal font-bold text-4xl md:text-5xl leading-tight mb-2 shimmer-text">
@@ -127,8 +127,8 @@ export default function Index() {
             </p>
 
             <div className="flex flex-col sm:flex-row gap-3">
-              <button onClick={() => navigate('/pricing')} className="jood-btn-primary text-base px-8 py-3.5">
-                ابدأ التجربة المجّانية <ChevronRight className="w-4 h-4" />
+              <button onClick={() => navigate('/auth')} className="jood-btn-primary text-base px-8 py-3.5">
+                انضم للنسخة التجريبية <ChevronRight className="w-4 h-4" />
               </button>
               <button onClick={() => navigate('/auth')}
                 className="inline-flex items-center justify-center gap-2 px-8 py-3.5 rounded-full font-semibold text-sm border-2 border-white/30 text-white hover:bg-white/10 transition-colors">
@@ -231,64 +231,22 @@ export default function Index() {
                 </div>
                 <h3 className="font-semibold text-white text-lg mb-2">{w.titleEn}</h3>
                 <p className="text-white/60 text-sm leading-relaxed">{w.descEn}</p>
-                {w.pdpl && <p className="mt-3 text-xs" style={{ color: "hsl(var(--jood-gold-500) / 0.8)" }}>PDPL-registered · SDAIA Ethics</p>}
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* Pricing — two tiers */}
+      {/* Controlled beta — paid plans stay unavailable until entitlements are verified. */}
       <section className="container mx-auto px-4 py-14 text-center">
-        <p className="font-medium text-sm uppercase tracking-widest mb-2" style={{ color: "hsl(var(--jood-gold-500))" }}>Simple pricing</p>
-        <p dir="rtl" className="font-arabic text-muted-foreground text-sm mb-8">ابدأ سبعة أيام مجاناً بدون بطاقة</p>
-
-        <div className="grid sm:grid-cols-2 gap-5 max-w-2xl mx-auto entrance">
-          {/* Essential */}
-          <div className="jood-card p-6 text-center flex flex-col">
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold mb-3 mx-auto"
-              style={{ background: "hsl(var(--jood-teal-500) / 0.1)", color: "hsl(var(--jood-teal-700))" }}>
-              Jood Essential
-            </div>
-            <p className="font-tajawal font-bold text-4xl mb-0.5">
-              59 <span className="text-lg font-medium text-muted-foreground">SAR</span>
-            </p>
-            <p className="text-muted-foreground text-xs mb-4">/ month</p>
-            <ul dir="rtl" className="font-arabic text-[13px] text-muted-foreground space-y-1.5 text-right mb-5 flex-1">
-              <li>محادثة ذكية غير محدودة، عربي وإنجليزي</li>
-              <li>عشرون دقيقة مجلس صوتي شهرياً</li>
-              <li>التقويم والمالية والمزاج والعادات</li>
-              <li>الموجز اليومي من جود</li>
-            </ul>
-            <button onClick={() => navigate('/pricing')} className="jood-btn-outline w-full text-sm py-3">
-              ابدأ التجربة
-            </button>
-          </div>
-
-          {/* Signature — highlighted */}
-          <div className="jood-card p-6 text-center flex flex-col relative"
-            style={{ borderColor: "hsl(var(--jood-gold-500) / 0.45)", boxShadow: "0 8px 32px rgba(184,146,74,0.18)" }}>
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold mb-3 mx-auto"
-              style={{ background: "hsl(var(--jood-gold-500) / 0.12)", color: "hsl(var(--jood-gold-600))" }}>
-              <Star className="w-3 h-3" /> Jood Signature
-            </div>
-            <p className="font-tajawal font-bold text-4xl mb-0.5">
-              89 <span className="text-lg font-medium text-muted-foreground">SAR</span>
-            </p>
-            <p className="text-muted-foreground text-xs mb-4">/ month</p>
-            <ul dir="rtl" className="font-arabic text-[13px] text-muted-foreground space-y-1.5 text-right mb-5 flex-1">
-              <li>كل مزايا Essential</li>
-              <li>ستون دقيقة مجلس صوتي شهرياً</li>
-              <li>ذكاء متقدم للمحادثات النصية</li>
-              <li>ذاكرة موسعة وخصوصية معززة</li>
-              <li>أولوية في الدعم والمزايا الجديدة</li>
-            </ul>
-            <button onClick={() => navigate('/pricing')} className="jood-btn-primary w-full text-sm py-3">
-              ابدأ التجربة <ChevronRight className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
-        <p className="mt-5 text-xs text-muted-foreground">7-day free trial · Cancel anytime</p>
+        <p className="font-medium text-sm uppercase tracking-widest mb-2" style={{ color: "hsl(var(--jood-gold-500))" }}>Private beta</p>
+        <h2 dir="rtl" className="font-tajawal font-bold text-3xl mb-3">ساعدنا نبني جود معك</h2>
+        <p dir="rtl" className="font-arabic text-muted-foreground max-w-xl mx-auto mb-6">
+          النسخة الحالية للتجربة المحدودة. الاشتراكات المدفوعة ستتوفر بعد اكتمال اختبارات الأمان والدفع وجودة الخدمة.
+        </p>
+        <button onClick={() => navigate('/auth')} className="jood-btn-primary text-base px-8 py-3.5">
+          انضم للنسخة التجريبية <ChevronRight className="w-4 h-4" />
+        </button>
       </section>
 
       {/* Footer */}
@@ -304,12 +262,12 @@ export default function Index() {
             <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
               <button onClick={() => navigate('/terms')} className="hover:text-foreground transition-colors">Terms</button>
               <button onClick={() => navigate('/privacy')} className="hover:text-foreground transition-colors">Privacy</button>
-              <button onClick={() => navigate('/pricing')} className="hover:text-foreground transition-colors">Pricing</button>
+              <button onClick={() => navigate('/pricing')} className="hover:text-foreground transition-colors">Beta Access</button>
             </div>
           </div>
           <div className="mt-5 pt-4 border-t border-border/30 flex flex-col md:flex-row items-center justify-between gap-3 text-xs text-muted-foreground">
             <p>© {new Date().getFullYear()} JOOD AI. All rights reserved.</p>
-            <p>PDPL-compliant · SDAIA AI Ethics · CITC licensed (pending)</p>
+            <p>Private beta · Features and availability may change</p>
           </div>
         </div>
       </footer>

@@ -1,19 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
+import React, { useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
-import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/hooks/useLanguage';
-import { cn } from '@/lib/utils';
-import {
-  CheckCircle2, Circle, ExternalLink, ChevronDown, ChevronUp,
-  Zap, Bell, Mail, Calendar, MessageSquare, Briefcase,
-  Globe, Settings2, Info,
-} from 'lucide-react';
 
 // ─── Integration definitions ─────────────────────────────────────────────────
 interface Integration {
@@ -170,303 +158,42 @@ const INTEGRATIONS: Integration[] = [
   },
 ];
 
-const CATEGORY_ICONS: Record<string, React.ElementType> = {
-  communication: MessageSquare,
-  calendar:      Calendar,
-  productivity:  Zap,
-  finance:       Briefcase,
-};
-
-const STORAGE_KEY = 'jood.integrations';
-
-// ─── Integration Card ─────────────────────────────────────────────────────────
-const IntegrationCard: React.FC<{
-  integration: Integration;
-  connected: boolean;
-  apiKey: string;
-  onConnect: (id: string) => void;
-  onDisconnect: (id: string) => void;
-  onKeyChange: (id: string, key: string) => void;
-  notifEnabled: boolean;
-  onToggleNotif: (id: string, v: boolean) => void;
-}> = ({ integration, connected, apiKey, onConnect, onDisconnect, onKeyChange, notifEnabled, onToggleNotif }) => {
-  const [expanded, setExpanded] = useState(false);
-  const [inputVal, setInputVal] = useState(apiKey);
-  const { t, lang } = useLanguage();
-
-  const isComingSoon = integration.authType === 'coming_soon';
-  const displayName = lang === 'ar' ? integration.nameAr : integration.name;
-  const displayDesc = lang === 'ar' ? integration.descAr : integration.description;
-
-  return (
-    <motion.div
-      layout
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      className={cn(
-        'border rounded-2xl overflow-hidden transition-all duration-200',
-        connected ? 'border-jood-teal-700/40 bg-jood-teal-900/5' : 'border-border/40 bg-card',
-        isComingSoon && 'opacity-60',
-      )}
-    >
-      {/* Main row */}
-      <div className="flex items-center gap-3 p-4">
-        <div className={cn('w-10 h-10 rounded-xl flex items-center justify-center text-xl flex-shrink-0', integration.color, 'bg-opacity-15 dark:bg-opacity-20')}>
-          {integration.icon}
-        </div>
-
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <span className="font-semibold text-sm text-foreground font-arabic">{displayName}</span>
-            {connected && <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" />}
-            {isComingSoon && <Badge variant="secondary" className="text-[10px] font-arabic">{t('integr.coming.soon')}</Badge>}
-          </div>
-          <p className="text-xs text-muted-foreground font-arabic mt-0.5 truncate">{displayDesc}</p>
-        </div>
-
-        <div className="flex items-center gap-2 flex-shrink-0">
-          {connected && (
-            <Switch
-              checked={notifEnabled}
-              onCheckedChange={v => onToggleNotif(integration.id, v)}
-              className="scale-90"
-            />
-          )}
-          {!isComingSoon && (
-            <Button
-              size="sm"
-              variant={connected ? 'outline' : 'default'}
-              className={cn(
-                'h-8 text-xs font-arabic rounded-xl',
-                connected
-                  ? 'border-border/40 text-muted-foreground hover:text-destructive hover:border-destructive/40'
-                  : 'bg-jood-teal-900 hover:bg-jood-teal-800 text-white',
-              )}
-              onClick={() => {
-                if (connected) onDisconnect(integration.id);
-                else if (integration.authType === 'oauth') onConnect(integration.id);
-                else setExpanded(!expanded);
-              }}
-            >
-              {connected ? t('integr.btn.disconnect') : integration.authType === 'apikey' ? t('integr.btn.connect') : t('integr.btn.login')}
-            </Button>
-          )}
-          <button
-            onClick={() => setExpanded(!expanded)}
-            className="text-muted-foreground hover:text-foreground p-1"
-          >
-            {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-          </button>
-        </div>
-      </div>
-
-      {/* Expanded panel */}
-      {expanded && (
-        <div className="px-4 pb-4 border-t border-border/20 pt-3 space-y-3">
-          {/* Capabilities */}
-          <div>
-            <p className="text-[11px] font-arabic text-muted-foreground mb-2">{t('integr.capabilities')}</p>
-            <div className="flex flex-wrap gap-1.5">
-              {(lang === 'ar' ? integration.capabilities : integration.capabilitiesEn).map(cap => (
-                <span key={cap} className="text-[11px] font-arabic px-2 py-0.5 bg-muted/60 rounded-full text-foreground/70">
-                  {cap}
-                </span>
-              ))}
-            </div>
-          </div>
-
-          {/* API Key input for apikey auth */}
-          {!connected && integration.authType === 'apikey' && (
-            <div className="space-y-2">
-              <Label className="text-xs font-arabic text-muted-foreground">{integration.keyLabel}</Label>
-              <div className="flex gap-2">
-                <Input
-                  type="password"
-                  value={inputVal}
-                  onChange={e => { setInputVal(e.target.value); onKeyChange(integration.id, e.target.value); }}
-                  placeholder={t('integr.key.placeholder')}
-                  className="text-sm font-mono h-9"
-                  dir="ltr"
-                />
-                <Button
-                  size="sm"
-                  onClick={() => { if (inputVal.trim()) onConnect(integration.id); }}
-                  className="h-9 bg-jood-teal-900 hover:bg-jood-teal-800 text-white text-xs font-arabic"
-                  disabled={!inputVal.trim()}
-                >
-                  {t('integr.btn.connect')}
-                </Button>
-              </div>
-            </div>
-          )}
-
-          {/* OAuth instructions */}
-          {!connected && integration.authType === 'oauth' && (
-            <div className="flex items-start gap-2 p-2.5 bg-muted/40 rounded-xl">
-              <Info className="w-3.5 h-3.5 text-muted-foreground mt-0.5 flex-shrink-0" />
-              <p className="text-[11px] font-arabic text-muted-foreground leading-relaxed">
-                {t('integr.oauth.hint')}
-              </p>
-            </div>
-          )}
-
-          {/* Coming soon */}
-          {isComingSoon && (
-            <div className="flex items-center gap-2 text-xs font-arabic text-muted-foreground">
-              <Settings2 className="w-3.5 h-3.5" />
-              {t('integr.dev.msg')}
-            </div>
-          )}
-
-          {/* Connected state */}
-          {connected && (
-            <div className="flex items-center gap-2 p-2.5 bg-emerald-500/5 rounded-xl border border-emerald-500/20">
-              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
-              <div className="flex-1">
-                <p className="text-xs font-arabic text-emerald-600 font-semibold">{t('integr.success')}</p>
-                <p className="text-[10px] font-arabic text-muted-foreground mt-0.5">
-                  {t('notif.types.title')} {notifEnabled ? t('integr.notif.on') : t('integr.notif.off')} {t('integr.notif.hint')}
-                </p>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-    </motion.div>
-  );
-};
-
-// ─── Main Component ───────────────────────────────────────────────────────────
+// These providers have no verified connection backend yet. Never accept keys or
+// report a connection based on browser-local state.
 const IntegrationsHub: React.FC = () => {
-  const { toast } = useToast();
-  const { t, lang } = useLanguage();
-  const [activeCategory, setActiveCategory] = useState<string>('all');
+  const { lang, dir, t } = useLanguage();
 
-  // Persisted state: { [id]: { connected, apiKey, notifEnabled } }
-  const [states, setStates] = useState<Record<string, { connected: boolean; apiKey: string; notifEnabled: boolean }>>(() => {
-    try {
-      return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
-    } catch { return {}; }
-  });
-
-  const save = (next: typeof states) => {
-    setStates(next);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-  };
-
-  const get = (id: string) => states[id] ?? { connected: false, apiKey: '', notifEnabled: true };
-
-  const handleConnect = (id: string) => {
-    const integration = INTEGRATIONS.find(i => i.id === id);
-    if (!integration) return;
-
-    const displayName = lang === 'ar' ? integration.nameAr : integration.name;
-    if (integration.authType === 'oauth') {
-      toast({ title: `${displayName}…` });
-      setTimeout(() => {
-        save({ ...states, [id]: { connected: true, apiKey: '', notifEnabled: true } });
-        toast({ title: `✓ ${t('integr.success')} — ${displayName}` });
-      }, 1500);
-    } else {
-      const cur = get(id);
-      if (!cur.apiKey.trim()) return;
-      save({ ...states, [id]: { ...cur, connected: true } });
-      toast({ title: `✓ ${t('integr.success')} — ${displayName}` });
-    }
-  };
-
-  const handleDisconnect = (id: string) => {
-    const integration = INTEGRATIONS.find(i => i.id === id);
-    const displayName = integration ? (lang === 'ar' ? integration.nameAr : integration.name) : '';
-    save({ ...states, [id]: { connected: false, apiKey: '', notifEnabled: true } });
-    toast({ title: `${t('integr.btn.disconnect')} — ${displayName}`, variant: 'default' });
-  };
-
-  const handleKeyChange = (id: string, key: string) => {
-    const cur = get(id);
-    save({ ...states, [id]: { ...cur, apiKey: key } });
-  };
-
-  const handleToggleNotif = (id: string, v: boolean) => {
-    const cur = get(id);
-    save({ ...states, [id]: { ...cur, notifEnabled: v } });
-  };
-
-  const connectedCount = Object.values(states).filter(s => s.connected).length;
-  const categories = ['all', ...Array.from(new Set(INTEGRATIONS.map(i => i.category)))];
-
-  const filtered = activeCategory === 'all'
-    ? INTEGRATIONS
-    : INTEGRATIONS.filter(i => i.category === activeCategory);
+  useEffect(() => {
+    // Retire API keys saved by the previous simulated integration screen.
+    localStorage.removeItem('jood.integrations');
+  }, []);
 
   return (
-    <div className="space-y-5">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h3 className="font-bold text-foreground font-arabic text-base">{t('integr.title')}</h3>
-          <p className="text-xs text-muted-foreground font-arabic mt-0.5">
-            {t('integr.subtitle')}
-          </p>
-        </div>
-        {connectedCount > 0 && (
-          <Badge className="bg-jood-teal-900/10 text-jood-teal-700 border-jood-teal-700/20 font-arabic text-xs">
-            {connectedCount} {t('integr.connected')}
-          </Badge>
-        )}
-      </div>
-
-      {/* Category filter */}
-      <div className="flex gap-1.5 flex-wrap">
-        {categories.map(cat => {
-          const Icon = cat === 'all' ? Globe : (CATEGORY_ICONS[cat] ?? Globe);
-          const label = cat === 'all' ? t('integr.cat.all') : t(`integr.cat.${cat}` as any);
-          return (
-            <button
-              key={cat}
-              onClick={() => setActiveCategory(cat)}
-              className={cn(
-                'flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-arabic transition-all duration-150',
-                activeCategory === cat
-                  ? 'bg-jood-teal-900 text-white shadow-sm'
-                  : 'bg-muted/50 text-muted-foreground hover:text-foreground border border-border/30',
-              )}
-            >
-              <Icon className="w-3.5 h-3.5" />
-              {label}
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Integration cards */}
-      <div className="space-y-2.5">
-        {filtered.map((integration, i) => {
-          const st = get(integration.id);
-          return (
-            <IntegrationCard
-              key={integration.id}
-              integration={integration}
-              connected={st.connected}
-              apiKey={st.apiKey}
-              notifEnabled={st.notifEnabled}
-              onConnect={handleConnect}
-              onDisconnect={handleDisconnect}
-              onKeyChange={handleKeyChange}
-              onToggleNotif={handleToggleNotif}
-            />
-          );
-        })}
-      </div>
-
-      {/* Footer note */}
-      <div className="flex items-start gap-2 p-3 bg-muted/30 rounded-xl border border-border/20">
-        <Info className="w-3.5 h-3.5 text-muted-foreground mt-0.5 flex-shrink-0" />
-        <p className="text-[11px] font-arabic text-muted-foreground leading-relaxed">
-          {t('integr.privacy')}
+    <section className="space-y-5" dir={dir} aria-labelledby="integrations-title">
+      <div>
+        <h3 id="integrations-title" className="font-bold font-arabic text-base">{t('integr.title')}</h3>
+        <p className="text-sm text-muted-foreground font-arabic mt-2">
+          {lang === 'ar'
+            ? 'الربط بالخدمات الخارجية غير متاح حالياً. ستظهر خيارات الربط هنا عندما تصبح جاهزة للاستخدام.'
+            : 'External service connections are not available yet. Connection options will appear here when they are ready to use.'}
         </p>
       </div>
-    </div>
+      <div className="grid gap-3 sm:grid-cols-2">
+        {INTEGRATIONS.map(integration => (
+          <Card key={integration.id}>
+            <CardContent className="p-4 flex items-center gap-3">
+              <span aria-hidden="true" className="text-2xl">{integration.icon}</span>
+              <span className="font-arabic font-medium flex-1">
+                {lang === 'ar' ? integration.nameAr : integration.name}
+              </span>
+              <Badge variant="secondary" className="font-arabic">
+                {lang === 'ar' ? 'غير متاح بعد' : 'Not available yet'}
+              </Badge>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    </section>
   );
 };
 

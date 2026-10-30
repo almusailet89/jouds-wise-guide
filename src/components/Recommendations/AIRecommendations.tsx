@@ -77,8 +77,9 @@ export const AIRecommendations: React.FC<AIRecommendationsProps> = ({ onNavigate
       .from('ai_recommendations')
       .select('*')
       .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
       .order('priority', { ascending: false })
-      .order('created_at', { ascending: false });
+      .limit(100);
     if (!error && data) setItems(data as Recommendation[]);
     setLoading(false);
   }, [user]);
@@ -87,7 +88,18 @@ export const AIRecommendations: React.FC<AIRecommendationsProps> = ({ onNavigate
 
   // ── Filtered list ────────────────────────────────────────────────────────────
   const filtered = useMemo(() => {
-    return items.filter(r => {
+    const active = items.filter(item => !item.dismissed_at);
+    const newest = active[0]?.created_at ? new Date(active[0].created_at).getTime() : 0;
+    const batchStart = newest - 10 * 60 * 1000;
+    const currentBatch = active
+      .filter(item => new Date(item.created_at).getTime() >= batchStart)
+      .sort((a, b) => b.priority - a.priority)
+      .slice(0, 9);
+    const visible = showDismissed
+      ? [...currentBatch, ...items.filter(item => item.dismissed_at)]
+      : currentBatch;
+
+    return visible.filter(r => {
       if (!showDismissed && r.dismissed_at) return false;
       if (filter !== 'all' && r.kind !== filter) return false;
       return true;
@@ -96,7 +108,11 @@ export const AIRecommendations: React.FC<AIRecommendationsProps> = ({ onNavigate
 
   // ── Counts per kind ──────────────────────────────────────────────────────────
   const counts = useMemo(() => {
-    const active = items.filter(i => !i.dismissed_at);
+    const activeItems = items.filter(item => !item.dismissed_at);
+    const newest = activeItems[0]?.created_at ? new Date(activeItems[0].created_at).getTime() : 0;
+    const active = activeItems
+      .filter(item => new Date(item.created_at).getTime() >= newest - 10 * 60 * 1000)
+      .slice(0, 9);
     return {
       all: active.length,
       finance: active.filter(i => i.kind === 'finance').length,
@@ -178,7 +194,7 @@ export const AIRecommendations: React.FC<AIRecommendationsProps> = ({ onNavigate
             {t(showDismissed ? 'rec.hide.dismissed' : 'rec.show.dismissed')}
           </Button>
           <Button
-            onClick={generate} disabled={generating} size="sm"
+            onClick={() => generate()} disabled={generating} size="sm"
             className="bg-gradient-to-r from-jood-teal-900 to-jood-teal-700 text-white gap-1.5 font-arabic"
           >
             {generating
@@ -234,7 +250,7 @@ export const AIRecommendations: React.FC<AIRecommendationsProps> = ({ onNavigate
           <CardContent className="py-12 text-center">
             <Sparkles className="w-10 h-10 mx-auto mb-3 text-muted-foreground/40" />
             <p className="text-sm font-arabic text-muted-foreground mb-3">{t('rec.empty')}</p>
-            <Button onClick={generate} size="sm" variant="outline" className="font-arabic">
+            <Button onClick={() => generate()} size="sm" variant="outline" className="font-arabic">
               <RefreshCcw className="w-3.5 h-3.5 ml-1" /> {t('rec.empty.btn')}
             </Button>
           </CardContent>

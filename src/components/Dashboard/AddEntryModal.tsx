@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { useFinancialDashboard } from '@/hooks/useFinancialDashboard';
+import type { FinancialEntry } from '@/hooks/useFinancialDashboard';
 import { useLanguage } from '@/hooks/useLanguage';
 import { Loader2 } from 'lucide-react';
 import { normalizeNumerals } from '@/lib/utils';
@@ -13,6 +13,7 @@ import { normalizeNumerals } from '@/lib/utils';
 interface AddEntryModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onAdd: (entry: Omit<FinancialEntry, 'id' | 'created_at'>) => Promise<FinancialEntry | undefined>;
 }
 
 const CATEGORIES_AR = {
@@ -26,8 +27,7 @@ const CATEGORIES_EN = {
   savings: ['Emergency Fund', 'Investment', 'Specific Goal', 'Other'],
 };
 
-export const AddEntryModal: React.FC<AddEntryModalProps> = ({ open, onOpenChange }) => {
-  const { addFinancialEntry } = useFinancialDashboard();
+export const AddEntryModal: React.FC<AddEntryModalProps> = ({ open, onOpenChange, onAdd }) => {
   const { t, tg, lang, dir } = useLanguage();
   const CATEGORIES = lang === 'ar' ? CATEGORIES_AR : CATEGORIES_EN;
   const [loading, setLoading] = useState(false);
@@ -48,7 +48,7 @@ export const AddEntryModal: React.FC<AddEntryModalProps> = ({ open, onOpenChange
     if (!form.type || !form.amount) return;
     setLoading(true);
     try {
-      await addFinancialEntry({
+      await onAdd({
         type:        form.type,
         amount:      parseFloat(form.amount),
         currency:    form.currency,

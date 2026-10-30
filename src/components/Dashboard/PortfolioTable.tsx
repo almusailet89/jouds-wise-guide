@@ -2,16 +2,16 @@ import React, { useState } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { PortfolioHolding, useFinancialDashboard } from '@/hooks/useFinancialDashboard';
+import type { PortfolioHolding } from '@/hooks/useFinancialDashboard';
 import { Trash2, TrendingUp, TrendingDown } from 'lucide-react';
 import { useLanguage } from '@/hooks/useLanguage';
 
 interface PortfolioTableProps {
   holdings: PortfolioHolding[];
+  onDelete: (id: string) => Promise<void>;
 }
 
-export const PortfolioTable: React.FC<PortfolioTableProps> = ({ holdings }) => {
-  const { deletePortfolioHolding } = useFinancialDashboard();
+export const PortfolioTable: React.FC<PortfolioTableProps> = ({ holdings, onDelete }) => {
   const { t, tg, lang, dir } = useLanguage();
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
@@ -19,7 +19,7 @@ export const PortfolioTable: React.FC<PortfolioTableProps> = ({ holdings }) => {
     if (confirm(t('port.delete.confirm'))) {
       setDeletingId(id);
       try {
-        await deletePortfolioHolding(id);
+        await onDelete(id);
       } catch (error) {
         console.error('Error deleting holding:', error);
       } finally {

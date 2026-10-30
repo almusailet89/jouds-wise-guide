@@ -1,3 +1,5 @@
+// Repository schema snapshot, maintained against supabase/migrations.
+// Regenerate against verified staging before production deployment.
 export type Json =
   | string
   | number
@@ -14,6 +16,192 @@ export type Database = {
   }
   public: {
     Tables: {
+      events: {
+        Row: {
+          id: string
+          user_id: string
+          title: string
+          description: string | null
+          starts_at: string
+          ends_at: string | null
+          start_at: string | null
+          end_at: string | null
+          all_day: boolean
+          category: string | null
+          color: string | null
+          location: string | null
+          recurrence: string | null
+          recurrence_rule: Json | null
+          hijri_anchor: boolean
+          reminder_min: number | null
+          prayer_linked: string | null
+          source: string | null
+          completed_at: string | null
+          metadata: Json | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          title: string
+          description?: string | null
+          starts_at: string
+          ends_at?: string | null
+          start_at?: string | null
+          end_at?: string | null
+          all_day?: boolean
+          category?: string | null
+          color?: string | null
+          location?: string | null
+          recurrence?: string | null
+          recurrence_rule?: Json | null
+          hijri_anchor?: boolean
+          reminder_min?: number | null
+          prayer_linked?: string | null
+          source?: string | null
+          completed_at?: string | null
+          metadata?: Json | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          title?: string
+          description?: string | null
+          starts_at?: string
+          ends_at?: string | null
+          start_at?: string | null
+          end_at?: string | null
+          all_day?: boolean
+          category?: string | null
+          color?: string | null
+          location?: string | null
+          recurrence?: string | null
+          recurrence_rule?: Json | null
+          hijri_anchor?: boolean
+          reminder_min?: number | null
+          prayer_linked?: string | null
+          source?: string | null
+          completed_at?: string | null
+          metadata?: Json | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      app_feature_flags: {
+        Row: {
+          key: string
+          enabled: boolean
+          label: string | null
+          updated_at: string
+        }
+        Insert: {
+          key: string
+          enabled?: boolean
+          label?: string | null
+          updated_at?: string
+        }
+        Update: {
+          key?: string
+          enabled?: boolean
+          label?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      support_tickets: {
+        Row: {
+          id: string
+          user_id: string
+          subject: string
+          status: "open" | "in_progress" | "resolved"
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          subject: string
+          status?: "open" | "in_progress" | "resolved"
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          subject?: string
+          status?: "open" | "in_progress" | "resolved"
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      support_messages: {
+        Row: {
+          id: string
+          ticket_id: string
+          sender_role: "user" | "jood" | "admin"
+          content: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          ticket_id: string
+          sender_role: "user" | "jood" | "admin"
+          content: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          ticket_id?: string
+          sender_role?: "user" | "jood" | "admin"
+          content?: string
+          created_at?: string
+        }
+        Relationships: []
+      }
+      discount_codes: {
+        Row: {
+          id: string
+          code: string
+          type: "percent" | "fixed"
+          value: number
+          used_count: number
+          max_uses: number | null
+          expires_at: string | null
+          active: boolean
+          created_by: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          code: string
+          type: "percent" | "fixed"
+          value: number
+          used_count?: number
+          max_uses?: number | null
+          expires_at?: string | null
+          active?: boolean
+          created_by?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          code?: string
+          type?: "percent" | "fixed"
+          value?: number
+          used_count?: number
+          max_uses?: number | null
+          expires_at?: string | null
+          active?: boolean
+          created_by?: string | null
+          created_at?: string
+        }
+        Relationships: []
+      }
       agreement_versions: {
         Row: {
           content: string
@@ -268,6 +456,21 @@ export type Database = {
       }
       profiles: {
         Row: {
+          gender: "male" | "female" | null
+          phone: string | null
+          date_of_birth: string | null
+          city: string | null
+          nationality: string | null
+          avatar_emoji: string | null
+          bio: string | null
+          working_days: number[] | null
+          weekend_days: number[] | null
+          onboarding_done: boolean
+          timezone: string | null
+          timezone_auto: boolean | null
+          monthly_savings_target: number | null
+          savings_target_date: string | null
+          monthly_budget: number | null
           base_currency: string | null
           created_at: string
           display_name: string | null
@@ -279,6 +482,21 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          gender?: "male" | "female" | null
+          phone?: string | null
+          date_of_birth?: string | null
+          city?: string | null
+          nationality?: string | null
+          avatar_emoji?: string | null
+          bio?: string | null
+          working_days?: number[] | null
+          weekend_days?: number[] | null
+          onboarding_done?: boolean
+          timezone?: string | null
+          timezone_auto?: boolean | null
+          monthly_savings_target?: number | null
+          savings_target_date?: string | null
+          monthly_budget?: number | null
           base_currency?: string | null
           created_at?: string
           display_name?: string | null
@@ -290,6 +508,21 @@ export type Database = {
           user_id: string
         }
         Update: {
+          gender?: "male" | "female" | null
+          phone?: string | null
+          date_of_birth?: string | null
+          city?: string | null
+          nationality?: string | null
+          avatar_emoji?: string | null
+          bio?: string | null
+          working_days?: number[] | null
+          weekend_days?: number[] | null
+          onboarding_done?: boolean
+          timezone?: string | null
+          timezone_auto?: boolean | null
+          monthly_savings_target?: number | null
+          savings_target_date?: string | null
+          monthly_budget?: number | null
           base_currency?: string | null
           created_at?: string
           display_name?: string | null

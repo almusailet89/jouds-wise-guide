@@ -61,7 +61,8 @@ export const FinancialDashboard: React.FC = () => {
     insights, news, loading,
     monthlyBudget, updateMonthlyBudget,
     getMonthlyFlow,
-    refreshPrices, fetchInsights,
+    refreshPrices, fetchInsights, addFinancialEntry, addPortfolioHolding,
+    deleteFinancialEntry, deletePortfolioHolding,
   } = useFinancialDashboard();
 
   // Filtered entries for the selected period
@@ -199,7 +200,7 @@ export const FinancialDashboard: React.FC = () => {
               {t('fin.add.holding')}
             </Button>
           </div>
-          <PortfolioTable holdings={portfolioHoldings} />
+          <PortfolioTable holdings={portfolioHoldings} onDelete={deletePortfolioHolding} />
           <AllocationChart data={allocationData} title={t('fin.allocation.title')} />
         </motion.div>
       )}
@@ -230,9 +231,14 @@ export const FinancialDashboard: React.FC = () => {
       <ZakatCard />
 
       {/* ── Modals ────────────────────────────────────────────────────── */}
-      <AddEntryModal   open={showAddEntry}   onOpenChange={setShowAddEntry} />
-      <AddHoldingModal open={showAddHolding} onOpenChange={setShowAddHolding} />
-      <FinancialLedgerDrawer open={showLedger} onOpenChange={setShowLedger} />
+      <AddEntryModal open={showAddEntry} onOpenChange={setShowAddEntry} onAdd={addFinancialEntry} />
+      <AddHoldingModal open={showAddHolding} onOpenChange={setShowAddHolding} onAdd={addPortfolioHolding} />
+      <FinancialLedgerDrawer
+        open={showLedger}
+        onOpenChange={setShowLedger}
+        entries={financialEntries}
+        onDelete={deleteFinancialEntry}
+      />
     </div>
   );
 };

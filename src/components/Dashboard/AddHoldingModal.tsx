@@ -5,16 +5,16 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { useFinancialDashboard } from '@/hooks/useFinancialDashboard';
+import type { PortfolioHolding } from '@/hooks/useFinancialDashboard';
 import { Loader2 } from 'lucide-react';
 
 interface AddHoldingModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onAdd: (holding: Omit<PortfolioHolding, 'id' | 'created_at'>) => Promise<PortfolioHolding | undefined>;
 }
 
-export const AddHoldingModal: React.FC<AddHoldingModalProps> = ({ open, onOpenChange }) => {
-  const { addPortfolioHolding } = useFinancialDashboard();
+export const AddHoldingModal: React.FC<AddHoldingModalProps> = ({ open, onOpenChange, onAdd }) => {
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     asset_type: '' as 'stock' | 'crypto' | 'real_estate',
@@ -53,7 +53,7 @@ export const AddHoldingModal: React.FC<AddHoldingModalProps> = ({ open, onOpenCh
         holdingData.avg_price = parseFloat(formData.avg_price);
       }
 
-      await addPortfolioHolding(holdingData);
+      await onAdd(holdingData);
       
       // Reset form
       setFormData({
