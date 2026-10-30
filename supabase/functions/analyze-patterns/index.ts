@@ -1,11 +1,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { corsHeadersFor } from "../_shared/cors.ts";
 
 const MIN_SESSIONS        = 20;  // don't run until user has this many sessions
 const RE_ANALYZE_AFTER    = 10;  // re-run only after this many new sessions since last run
@@ -16,8 +12,35 @@ const VALID_CATEGORIES = [
   'routine','goals','interests','relationships','preferences','pain_points',
 ];
 
+// Constant-time string comparison so the service-role check doesn't leak timing.
+function timingSafeEqual(a: string, b: string): boolean {
+  const enc = new TextEncoder();
+  const ab = enc.encode(a);
+  const bb = enc.encode(b);
+  let diff = ab.length ^ bb.length;
+  const len = Math.max(ab.length, bb.length);
+  for (let i = 0; i < len; i++) diff |= (ab[i] ?? 0) ^ (bb[i] ?? 0);
+  return diff === 0;
+}
+
 serve(async (req) => {
+  const corsHeaders = corsHeadersFor(req);
+  const json = (body: object, status = 200) => new Response(
+    JSON.stringify(body),
+    { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+  );
+  const ok = (body: object) => json(body);
+
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
+
+  // Internal-only: callable solely by ai-chat with the service-role key. Without this,
+  // any anon-key holder could analyze (and write memories into) another user's account.
+  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
+  const authHeader = req.headers.get('Authorization') ?? '';
+  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
+  if (!serviceRoleKey || !token || !timingSafeEqual(token, serviceRoleKey)) {
+    return json({ error: 'Unauthorized' }, 401);
+  }
 
   let user_id = '';
   try {
@@ -26,7 +49,7 @@ serve(async (req) => {
 
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+      serviceRoleKey,
     );
 
     const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
@@ -204,16 +227,6 @@ ${sessionBlocks}
 
   } catch (err: any) {
     console.error(`[analyze-patterns] user=${user_id} error:`, err?.message ?? err);
-    return new Response(
-      JSON.stringify({ error: String(err?.message ?? err) }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
-    );
+    return json({ error: String(err?.message ?? err) }, 500);
   }
 });
-
-function ok(body: object) {
-  return new Response(
-    JSON.stringify(body),
-    { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
-  );
-}
