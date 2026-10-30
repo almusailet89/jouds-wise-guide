@@ -129,8 +129,8 @@ const MobileBottomNav: React.FC<{ activeTab: string; onTabChange: (t: string) =>
   const { t } = useLanguage();
   const NAV = buildNav(t).filter(item => flags[item.value] !== false);
   return (
-  <div className="sm:hidden fixed bottom-0 left-0 right-0 z-40 bg-card/95 backdrop-blur-xl border-t border-jood-gold-500/15 shadow-[0_-4px_20px_rgba(0,0,0,0.06)] safe-area-pb">
-    <div className="flex items-center justify-around px-1 py-1.5">
+  <nav className="sm:hidden fixed inset-x-3 bottom-[calc(env(safe-area-inset-bottom,0px)+0.75rem)] z-40 glass rounded-[26px]">
+    <div className="flex items-center justify-around px-1 py-2">
       {NAV.map(({ value, label, icon: Icon }) => {
         const active = activeTab === value;
         return (
@@ -158,7 +158,7 @@ const MobileBottomNav: React.FC<{ activeTab: string; onTabChange: (t: string) =>
         );
       })}
     </div>
-  </div>
+  </nav>
   );
 };
 
@@ -166,7 +166,8 @@ const MobileBottomNav: React.FC<{ activeTab: string; onTabChange: (t: string) =>
 const Dashboard = () => {
   const { user, signOut } = useAuth();
   const { profile } = useProfile();
-  const { theme, setTheme } = useTheme();
+  const { resolvedTheme, setTheme } = useTheme();
+  const isDark = resolvedTheme === 'dark';
   const { t, lang, dir } = useLanguage();
   const { hasPaymentIssue, openCustomerPortal } = useSubscription();
   const { isAdmin } = useRoles();
@@ -212,7 +213,7 @@ const Dashboard = () => {
   }, []);
 
   return (
-    <div className="min-h-screen bg-background flex flex-col" dir={dir}>
+    <div className="min-h-screen jood-ambient flex flex-col" dir={dir}>
 
       {showOnboarding && (
         <Suspense fallback={null}>
@@ -255,7 +256,7 @@ const Dashboard = () => {
       )}
 
       {/* ── Top bar ─────────────────────────────────────────────────────────── */}
-      <header className="border-b border-border/40 bg-card/80 backdrop-blur-sm sticky top-0 z-40">
+      <header className="glass border-x-0 border-t-0 sticky top-0 z-40">
         <div className="mx-auto px-3 py-2 max-w-screen-2xl flex items-center gap-3">
 
           {/* Brand — living orb mark */}
@@ -299,11 +300,11 @@ const Dashboard = () => {
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+              onClick={() => setTheme(isDark ? 'light' : 'dark')}
               className="h-8 w-8 text-muted-foreground hover:text-foreground"
-              title={theme === 'dark' ? t('header.lightMode') : t('header.darkMode')}
+              title={isDark ? t('header.lightMode') : t('header.darkMode')}
             >
-              {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+              {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
             </Button>
 
             {/* Notification bell */}
@@ -370,12 +371,13 @@ const Dashboard = () => {
       </header>
 
       {/* ── Main ─────────────────────────────────────────────────────────────── */}
-      <div className="flex-1 flex flex-col max-w-screen-2xl mx-auto w-full pb-16 sm:pb-0">
+      <div className="flex-1 flex flex-col max-w-screen-2xl mx-auto w-full pb-28 sm:pb-0">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
 
           {/* Tab nav — desktop only; mobile uses bottom bar */}
           <div className="hidden sm:block px-4 pt-4">
-            <TabsList className="bg-card/60 border border-border/40 backdrop-blur-sm h-auto p-1 gap-0.5 rounded-2xl">
+            <div className="glass inline-flex rounded-2xl">
+            <TabsList className="bg-transparent h-auto p-1 gap-0.5 rounded-2xl">
               {NAV.map(({ value, label, icon: Icon }) => (
                 <TabsTrigger
                   key={value}
@@ -391,6 +393,7 @@ const Dashboard = () => {
                 </TabsTrigger>
               ))}
             </TabsList>
+            </div>
           </div>
 
           {/* ── Home ──────────────────────────────────────────────────────── */}

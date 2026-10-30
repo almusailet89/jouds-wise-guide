@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -38,6 +38,40 @@ const PRAYER_KEYS: Record<string, string> = {
 interface HomeOverviewProps {
   onNavigate: (tab: string) => void;
 }
+
+// Share of this month's income already spent; arc caps at a full ring, label shows the real %.
+const SpendRing: React.FC<{ ratio: number; label: string }> = ({ ratio, label }) => {
+  const reduceMotion = useReducedMotion();
+  const size = 64;
+  const stroke = 6;
+  const r = (size - stroke) / 2;
+  const c = 2 * Math.PI * r;
+  const pct = Math.round(ratio * 100);
+  const over = ratio > 1;
+  const offset = c * (1 - Math.min(Math.max(ratio, 0), 1));
+
+  return (
+    <div className="relative flex-shrink-0" role="img" aria-label={`${label} ${pct}%`}>
+      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="-rotate-90">
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" strokeWidth={stroke} className="stroke-muted-foreground/15" />
+        <motion.circle
+          cx={size / 2} cy={size / 2} r={r} fill="none" strokeWidth={stroke} strokeLinecap="round"
+          strokeDasharray={c}
+          initial={{ strokeDashoffset: reduceMotion ? offset : c }}
+          animate={{ strokeDashoffset: offset }}
+          transition={{ duration: reduceMotion ? 0 : 0.9, ease: [0.22, 1, 0.36, 1], delay: 0.3 }}
+          className={over ? 'stroke-destructive' : 'stroke-jood-gold-500'}
+        />
+      </svg>
+      <span className={cn(
+        'absolute inset-0 flex items-center justify-center text-xs font-bold font-mono',
+        over ? 'text-destructive' : 'text-foreground',
+      )}>
+        {pct}%
+      </span>
+    </div>
+  );
+};
 
 export const HomeOverview: React.FC<HomeOverviewProps> = ({ onNavigate }) => {
   const { user } = useAuth();
@@ -244,8 +278,8 @@ export const HomeOverview: React.FC<HomeOverviewProps> = ({ onNavigate }) => {
         transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
       >
         <Card className="jood-card overflow-hidden relative">
-          <div className="absolute inset-0 bg-gradient-to-br from-jood-teal-900/90 via-jood-teal-700 to-jood-teal-900 pointer-events-none" />
-          <CardContent className="relative p-6 text-white">
+          <div className="absolute inset-0 bg-gradient-to-l from-jood-gold-500/15 via-transparent to-jood-teal-500/10 pointer-events-none" />
+          <CardContent className="relative p-6">
             <div className="flex items-center gap-4">
               {/* Avatar */}
               <motion.div
@@ -256,11 +290,11 @@ export const HomeOverview: React.FC<HomeOverviewProps> = ({ onNavigate }) => {
                 <span className="text-xl font-display text-jood-teal-900">ج</span>
               </motion.div>
               <div className="flex-1 min-w-0">
-                <p className="text-xs text-jood-gold-300/90 font-arabic mb-0.5">{currentHour < 5 || currentHour >= 20 ? t('home.greeting.evening') : currentHour < 12 ? t('home.greeting.morning') : currentHour < 17 ? t('home.greeting.afternoon') : t('home.greeting.evening')}</p>
-                <h2 className="text-xl md:text-2xl font-bold font-arabic leading-tight">
+                <p className="text-xs text-jood-gold-700 dark:text-jood-gold-300 font-arabic mb-0.5">{currentHour < 5 || currentHour >= 20 ? t('home.greeting.evening') : currentHour < 12 ? t('home.greeting.morning') : currentHour < 17 ? t('home.greeting.afternoon') : t('home.greeting.evening')}</p>
+                <h2 className="text-2xl md:text-3xl font-bold font-arabic leading-tight text-foreground">
                   {t('home.greeting')} {displayName}!
                 </h2>
-                <p className="text-xs text-white/70 font-arabic mt-1">{t('home.daily.summary')}</p>
+                <p className="text-sm text-muted-foreground font-arabic mt-1">{t('home.daily.summary')}</p>
               </div>
             </div>
           </CardContent>
@@ -412,14 +446,22 @@ export const HomeOverview: React.FC<HomeOverviewProps> = ({ onNavigate }) => {
                 </div>
               ) : (
               <>
-              <div>
-                <p className="text-[10px] text-muted-foreground font-arabic">{t('home.wallet.balance')}</p>
-                <p className={cn(
-                  'text-2xl font-bold font-mono mt-0.5',
-                  walletSummary.balance >= 0 ? 'text-jood-ok' : 'text-destructive',
-                )}>
-                  {fmt(walletSummary.balance)}
-                </p>
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-[10px] text-muted-foreground font-arabic">{t('home.wallet.balance')}</p>
+                  <p className={cn(
+                    'text-2xl font-bold font-mono mt-0.5',
+                    walletSummary.balance >= 0 ? 'text-jood-ok' : 'text-destructive',
+                  )}>
+                    {fmt(walletSummary.balance)}
+                  </p>
+                </div>
+                {walletSummary.income > 0 && (
+                  <SpendRing
+                    ratio={walletSummary.expenses / walletSummary.income}
+                    label={t('home.wallet.expenses')}
+                  />
+                )}
               </div>
 
               <div className="grid grid-cols-2 gap-2 pt-2 border-t border-border/30">
@@ -466,7 +508,7 @@ export const HomeOverview: React.FC<HomeOverviewProps> = ({ onNavigate }) => {
               {/* Events */}
               {todayEvents.length > 0 && (
                 <div className="space-y-1.5">
-                  <p className="text-[10px] text-muted-foreground font-arabic uppercase tracking-wide">{t('home.events.label')}</p>
+                  <p className="text-[11px] text-muted-foreground font-arabic">{t('home.events.label')}</p>
                   {todayEvents.map(ev => {
                     const startRaw = ev.starts_at || ev.start_at || '';
                     const timeStr = startRaw
@@ -492,7 +534,7 @@ export const HomeOverview: React.FC<HomeOverviewProps> = ({ onNavigate }) => {
               {/* Habits */}
               {todayHabits.length > 0 && (
                 <div className="space-y-1.5">
-                  <p className="text-[10px] text-muted-foreground font-arabic uppercase tracking-wide">{t('home.habits.label')}</p>
+                  <p className="text-[11px] text-muted-foreground font-arabic">{t('home.habits.label')}</p>
                   {todayHabits.map(h => {
                     const done = completedHabitIds.has(h.id);
                     return (

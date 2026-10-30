@@ -89,6 +89,20 @@
     --sidebar-accent-foreground: 40 30% 90%;
     --sidebar-border: 180 40% 22%;
     --sidebar-ring: 180 50% 36%;
+
+    /* Glass — frosted cream over a daylight dusk backdrop */
+    --glass-fill:        40 45% 99%;
+    --glass-alpha:       0.38;
+    --glass-border:      0 0% 100% / 0.75;
+    --glass-edge:        36 60% 70% / 0.7;
+    --glass-sheen:       0 0% 100% / 0.5;
+    --glass-shadow:      0 18px 40px -16px rgba(46, 26, 18, 0.35);
+    --ambient-base:      30 30% 84%;
+    --ambient-gold:      30 80% 60% / 0.95;
+    --ambient-teal:      182 50% 34% / 0.55;
+    --ambient-amber:     24 75% 58% / 0.42;
+    --ambient-haze:      40 60% 98% / 0.35;
+    --ambient-pattern-opacity: 0.16;
   }
 
   .dark {
@@ -129,6 +143,20 @@
     --sidebar-accent-foreground: 40 30% 90%;
     --sidebar-border: 14 40% 15%;
     --sidebar-ring: 180 50% 36%;
+
+    /* Glass — smoked espresso over a Maghrib backdrop */
+    --glass-fill:        14 40% 11%;
+    --glass-alpha:       0.36;
+    --glass-border:      40 30% 94% / 0.12;
+    --glass-edge:        36 60% 70% / 0.45;
+    --glass-sheen:       40 40% 96% / 0.08;
+    --glass-shadow:      0 20px 50px -18px rgba(0, 0, 0, 0.7);
+    --ambient-base:      14 50% 5%;
+    --ambient-gold:      28 75% 48% / 0.6;
+    --ambient-teal:      182 55% 28% / 0.65;
+    --ambient-amber:     12 60% 30% / 0.5;
+    --ambient-haze:      14 40% 16% / 0.4;
+    --ambient-pattern-opacity: 0.06;
   }
 }
 
@@ -179,16 +207,60 @@
 }
 
 @layer components {
-  .jood-card {
-    @apply rounded-2xl border border-border/60 bg-card;
-    box-shadow: var(--shadow-card);
-    transition: transform 200ms ease, box-shadow 200ms ease;
+  /* Frosted panel. The inset top line is the gold edge catching light. */
+  .glass, .jood-card {
+    background:
+      linear-gradient(150deg, hsl(var(--glass-sheen)) 0%, transparent 42%),
+      hsl(var(--glass-fill) / var(--glass-alpha));
+    border: 1px solid hsl(var(--glass-border));
+    box-shadow: inset 0 1px 0 hsl(var(--glass-edge)), var(--glass-shadow);
+    -webkit-backdrop-filter: blur(32px) saturate(180%);
+    backdrop-filter: blur(32px) saturate(180%);
   }
-  @media (hover: hover) {
-    .jood-card:hover {
-      transform: translateY(-3px);
-      box-shadow: var(--shadow-luxury);
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    .glass, .jood-card { --glass-alpha: 0.94; }
+  }
+  @media (prefers-reduced-transparency: reduce) {
+    .glass, .jood-card {
+      --glass-alpha: 1;
+      -webkit-backdrop-filter: none;
+      backdrop-filter: none;
     }
+  }
+
+  /* Fixed dusk backdrop: gradient light on ::before, girih lattice on ::after. */
+  .jood-ambient {
+    position: relative;
+    isolation: isolate;
+    background: hsl(var(--ambient-base));
+  }
+  .jood-ambient::before,
+  .jood-ambient::after {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+  }
+  .jood-ambient::before {
+    background:
+      radial-gradient(60% 50% at 88% -5%, hsl(var(--ambient-gold)), transparent 70%),
+      radial-gradient(55% 55% at 5% 105%, hsl(var(--ambient-teal)), transparent 70%),
+      radial-gradient(40% 45% at -5% 35%, hsl(var(--ambient-amber)), transparent 70%),
+      radial-gradient(45% 35% at 45% 35%, hsl(var(--ambient-haze)), transparent 75%),
+      hsl(var(--ambient-base));
+  }
+  .jood-ambient::after {
+    opacity: var(--ambient-pattern-opacity);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='72' height='72' viewBox='0 0 72 72'%3E%3Cg fill='none' stroke='%23B8924A' stroke-width='0.7'%3E%3Crect x='21' y='21' width='30' height='30'/%3E%3Crect x='21' y='21' width='30' height='30' transform='rotate(45 36 36)'/%3E%3Cpath d='M0 36h14M58 36h14M36 0v14M36 58v14'/%3E%3C/g%3E%3C/svg%3E");
+    background-size: 72px 72px;
+    -webkit-mask-image: radial-gradient(80% 70% at 50% 0%, #000 30%, transparent 85%);
+    mask-image: radial-gradient(80% 70% at 50% 0%, #000 30%, transparent 85%);
+  }
+
+  .jood-card {
+    @apply rounded-2xl;
+    transition: border-color 200ms ease, box-shadow 200ms ease;
   }
 
   .jood-btn-primary {
