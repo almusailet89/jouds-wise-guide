@@ -78,8 +78,9 @@ export const FinancialDashboard: React.FC = () => {
     }));
   }, [portfolioSummary]);
 
-  // Monthly flow (always 6 months, not filtered by period)
-  const monthlyFlowData = useMemo(() => getMonthlyFlow(6), [getMonthlyFlow]);
+  // Monthly flow: the last 6 complete months. The in-progress month (e.g. before payday)
+  // would draw income plunging to zero; the wallet card and spending ring cover it instead.
+  const monthlyFlowData = useMemo(() => getMonthlyFlow(7).slice(0, -1), [getMonthlyFlow]);
 
   const currency = 'SAR';
 
