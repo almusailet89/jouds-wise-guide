@@ -228,6 +228,9 @@
     }
   }
 
+  /* For glass that sits over busy content (toasts, tooltips): same look, readable text. */
+  .glass-dense { --glass-alpha: 0.88; }
+
   /* Fixed dusk backdrop: gradient light on ::before, girih lattice on ::after. */
   .jood-ambient {
     position: relative;
