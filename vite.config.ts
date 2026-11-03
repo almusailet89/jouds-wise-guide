@@ -6,8 +6,10 @@ import { VitePWA } from "vite-plugin-pwa";
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
-  // VITE_BASE_PATH=/ for Vercel; defaults to /jouds-wise-guide/ for GitHub Pages
-  base: process.env.VITE_BASE_PATH ?? (mode === "production" ? "/jouds-wise-guide/" : "/"),
+  // Vercel serves from the root (it sets VERCEL=1 on every build, so no per-project env is
+  // needed); other production builds keep the GitHub Pages sub-path. VITE_BASE_PATH overrides.
+  base: process.env.VITE_BASE_PATH
+    ?? (process.env.VERCEL ? "/" : mode === "production" ? "/jouds-wise-guide/" : "/"),
   server: {
     host: "::",
     port: 8080,
