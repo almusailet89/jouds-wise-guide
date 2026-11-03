@@ -67,16 +67,20 @@ const SettingsHub: React.FC<SettingsHubProps> = ({ onNavigate, onOpenProfile }) 
           transition={{ duration: 0.2 }}
         >
           {active === 'profile'       && (
-            <div className="text-center py-8 space-y-3">
-              <UserCog className="w-8 h-8 mx-auto opacity-40" />
-              <p className="text-sm text-muted-foreground font-arabic">
-                {lang === 'ar' ? 'عدّل اسمك وجنسك وعملتك وكل تفاصيل حسابك' : 'Edit your name, gender, currency, and account details'}
-              </p>
-              <button
-                onClick={() => onOpenProfile?.()}
-                className="px-4 py-2 rounded-xl bg-jood-teal-500 text-white text-sm font-arabic font-semibold hover:bg-jood-teal-600 transition-colors"
-              >
-                {lang === 'ar' ? 'تعديل الملف الشخصي' : 'Edit Profile'}
+            <div className="jood-card p-6 flex flex-col sm:flex-row items-center gap-4 text-center sm:text-start">
+              <div className="w-12 h-12 rounded-2xl bg-jood-gold-500/15 flex items-center justify-center flex-shrink-0">
+                <UserCog className="w-6 h-6 text-jood-gold-600 dark:text-jood-gold-300" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="font-arabic font-bold text-foreground">
+                  {lang === 'ar' ? 'ملفك الشخصي' : 'Your profile'}
+                </p>
+                <p className="text-sm text-muted-foreground font-arabic mt-0.5">
+                  {lang === 'ar' ? 'عدّل اسمك وجنسك وعملتك وكل تفاصيل حسابك' : 'Edit your name, gender, currency, and account details'}
+                </p>
+              </div>
+              <button onClick={() => onOpenProfile?.()} className="jood-btn-primary !py-2.5 font-arabic flex-shrink-0">
+                {lang === 'ar' ? 'تعديل الملف الشخصي' : 'Edit profile'}
               </button>
             </div>
           )}

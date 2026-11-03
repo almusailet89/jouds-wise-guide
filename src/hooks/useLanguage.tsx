@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useState, useCallback, type ReactNode } from 'react';
+import { DirectionProvider } from '@radix-ui/react-direction';
 import { useProfile } from './useProfile';
 import { translate, translateGendered, type Lang } from '@/lib/i18n';
 
@@ -55,9 +56,15 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   const t = useCallback((key: string) => translate(lang, key), [lang]);
   const tg = useCallback((key: string) => translateGendered(lang, key, gender), [lang, gender]);
 
+  const dir = lang === 'ar' ? 'rtl' : 'ltr';
+
+  // Radix primitives (Tabs, menus, selects…) default to LTR and stamp dir="ltr" on their
+  // roots unless a DirectionProvider says otherwise — which flipped whole tab panels to LTR.
   return (
-    <LanguageContext.Provider value={{ lang, dir: lang === 'ar' ? 'rtl' : 'ltr', t, tg, gender, setLang }}>
-      {children}
+    <LanguageContext.Provider value={{ lang, dir, t, tg, gender, setLang }}>
+      <DirectionProvider dir={dir}>
+        {children}
+      </DirectionProvider>
     </LanguageContext.Provider>
   );
 }
