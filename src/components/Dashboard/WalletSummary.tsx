@@ -60,24 +60,26 @@ export const WalletSummary: React.FC<WalletSummaryProps> = ({
 
       <CardContent className="p-6 relative">
         {/* ── Row 1: Three KPI chips ─────────────────────────────────────── */}
-        <div className="grid grid-cols-3 gap-4 mb-6">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-5 mb-6">
           {/* Net balance */}
           <motion.div
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4 }}
-            className="col-span-1"
+            className="col-span-2 sm:col-span-1"
           >
             <div className="flex items-center gap-2 mb-1">
               <Wallet className="w-4 h-4 text-jood-teal-700" />
               <span className="text-xs text-muted-foreground font-arabic">{t('wallet.net')} — {periodLabel}</span>
             </div>
             <div className={cn(
-              'text-3xl font-black font-arabic leading-none',
-              netPositive ? 'text-jood-teal-900' : 'text-destructive',
+              'text-3xl font-black font-mono leading-none whitespace-nowrap',
+              netPositive ? 'text-jood-teal-900 dark:text-jood-cream' : 'text-destructive',
             )}>
-              {netPositive ? '+' : ''}{fmt(totals.net)}
-              <span className="text-sm font-normal text-muted-foreground mr-1">{currency}</span>
+              <span dir="ltr" className="inline-block">
+                {netPositive ? '+' : ''}{fmt(totals.net)}
+                <span className="text-sm font-normal text-muted-foreground ms-1.5">{currency}</span>
+              </span>
             </div>
           </motion.div>
 
@@ -93,9 +95,11 @@ export const WalletSummary: React.FC<WalletSummaryProps> = ({
               </div>
               <span className="text-xs text-muted-foreground font-arabic">{t('wallet.income')}</span>
             </div>
-            <div className="text-xl font-bold font-arabic text-emerald-700">
-              {fmt(totals.income)}
-              <span className="text-xs font-normal text-muted-foreground mr-1">{currency}</span>
+            <div className="text-xl font-bold font-mono whitespace-nowrap text-emerald-700 dark:text-emerald-400">
+              <span dir="ltr" className="inline-block">
+                {fmt(totals.income)}
+                <span className="text-xs font-normal text-muted-foreground ms-1.5">{currency}</span>
+              </span>
             </div>
           </motion.div>
 
@@ -111,9 +115,11 @@ export const WalletSummary: React.FC<WalletSummaryProps> = ({
               </div>
               <span className="text-xs text-muted-foreground font-arabic">{t('wallet.expenses')}</span>
             </div>
-            <div className="text-xl font-bold font-arabic text-rose-700">
-              {fmt(totals.expense)}
-              <span className="text-xs font-normal text-muted-foreground mr-1">{currency}</span>
+            <div className="text-xl font-bold font-mono whitespace-nowrap text-rose-700 dark:text-rose-400">
+              <span dir="ltr" className="inline-block">
+                {fmt(totals.expense)}
+                <span className="text-xs font-normal text-muted-foreground ms-1.5">{currency}</span>
+              </span>
             </div>
           </motion.div>
         </div>
