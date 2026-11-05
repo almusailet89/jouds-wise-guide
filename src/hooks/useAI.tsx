@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useAuth } from './useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from './use-toast';
+import { bi } from '@/lib/i18n';
 
 export interface ChatMessage {
   id: string;
@@ -45,8 +46,8 @@ export const useAI = () => {
     } catch (error) {
       console.error('Error sending message:', error);
       toast({
-        title: "AI Chat Error",
-        description: "Failed to get response from JOOD AI. Please try again.",
+        title: bi('تعذّر الرد', 'Jood couldn\'t reply'),
+        description: bi('لم يصل رد من جود. حاول مرة أخرى.', 'No reply from Jood. Please try again.'),
         variant: "destructive",
       });
       throw error;
@@ -72,8 +73,8 @@ export const useAI = () => {
     } catch (error) {
       console.error('Error generating speech:', error);
       toast({
-        title: "Speech Generation Error",
-        description: "Failed to generate speech. Please try again.",
+        title: bi('تعذّر تشغيل صوت جود', 'Couldn\'t play Jood\'s voice'),
+        description: bi('حاول مرة أخرى بعد قليل.', 'Please try again in a moment.'),
         variant: "destructive",
       });
       throw error;
@@ -94,8 +95,8 @@ export const useAI = () => {
       audio.onerror = () => {
         setSpeaking(false);
         toast({
-          title: "Audio Playback Error",
-          description: "Failed to play audio.",
+          title: bi('تعذّر تشغيل الصوت', 'Couldn\'t play audio'),
+          description: bi('تحقق من مستوى الصوت ثم حاول مرة أخرى.', 'Check your volume, then try again.'),
           variant: "destructive",
         });
       };

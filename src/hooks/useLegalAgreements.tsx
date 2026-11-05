@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from './useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { bi } from '@/lib/i18n';
 
 interface AgreementVersion {
   id: string;
@@ -61,7 +62,7 @@ export const useLegalAgreements = () => {
       setCurrentVersions(latestVersions);
     } catch (error) {
       console.error('Error fetching agreement versions:', error);
-      toast.error('Failed to fetch agreement versions');
+      toast.error(bi('تعذّر تحميل الشروط', 'Couldn\'t load the terms'));
     }
   };
 
@@ -78,7 +79,7 @@ export const useLegalAgreements = () => {
       setUserAgreements((data as UserAgreement[]) || []);
     } catch (error) {
       console.error('Error fetching user agreements:', error);
-      toast.error('Failed to fetch user agreements');
+      toast.error(bi('تعذّر تحميل موافقاتك', 'Couldn\'t load your agreements'));
     } finally {
       setLoading(false);
     }

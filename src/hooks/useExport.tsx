@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useAuth } from './useAuth';
 import { useFinancialData, useTasks, useMoodLogs } from './useDatabase';
 import { useToast } from './use-toast';
+import { bi } from '@/lib/i18n';
 
 export const useExport = () => {
   const { user } = useAuth();
@@ -14,8 +15,8 @@ export const useExport = () => {
   const generateCSV = (data: any[], filename: string) => {
     if (data.length === 0) {
       toast({
-        title: "No Data",
-        description: `No ${filename.toLowerCase()} data to export.`,
+        title: bi('لا توجد بيانات للتصدير', 'Nothing to export'),
+        description: bi('أضف بعض البيانات أولاً ثم صدّرها.', 'Add some data first, then export it.'),
         variant: "destructive",
       });
       return;
@@ -137,14 +138,14 @@ export const useExport = () => {
       }
       
       toast({
-        title: "Export Successful",
-        description: `Financial data exported as ${format.toUpperCase()}.`,
+        title: bi('تم التصدير', 'Export complete'),
+        description: bi(`البيانات المالية بصيغة ${format.toUpperCase()}.`, `Financial data saved as ${format.toUpperCase()}.`),
       });
     } catch (error) {
       console.error('Export error:', error);
       toast({
-        title: "Export Failed",
-        description: "Failed to export financial data.",
+        title: bi('تعذّر التصدير', 'Export failed'),
+        description: bi('لم نتمكن من تصدير البيانات المالية. حاول مرة أخرى.', 'We couldn\'t export your financial data. Try again.'),
         variant: "destructive",
       });
     } finally {
@@ -165,14 +166,14 @@ export const useExport = () => {
       }
       
       toast({
-        title: "Export Successful",
-        description: `Tasks exported as ${format.toUpperCase()}.`,
+        title: bi('تم التصدير', 'Export complete'),
+        description: bi(`المهام بصيغة ${format.toUpperCase()}.`, `Tasks saved as ${format.toUpperCase()}.`),
       });
     } catch (error) {
       console.error('Export error:', error);
       toast({
-        title: "Export Failed",
-        description: "Failed to export tasks.",
+        title: bi('تعذّر التصدير', 'Export failed'),
+        description: bi('لم نتمكن من تصدير المهام. حاول مرة أخرى.', 'We couldn\'t export your tasks. Try again.'),
         variant: "destructive",
       });
     } finally {
@@ -193,14 +194,14 @@ export const useExport = () => {
       }
       
       toast({
-        title: "Export Successful",
-        description: `Mood data exported as ${format.toUpperCase()}.`,
+        title: bi('تم التصدير', 'Export complete'),
+        description: bi(`سجل المزاج بصيغة ${format.toUpperCase()}.`, `Mood log saved as ${format.toUpperCase()}.`),
       });
     } catch (error) {
       console.error('Export error:', error);
       toast({
-        title: "Export Failed",
-        description: "Failed to export mood data.",
+        title: bi('تعذّر التصدير', 'Export failed'),
+        description: bi('لم نتمكن من تصدير سجل المزاج. حاول مرة أخرى.', 'We couldn\'t export your mood log. Try again.'),
         variant: "destructive",
       });
     } finally {
@@ -298,14 +299,14 @@ export const useExport = () => {
       }
       
       toast({
-        title: "Export Successful",
-        description: `Complete report exported as ${format.toUpperCase()}.`,
+        title: bi('تم التصدير', 'Export complete'),
+        description: bi(`التقرير الشامل بصيغة ${format.toUpperCase()}.`, `Complete report saved as ${format.toUpperCase()}.`),
       });
     } catch (error) {
       console.error('Export error:', error);
       toast({
-        title: "Export Failed",
-        description: "Failed to export complete report.",
+        title: bi('تعذّر التصدير', 'Export failed'),
+        description: bi('لم نتمكن من تصدير التقرير الشامل. حاول مرة أخرى.', 'We couldn\'t export the complete report. Try again.'),
         variant: "destructive",
       });
     } finally {

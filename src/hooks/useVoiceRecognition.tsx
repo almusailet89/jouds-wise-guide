@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from './use-toast';
+import { bi } from '@/lib/i18n';
 
 interface UseVoiceRecognitionProps {
   onTranscription: (text: string) => void;
@@ -72,8 +73,8 @@ export const useVoiceRecognition = ({ onTranscription, onError }: UseVoiceRecogn
                 onTranscription(data.text);
               } else {
                 toast({
-                  title: "No Speech Detected",
-                  description: "I couldn't hear anything. Please try speaking again.",
+                  title: bi('لم نسمع شيئاً', 'We didn\'t hear anything'),
+                  description: bi('تحدّث بالقرب من الميكروفون ثم حاول مرة أخرى.', 'Speak close to the microphone, then try again.'),
                   variant: "destructive",
                 });
               }
@@ -82,8 +83,8 @@ export const useVoiceRecognition = ({ onTranscription, onError }: UseVoiceRecogn
               const errorMessage = error instanceof Error ? error.message : 'Failed to process speech';
               onError?.(errorMessage);
               toast({
-                title: "Speech Recognition Error",
-                description: errorMessage,
+                title: bi('تعذّر فهم التسجيل', 'Couldn\'t understand the recording'),
+                description: bi('حاول مرة أخرى بعد قليل.', 'Please try again in a moment.'),
                 variant: "destructive",
               });
             } finally {
@@ -114,8 +115,8 @@ export const useVoiceRecognition = ({ onTranscription, onError }: UseVoiceRecogn
       const errorMessage = error instanceof Error ? error.message : 'Failed to access microphone';
       onError?.(errorMessage);
       toast({
-        title: "Microphone Access Error",
-        description: "Please allow microphone access to use voice features.",
+        title: bi('الميكروفون غير مسموح', 'Microphone access is off'),
+        description: bi('اسمح بالميكروفون لهذا الموقع من إعدادات المتصفح.', 'Allow microphone access for this site in your browser settings.'),
         variant: "destructive",
       });
     }

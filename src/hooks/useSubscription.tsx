@@ -3,6 +3,7 @@ import { useAuth } from './useAuth';
 import { useRoles } from './useRoles';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from './use-toast';
+import { bi } from '@/lib/i18n';
 
 interface SubscriptionData {
   subscribed: boolean;
@@ -114,8 +115,8 @@ export const SubscriptionProvider = ({ children }: SubscriptionProviderProps) =>
       if (error) {
         console.error('Error checking subscription:', error);
         toast({
-          title: "Error checking subscription",
-          description: "Please try again later.",
+          title: bi('تعذّر التحقق من اشتراكك', 'Couldn\'t check your subscription'),
+          description: bi('حاول مرة أخرى لاحقاً.', bi('حاول مرة أخرى لاحقاً.', 'Please try again later.')),
           variant: "destructive",
         });
         return;
@@ -125,8 +126,8 @@ export const SubscriptionProvider = ({ children }: SubscriptionProviderProps) =>
     } catch (error) {
       console.error('Error checking subscription:', error);
       toast({
-        title: "Error checking subscription",
-        description: "Please try again later.",
+        title: bi('تعذّر التحقق من اشتراكك', 'Couldn\'t check your subscription'),
+        description: bi('حاول مرة أخرى لاحقاً.', bi('حاول مرة أخرى لاحقاً.', 'Please try again later.')),
         variant: "destructive",
       });
     } finally {

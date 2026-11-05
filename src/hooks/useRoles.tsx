@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from './useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { bi } from '@/lib/i18n';
 
 export type AppRole = 'admin' | 'moderator' | 'user';
 
@@ -48,7 +49,7 @@ export const useRoles = () => {
       }
     } catch (error) {
       console.error('Error fetching user role:', error);
-      toast.error('Failed to fetch user role');
+      toast.error(bi('تعذّر تحميل صلاحياتك', 'Couldn\'t load your permissions'));
       setUserRole('user'); // Default fallback
     } finally {
       setLoading(false);
@@ -92,7 +93,7 @@ export const useRoles = () => {
       }
     } catch (error) {
       console.error('Error assigning role:', error);
-      toast.error('Failed to assign role');
+      toast.error(bi('تعذّر تعيين الصلاحية', 'Couldn\'t assign the role'));
       throw error;
     }
   };

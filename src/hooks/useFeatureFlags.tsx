@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from './use-toast';
+import { bi } from '@/lib/i18n';
 
 export interface FeatureFlag {
   key: string;
@@ -21,7 +22,7 @@ export const useFeatureFlags = () => {
       .order('key');
 
     if (error) {
-      toast({ title: "Error fetching feature flags", description: error.message, variant: "destructive" });
+      toast({ title: bi('تعذّر تحميل إعدادات الميزات', 'Couldn\'t load feature settings'), description: bi('حاول مرة أخرى بعد قليل.', 'Please try again in a moment.'), variant: "destructive" });
     } else {
       const data2 = (data || []) as FeatureFlag[];
       setRows(data2);
@@ -50,7 +51,7 @@ export const useFeatureFlags = () => {
       .eq('key', key);
 
     if (error) {
-      toast({ title: "Error updating feature flag", description: error.message, variant: "destructive" });
+      toast({ title: bi('تعذّر تحديث الميزة', 'Couldn\'t update the feature'), description: bi('حاول مرة أخرى بعد قليل.', 'Please try again in a moment.'), variant: "destructive" });
     } else {
       fetchFlags();
     }

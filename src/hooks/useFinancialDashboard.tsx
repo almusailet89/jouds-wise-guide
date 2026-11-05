@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { bi } from '@/lib/i18n';
 
 export interface FinancialEntry {
   id: string;
@@ -172,10 +173,10 @@ export const useFinancialDashboard = () => {
       if (error) throw error;
       
       await fetchSavingsTarget();
-      toast.success('Savings target updated');
+      toast.success(bi('تم تحديث هدف الادخار', 'Savings target updated'));
     } catch (error) {
       console.error('Error updating savings target:', error);
-      toast.error('Failed to update savings target');
+      toast.error(bi('تعذّر تحديث هدف الادخار', 'Couldn\'t update the savings target'));
       throw error;
     }
   }, [user, fetchSavingsTarget]);
@@ -226,7 +227,7 @@ export const useFinancialDashboard = () => {
       await fetchPortfolioHoldings();
     } catch (error) {
       console.error('Error refreshing prices:', error);
-      toast.error('Failed to refresh prices');
+      toast.error(bi('تعذّر تحديث الأسعار', 'Couldn\'t refresh prices'));
     } finally {
       setLoading(false);
     }
@@ -246,12 +247,12 @@ export const useFinancialDashboard = () => {
 
       if (error) throw error;
       
-      toast.success('Entry saved');
+      toast.success(bi('تم حفظ المعاملة', 'Entry saved'));
       await fetchFinancialEntries();
       return data.data;
     } catch (error) {
       console.error('Error adding financial entry:', error);
-      toast.error('Failed to save entry');
+      toast.error(bi('تعذّر حفظ المعاملة', 'Couldn\'t save the entry'));
       throw error;
     }
   }, [user, session, fetchFinancialEntries]);
@@ -270,12 +271,12 @@ export const useFinancialDashboard = () => {
 
       if (error) throw error;
       
-      toast.success('Entry updated');
+      toast.success(bi('تم تحديث المعاملة', 'Entry updated'));
       await fetchFinancialEntries();
       return data.data;
     } catch (error) {
       console.error('Error updating financial entry:', error);
-      toast.error('Failed to update entry');
+      toast.error(bi('تعذّر تحديث المعاملة', 'Couldn\'t update the entry'));
       throw error;
     }
   }, [user, session, fetchFinancialEntries]);
@@ -294,11 +295,11 @@ export const useFinancialDashboard = () => {
 
       if (error) throw error;
       
-      toast.success('Entry deleted');
+      toast.success(bi('تم حذف المعاملة', 'Entry deleted'));
       await fetchFinancialEntries();
     } catch (error) {
       console.error('Error deleting financial entry:', error);
-      toast.error('Failed to delete entry');
+      toast.error(bi('تعذّر حذف المعاملة', 'Couldn\'t delete the entry'));
       throw error;
     }
   }, [user, session, fetchFinancialEntries]);
@@ -317,7 +318,7 @@ export const useFinancialDashboard = () => {
 
       if (error) throw error;
       
-      toast.success('Holding added');
+      toast.success(bi('تمت إضافة الأصل', 'Holding added'));
       await fetchPortfolioHoldings();
       return data.data;
     } catch (error) {
@@ -341,12 +342,12 @@ export const useFinancialDashboard = () => {
 
       if (error) throw error;
       
-      toast.success('Holding updated');
+      toast.success(bi('تم تحديث الأصل', 'Holding updated'));
       await fetchPortfolioHoldings();
       return data.data;
     } catch (error) {
       console.error('Error updating portfolio holding:', error);
-      toast.error('Failed to update holding');
+      toast.error(bi('تعذّر تحديث الأصل', 'Couldn\'t update the holding'));
       throw error;
     }
   }, [user, session, fetchPortfolioHoldings]);
@@ -365,11 +366,11 @@ export const useFinancialDashboard = () => {
 
       if (error) throw error;
       
-      toast.success('Holding deleted');
+      toast.success(bi('تم حذف الأصل', 'Holding deleted'));
       await fetchPortfolioHoldings();
     } catch (error) {
       console.error('Error deleting portfolio holding:', error);
-      toast.error('Failed to delete holding');
+      toast.error(bi('تعذّر حذف الأصل', 'Couldn\'t delete the holding'));
       throw error;
     }
   }, [user, session, fetchPortfolioHoldings]);

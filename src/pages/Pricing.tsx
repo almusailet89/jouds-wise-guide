@@ -31,7 +31,7 @@ export default function Pricing() {
       <main className="container mx-auto px-4 py-14">
         <div className="max-w-2xl mx-auto text-center">
           <div className="flex justify-center mb-5"><JoodOrb mode="idle" size={88} withRings={false} /></div>
-          <p className="text-xs uppercase tracking-widest text-jood-gold-600 mb-2">Private beta</p>
+          <p className="text-sm font-arabic text-jood-gold-600 dark:text-jood-gold-300 mb-2">{ar ? 'نسخة تجريبية خاصة' : 'Private beta'}</p>
           <h1 className="font-display text-3xl md:text-4xl font-semibold mb-3">
             {ar ? 'جود حالياً في نسخة تجريبية محدودة' : 'Jood is currently in private beta'}
           </h1>

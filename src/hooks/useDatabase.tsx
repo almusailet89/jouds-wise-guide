@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 import { useToast } from './use-toast';
+import { bi } from '@/lib/i18n';
 
 // Database types based on our schema
 export interface Profile {
@@ -105,8 +106,8 @@ export const useProfile = () => {
 
     if (error && error.code !== 'PGRST116') {
       toast({
-        title: "Error fetching profile",
-        description: error.message,
+        title: bi('تعذّر تحميل ملفك الشخصي', 'Couldn\'t load your profile'),
+        description: bi('حاول مرة أخرى بعد قليل.', 'Please try again in a moment.'),
         variant: "destructive",
       });
     }
@@ -125,15 +126,15 @@ export const useProfile = () => {
 
     if (error) {
       toast({
-        title: "Error updating profile",
-        description: error.message,
+        title: bi('تعذّر حفظ ملفك الشخصي', 'Couldn\'t save your profile'),
+        description: bi('حاول مرة أخرى بعد قليل.', 'Please try again in a moment.'),
         variant: "destructive",
       });
     } else {
       fetchProfile();
       toast({
-        title: "Profile updated",
-        description: "Your profile has been successfully updated.",
+        title: bi('تم حفظ ملفك الشخصي', 'Profile saved'),
+        description: bi('تم تحديث بياناتك.', 'Your details are up to date.'),
       });
     }
   };
@@ -170,8 +171,8 @@ export const useFinancialData = () => {
 
     if (error) {
       toast({
-        title: "Error fetching financial data",
-        description: error.message,
+        title: bi('تعذّر تحميل بياناتك المالية', 'Couldn\'t load your financial data'),
+        description: bi('حاول مرة أخرى بعد قليل.', 'Please try again in a moment.'),
         variant: "destructive",
       });
     }
@@ -189,15 +190,15 @@ export const useFinancialData = () => {
 
     if (error) {
       toast({
-        title: "Error adding financial entry",
-        description: error.message,
+        title: bi('تعذّر حفظ المعاملة', 'Couldn\'t save the entry'),
+        description: bi('حاول مرة أخرى بعد قليل.', 'Please try again in a moment.'),
         variant: "destructive",
       });
     } else {
       fetchFinancialData();
       toast({
-        title: "Entry added",
-        description: "Financial entry has been added successfully.",
+        title: bi('تمت إضافة المعاملة', bi('تمت إضافة المعاملة', 'Entry added')),
+        description: bi('ستظهر في محفظتك والسجل المالي.', 'It now shows in your wallet and ledger.'),
       });
     }
   };
@@ -237,8 +238,8 @@ export const useTasks = () => {
 
     if (error) {
       toast({
-        title: "Error fetching tasks",
-        description: error.message,
+        title: bi('تعذّر تحميل المهام', 'Couldn\'t load tasks'),
+        description: bi('حاول مرة أخرى بعد قليل.', 'Please try again in a moment.'),
         variant: "destructive",
       });
     }
@@ -256,15 +257,15 @@ export const useTasks = () => {
 
     if (error) {
       toast({
-        title: "Error adding task",
-        description: error.message,
+        title: bi('تعذّر إضافة المهمة', 'Couldn\'t add the task'),
+        description: bi('حاول مرة أخرى بعد قليل.', 'Please try again in a moment.'),
         variant: "destructive",
       });
     } else {
       fetchTasks();
       toast({
-        title: "Task added",
-        description: "Task has been added successfully.",
+        title: bi('تمت إضافة المهمة', bi('تمت إضافة المهمة', 'Task added')),
+        description: bi('تجدها في تخطيطي.', 'You\'ll find it in Planning.'),
       });
     }
   };
@@ -280,8 +281,8 @@ export const useTasks = () => {
 
     if (error) {
       toast({
-        title: "Error updating task",
-        description: error.message,
+        title: bi('تعذّر تحديث المهمة', 'Couldn\'t update the task'),
+        description: bi('حاول مرة أخرى بعد قليل.', 'Please try again in a moment.'),
         variant: "destructive",
       });
     } else {
@@ -297,7 +298,7 @@ export const useTasks = () => {
       .eq('id', id)
       .eq('user_id', user.id);
     if (error) {
-      toast({ title: "Error deleting task", description: error.message, variant: "destructive" });
+      toast({ title: bi('تعذّر حذف المهمة', 'Couldn\'t delete the task'), description: bi('حاول مرة أخرى بعد قليل.', 'Please try again in a moment.'), variant: "destructive" });
     } else {
       fetchTasks();
     }
@@ -338,8 +339,8 @@ export const useEvents = () => {
 
     if (error) {
       toast({
-        title: "Error fetching events",
-        description: error.message,
+        title: bi('تعذّر تحميل المواعيد', 'Couldn\'t load events'),
+        description: bi('حاول مرة أخرى بعد قليل.', 'Please try again in a moment.'),
         variant: "destructive",
       });
     }
@@ -357,8 +358,8 @@ export const useEvents = () => {
 
     if (error) {
       toast({
-        title: "Error adding event",
-        description: error.message,
+        title: bi('تعذّر إضافة الموعد', 'Couldn\'t add the event'),
+        description: bi('حاول مرة أخرى بعد قليل.', 'Please try again in a moment.'),
         variant: "destructive",
       });
     } else {
@@ -376,7 +377,7 @@ export const useEvents = () => {
       .eq('user_id', user.id);
 
     if (error) {
-      toast({ title: "Error updating event", description: error.message, variant: "destructive" });
+      toast({ title: bi('تعذّر تحديث الموعد', 'Couldn\'t update the event'), description: bi('حاول مرة أخرى بعد قليل.', 'Please try again in a moment.'), variant: "destructive" });
     } else {
       fetchEvents();
     }
@@ -390,7 +391,7 @@ export const useEvents = () => {
       .eq('id', id)
       .eq('user_id', user.id);
     if (error) {
-      toast({ title: "Error deleting event", description: error.message, variant: "destructive" });
+      toast({ title: bi('تعذّر حذف الموعد', 'Couldn\'t delete the event'), description: bi('حاول مرة أخرى بعد قليل.', 'Please try again in a moment.'), variant: "destructive" });
     } else {
       fetchEvents();
     }
@@ -423,8 +424,8 @@ export const useMoodLogs = () => {
 
     if (error) {
       toast({
-        title: "Error fetching mood logs",
-        description: error.message,
+        title: bi('تعذّر تحميل سجل المزاج', 'Couldn\'t load mood logs'),
+        description: bi('حاول مرة أخرى بعد قليل.', 'Please try again in a moment.'),
         variant: "destructive",
       });
     }
@@ -442,15 +443,15 @@ export const useMoodLogs = () => {
 
     if (error) {
       toast({
-        title: "Error logging mood",
-        description: error.message,
+        title: bi('تعذّر حفظ مزاجك', 'Couldn\'t save your mood'),
+        description: bi('حاول مرة أخرى بعد قليل.', 'Please try again in a moment.'),
         variant: "destructive",
       });
     } else {
       fetchMoodLogs();
       toast({
-        title: "Mood logged",
-        description: "Your mood has been logged successfully.",
+        title: bi('تم تسجيل مزاجك', 'Mood saved'),
+        description: bi('شكراً لمشاركتك.', 'Thanks for checking in.'),
       });
     }
   };

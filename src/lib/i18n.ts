@@ -1871,3 +1871,12 @@ export function translateGendered(lang: Lang, key: string, gender: 'male' | 'fem
 }
 
 export default strings;
+
+/**
+ * Pick a string by the app's current language outside React components (hooks, toasts).
+ * LanguageProvider keeps <html lang> in sync, so this matches what the user sees.
+ */
+export function bi(ar: string, en: string): string {
+  if (typeof document === 'undefined') return ar;
+  return document.documentElement.lang === 'en' ? en : ar;
+}
