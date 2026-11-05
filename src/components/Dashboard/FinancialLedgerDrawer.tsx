@@ -1,12 +1,18 @@
-import React, { useState } from 'react';
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import React, { useMemo, useState } from 'react';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import type { FinancialEntry } from '@/hooks/useFinancialDashboard';
-import { Search, Download, Edit, Trash2, Filter } from 'lucide-react';
+import { Search, Download, Trash2, ArrowDownLeft, ArrowUpRight, PiggyBank, TrendingUp, Filter } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useLanguage } from '@/hooks/useLanguage';
+import { categoryLabel } from '@/lib/financeCategories';
+import { cn } from '@/lib/utils';
 
 interface FinancialLedgerDrawerProps {
   open: boolean;
@@ -15,240 +21,243 @@ interface FinancialLedgerDrawerProps {
   onDelete: (id: string) => Promise<void>;
 }
 
+type EntryType = FinancialEntry['type'];
+
+const TYPE_STYLE: Record<EntryType, { icon: React.ComponentType<{ className?: string }>; tone: string; sign: string }> = {
+  income:     { icon: ArrowDownLeft, tone: 'text-jood-ok bg-jood-ok/10',              sign: '+' },
+  expense:    { icon: ArrowUpRight,  tone: 'text-jood-warn bg-jood-warn/10',          sign: '−' },
+  savings:    { icon: PiggyBank,     tone: 'text-jood-gold-600 dark:text-jood-gold-300 bg-jood-gold-500/12', sign: '' },
+  investment: { icon: TrendingUp,    tone: 'text-jood-teal-500 bg-jood-teal-500/12',  sign: '' },
+};
+
+const csvCell = (value: unknown) => `"${String(value ?? '').replace(/"/g, '""')}"`;
+
 export const FinancialLedgerDrawer: React.FC<FinancialLedgerDrawerProps> = ({ open, onOpenChange, entries: financialEntries, onDelete }) => {
   const { toast } = useToast();
+  const { lang, dir } = useLanguage();
+  const ar = lang === 'ar';
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
+  const [pendingDelete, setPendingDelete] = useState<FinancialEntry | null>(null);
 
-  // Filter entries
-  const filteredEntries = financialEntries.filter(entry => {
-    const matchesSearch = entry.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         entry.category.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesType = typeFilter === 'all' || entry.type === typeFilter;
-    const matchesCategory = categoryFilter === 'all' || entry.category === categoryFilter;
-    
-    return matchesSearch && matchesType && matchesCategory;
-  });
+  const TYPE_LABEL: Record<string, string> = ar
+    ? { all: 'كل الأنواع', income: 'دخل', expense: 'مصروف', savings: 'ادخار', investment: 'استثمار' }
+    : { all: 'All types', income: 'Income', expense: 'Expense', savings: 'Savings', investment: 'Investment' };
 
-  // Get unique categories for filter
-  const categories = Array.from(new Set(financialEntries.map(entry => entry.category)));
+  const dateFmt = useMemo(
+    () => new Intl.DateTimeFormat(ar ? 'ar-SA-u-ca-gregory-nu-latn' : 'en-GB', { day: 'numeric', month: 'short', year: 'numeric' }),
+    [ar],
+  );
+  const money = (n: number) => new Intl.NumberFormat('en', { maximumFractionDigits: 2 }).format(n);
 
-  const handleDelete = async (id: string) => {
-    if (confirm('Are you sure you want to delete this entry?')) {
-      try {
-        await onDelete(id);
-      } catch (error) {
-        console.error('Error deleting entry:', error);
-      }
+  const titleOf = (e: FinancialEntry) => e.label?.trim() || e.description?.trim() || categoryLabel(e.category, lang);
+
+  const filteredEntries = useMemo(() => {
+    const q = searchTerm.trim().toLowerCase();
+    return financialEntries.filter(entry => {
+      const haystack = [entry.label, entry.description, entry.category, categoryLabel(entry.category, lang)]
+        .filter(Boolean).join(' ').toLowerCase();
+      return (!q || haystack.includes(q))
+        && (typeFilter === 'all' || entry.type === typeFilter)
+        && (categoryFilter === 'all' || entry.category === categoryFilter);
+    });
+  }, [financialEntries, searchTerm, typeFilter, categoryFilter, lang]);
+
+  const categories = useMemo(
+    () => Array.from(new Set(financialEntries.map(e => e.category).filter(Boolean))),
+    [financialEntries],
+  );
+
+  const totals = useMemo(() => {
+    const sum = (type: EntryType) => filteredEntries.filter(e => e.type === type).reduce((s, e) => s + Number(e.amount), 0);
+    return { income: sum('income'), expense: sum('expense'), savings: sum('savings') };
+  }, [filteredEntries]);
+
+  const confirmDelete = async () => {
+    if (!pendingDelete) return;
+    const entry = pendingDelete;
+    setPendingDelete(null);
+    try {
+      await onDelete(entry.id);
+    } catch (error) {
+      console.error('Error deleting entry:', error);
+      toast({
+        title: ar ? 'تعذّر حذف المعاملة' : "Couldn't delete the entry",
+        description: ar ? 'تحقق من اتصالك بالإنترنت، ثم حاول مرة أخرى.' : 'Check your connection, then try again.',
+        variant: 'destructive',
+      });
     }
   };
 
   const exportToCSV = () => {
-    if (filteredEntries.length === 0) {
-      toast({
-        title: "No Data",
-        description: "No entries to export.",
-        variant: "destructive",
-      });
-      return;
-    }
+    const headers = ar
+      ? ['التاريخ', 'النوع', 'الفئة', 'الوصف', 'المبلغ', 'العملة']
+      : ['Date', 'Type', 'Category', 'Description', 'Amount', 'Currency'];
+    const rows = filteredEntries.map(e => [
+      new Date(e.date).toISOString().split('T')[0],
+      TYPE_LABEL[e.type] ?? e.type,
+      categoryLabel(e.category, lang),
+      titleOf(e),
+      e.amount,
+      e.currency,
+    ].map(csvCell).join(','));
 
-    const headers = ['Date', 'Type', 'Category', 'Amount', 'Currency', 'Description'];
-    const csvContent = [
-      headers.join(','),
-      ...filteredEntries.map(entry => [
-        new Date(entry.date).toLocaleDateString(),
-        entry.type,
-        entry.category,
-        entry.amount,
-        entry.currency,
-        `"${entry.description || ''}"`
-      ].join(','))
-    ].join('\n');
-
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
+    // The BOM makes Excel read the file as UTF-8 so Arabic text isn't garbled.
+    const blob = new Blob(['﻿' + [headers.map(csvCell).join(','), ...rows].join('\n')], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
-    link.setAttribute('href', url);
-    link.setAttribute('download', `financial_ledger_${new Date().toISOString().split('T')[0]}.csv`);
-    link.style.visibility = 'hidden';
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `jood_ledger_${new Date().toISOString().split('T')[0]}.csv`;
     document.body.appendChild(link);
     link.click();
-    document.body.removeChild(link);
+    link.remove();
+    URL.revokeObjectURL(url);
 
     toast({
-      title: "Export Successful",
-      description: "Financial ledger exported as CSV.",
+      title: ar ? 'تم تصدير السجل' : 'Ledger exported',
+      description: ar ? `${filteredEntries.length} معاملة في ملف CSV.` : `${filteredEntries.length} entries saved as CSV.`,
     });
-  };
-
-  const getTypeColor = (type: string) => {
-    switch (type) {
-      case 'income':
-        return 'bg-green-100 text-green-800 border-green-200';
-      case 'expense':
-        return 'bg-red-100 text-red-800 border-red-200';
-      case 'savings':
-        return 'bg-blue-100 text-blue-800 border-blue-200';
-      default:
-        return 'bg-gray-100 text-gray-800 border-gray-200';
-    }
-  };
-
-  const getTypeIcon = (type: string) => {
-    switch (type) {
-      case 'income':
-        return '💰';
-      case 'expense':
-        return '💸';
-      case 'savings':
-        return '🏦';
-      default:
-        return '📊';
-    }
   };
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-[400px] sm:w-[600px]">
+      <SheetContent side={dir === 'rtl' ? 'left' : 'right'} className="w-full sm:max-w-[560px] flex flex-col" dir={dir}>
         <SheetHeader>
-          <SheetTitle className="text-xl font-semibold">Financial Ledger</SheetTitle>
+          <SheetTitle className="text-xl font-bold font-arabic">{ar ? 'السجل المالي' : 'Financial ledger'}</SheetTitle>
+          <SheetDescription className="font-arabic">
+            {ar ? `${financialEntries.length} معاملة مسجّلة` : `${financialEntries.length} recorded entries`}
+          </SheetDescription>
         </SheetHeader>
-        
-        <div className="mt-6 space-y-4">
-          {/* Filters */}
-          <div className="space-y-3">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
-              <Input
-                placeholder="Search entries..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-            
-            <div className="flex gap-2">
-              <Select value={typeFilter} onValueChange={setTypeFilter}>
-                <SelectTrigger className="w-32">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Types</SelectItem>
-                  <SelectItem value="income">Income</SelectItem>
-                  <SelectItem value="expense">Expense</SelectItem>
-                  <SelectItem value="savings">Savings</SelectItem>
-                </SelectContent>
-              </Select>
 
-              <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                <SelectTrigger className="flex-1">
-                  <SelectValue placeholder="All Categories" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Categories</SelectItem>
-                  {categories.map(category => (
-                    <SelectItem key={category} value={category}>{category}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={exportToCSV}
-                disabled={filteredEntries.length === 0}
-              >
-                <Download className="w-4 h-4" />
-              </Button>
-            </div>
+        {/* Filters */}
+        <div className="mt-4 space-y-3">
+          <div className="relative">
+            <Search className="absolute start-3 top-1/2 -translate-y-1/2 text-muted-foreground w-4 h-4 pointer-events-none" />
+            <Input
+              placeholder={ar ? 'ابحث في المعاملات…' : 'Search entries…'}
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="ps-9 font-arabic"
+              aria-label={ar ? 'بحث' : 'Search'}
+            />
           </div>
 
-          {/* Entries List */}
-          <div className="space-y-3 max-h-[calc(100vh-300px)] overflow-y-auto">
-            {filteredEntries.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                <Filter className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                <p className="font-medium">No entries found</p>
-                <p className="text-sm">Try adjusting your filters or add new entries</p>
-              </div>
-            ) : (
-              filteredEntries.map((entry) => (
-                <div key={entry.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/30 transition-colors">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-2">
-                      <span className="text-lg">{getTypeIcon(entry.type)}</span>
-                      <Badge className={getTypeColor(entry.type)}>
-                        {entry.type}
-                      </Badge>
-                      <span className="font-medium text-foreground">{entry.category}</span>
-                    </div>
-                    {entry.description && (
-                      <p className="text-sm text-muted-foreground mb-1">{entry.description}</p>
-                    )}
-                    <p className="text-xs text-muted-foreground">
-                      {new Date(entry.date).toLocaleDateString()}
+          <div className="flex gap-2">
+            <Select value={typeFilter} onValueChange={setTypeFilter}>
+              <SelectTrigger className="w-36 font-arabic" aria-label={ar ? 'النوع' : 'Type'}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {['all', 'income', 'expense', 'savings'].map(v => (
+                  <SelectItem key={v} value={v} className="font-arabic">{TYPE_LABEL[v]}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+              <SelectTrigger className="flex-1 font-arabic" aria-label={ar ? 'الفئة' : 'Category'}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all" className="font-arabic">{ar ? 'كل الفئات' : 'All categories'}</SelectItem>
+                {categories.map(category => (
+                  <SelectItem key={category} value={category} className="font-arabic">{categoryLabel(category, lang)}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={exportToCSV}
+              disabled={filteredEntries.length === 0}
+              aria-label={ar ? 'تصدير CSV' : 'Export CSV'}
+              title={ar ? 'تصدير CSV' : 'Export CSV'}
+            >
+              <Download className="w-4 h-4" />
+            </Button>
+          </div>
+        </div>
+
+        {/* Entries */}
+        <ul className="mt-4 flex-1 min-h-0 overflow-y-auto space-y-2 -mx-1 px-1">
+          {filteredEntries.length === 0 ? (
+            <li className="text-center py-10 text-muted-foreground font-arabic">
+              <Filter className="h-10 w-10 mx-auto mb-3 opacity-40" />
+              <p className="font-medium text-foreground">{ar ? 'لا توجد معاملات مطابقة' : 'No matching entries'}</p>
+              <p className="text-sm">{ar ? 'غيّر البحث أو الفلاتر، أو أضف معاملة جديدة.' : 'Change the search or filters, or add a new entry.'}</p>
+            </li>
+          ) : (
+            filteredEntries.map((entry) => {
+              const style = TYPE_STYLE[entry.type] ?? TYPE_STYLE.expense;
+              const Icon = style.icon;
+              return (
+                <li key={entry.id} className="group flex items-center gap-3 rounded-xl bg-foreground/[0.03] hover:bg-foreground/[0.06] border border-border/40 px-3 py-2.5 transition-colors">
+                  <span className={cn('w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0', style.tone)}>
+                    <Icon className="w-4 h-4" />
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold font-arabic text-foreground truncate">{titleOf(entry)}</p>
+                    <p className="text-[11px] text-muted-foreground font-arabic truncate">
+                      {categoryLabel(entry.category, lang)} · {dateFmt.format(new Date(entry.date))}
                     </p>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <div className="text-right">
-                      <p className="font-bold text-lg">
-                        {entry.amount.toLocaleString()} {entry.currency}
-                      </p>
-                    </div>
-                    <div className="flex gap-1">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleDelete(entry.id)}
-                        className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-
-          {/* Summary */}
-          {filteredEntries.length > 0 && (
-            <div className="border-t pt-4">
-              <div className="grid grid-cols-3 gap-4 text-center">
-                <div>
-                  <p className="text-sm text-muted-foreground">Total Income</p>
-                  <p className="font-bold text-green-600">
-                    SAR {filteredEntries
-                      .filter(e => e.type === 'income')
-                      .reduce((sum, e) => sum + e.amount, 0)
-                      .toLocaleString()}
+                  <p className={cn('font-mono text-sm font-bold whitespace-nowrap', entry.type === 'income' ? 'text-jood-ok' : 'text-foreground')} dir="ltr">
+                    {style.sign}{money(Number(entry.amount))} <span className="text-[10px] text-muted-foreground font-normal">{entry.currency}</span>
                   </p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Total Expenses</p>
-                  <p className="font-bold text-red-600">
-                    SAR {filteredEntries
-                      .filter(e => e.type === 'expense')
-                      .reduce((sum, e) => sum + e.amount, 0)
-                      .toLocaleString()}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Total Savings</p>
-                  <p className="font-bold text-blue-600">
-                    SAR {filteredEntries
-                      .filter(e => e.type === 'savings')
-                      .reduce((sum, e) => sum + e.amount, 0)
-                      .toLocaleString()}
-                  </p>
-                </div>
-              </div>
-            </div>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setPendingDelete(entry)}
+                    className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10 flex-shrink-0"
+                    aria-label={ar ? `حذف ${titleOf(entry)}` : `Delete ${titleOf(entry)}`}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                </li>
+              );
+            })
           )}
-        </div>
+        </ul>
+
+        {/* Totals for the current filter */}
+        {filteredEntries.length > 0 && (
+          <div className="mt-3 grid grid-cols-3 gap-2 border-t border-border/40 pt-3 text-center">
+            {([
+              ['income', ar ? 'الدخل' : 'Income', 'text-jood-ok'],
+              ['expense', ar ? 'المصاريف' : 'Expenses', 'text-jood-warn'],
+              ['savings', ar ? 'الادخار' : 'Savings', 'text-jood-gold-600 dark:text-jood-gold-300'],
+            ] as const).map(([key, label, tone]) => (
+              <div key={key}>
+                <p className="text-[11px] text-muted-foreground font-arabic">{label}</p>
+                <p className={cn('font-mono text-sm font-bold whitespace-nowrap', tone)} dir="ltr">
+                  {money(totals[key])} <span className="text-[10px] font-normal text-muted-foreground">SAR</span>
+                </p>
+              </div>
+            ))}
+          </div>
+        )}
       </SheetContent>
+
+      <AlertDialog open={!!pendingDelete} onOpenChange={(o) => !o && setPendingDelete(null)}>
+        <AlertDialogContent dir={dir}>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="font-arabic">{ar ? 'حذف هذه المعاملة؟' : 'Delete this entry?'}</AlertDialogTitle>
+            <AlertDialogDescription className="font-arabic">
+              {pendingDelete && (ar
+                ? `«${titleOf(pendingDelete)}» بمبلغ ${money(Number(pendingDelete.amount))} ${pendingDelete.currency}. لا يمكن التراجع عن الحذف.`
+                : `“${titleOf(pendingDelete)}” for ${money(Number(pendingDelete.amount))} ${pendingDelete.currency}. This can't be undone.`)}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="font-arabic">{ar ? 'إلغاء' : 'Cancel'}</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete} className="font-arabic bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              {ar ? 'حذف' : 'Delete'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Sheet>
   );
 };

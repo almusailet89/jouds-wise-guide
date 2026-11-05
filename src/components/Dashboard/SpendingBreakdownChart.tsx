@@ -6,33 +6,7 @@ import { PieChart as PieIcon } from 'lucide-react';
 import type { FinancialEntry } from '@/hooks/useFinancialDashboard';
 import { useLanguage } from '@/hooks/useLanguage';
 import { EmptyState } from '@/components/ui/empty-state';
-
-// ─── Category display names (Arabic) ─────────────────────────────────────────
-const CAT_AR: Record<string, string> = {
-  Salary: 'الراتب', Food: 'مطاعم وطعام', Transportation: 'مواصلات',
-  Housing: 'سكن وإيجار', Healthcare: 'صحة', Entertainment: 'ترفيه',
-  Shopping: 'تسوق', Bills: 'فواتير', Education: 'تعليم',
-  Freelance: 'عمل حر', Investment: 'استثمار', Business: 'أعمال',
-  Bonus: 'مكافأة', savings: 'ادخار', general: 'عام',
-  'Emergency Fund': 'طوارئ', 'Goal-based': 'هدف', Other: 'أخرى',
-};
-
-// ─── Category display names (English, including Arabic keys for legacy data) ─
-const CAT_EN: Record<string, string> = {
-  Salary: 'Salary', Food: 'Food & Dining', Transportation: 'Transport',
-  Housing: 'Housing & Rent', Healthcare: 'Health', Entertainment: 'Entertainment',
-  Shopping: 'Shopping', Bills: 'Bills', Education: 'Education',
-  Freelance: 'Freelance', Investment: 'Investment', Business: 'Business',
-  Bonus: 'Bonus', savings: 'Savings', general: 'General',
-  'Emergency Fund': 'Emergency Fund', 'Goal-based': 'Goal', Other: 'Other',
-  // Arabic keys (for data entered in Arabic)
-  'الراتب': 'Salary', 'مطاعم وطعام': 'Food & Dining', 'مواصلات': 'Transport',
-  'سكن وإيجار': 'Housing & Rent', 'صحة': 'Health', 'ترفيه': 'Entertainment',
-  'تسوق': 'Shopping', 'فواتير': 'Bills', 'تعليم': 'Education',
-  'عمل حر': 'Freelance', 'استثمار': 'Investment', 'أعمال': 'Business',
-  'مكافأة': 'Bonus', 'ادخار': 'Savings', 'عام': 'General',
-  'صندوق الطوارئ': 'Emergency Fund', 'هدف': 'Goal', 'أخرى': 'Other',
-};
+import { categoryLabel } from '@/lib/financeCategories';
 
 interface SpendingBreakdownChartProps {
   entries: FinancialEntry[];
@@ -50,8 +24,7 @@ export const SpendingBreakdownChart: React.FC<SpendingBreakdownChartProps> = ({ 
       map[cat] = (map[cat] || 0) + Number(e.amount);
     }
     const sorted = Object.entries(map).sort(([, a], [, b]) => b - a);
-    const displayName = (name: string) =>
-      lang === 'ar' ? (CAT_AR[name] || name) : (CAT_EN[name] || name);
+    const displayName = (name: string) => categoryLabel(name, lang);
 
     if (sorted.length <= 7) return sorted.map(([name, value]) => ({ name: displayName(name), value, rawName: name }));
     const top6 = sorted.slice(0, 6);

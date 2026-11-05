@@ -9,6 +9,7 @@ export interface FinancialEntry {
   amount: number;
   currency: string;
   category: string;
+  label?: string | null;
   description?: string;
   date: string;
   created_at: string;
