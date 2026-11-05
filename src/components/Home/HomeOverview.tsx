@@ -453,7 +453,7 @@ export const HomeOverview: React.FC<HomeOverviewProps> = ({ onNavigate }) => {
                     'text-2xl font-bold font-mono mt-0.5',
                     walletSummary.balance >= 0 ? 'text-jood-ok' : 'text-destructive',
                   )}>
-                    {fmt(walletSummary.balance)}
+                    <bdi dir="ltr">{fmt(walletSummary.balance)}</bdi>
                   </p>
                 </div>
                 {walletSummary.income > 0 && (
@@ -467,11 +467,11 @@ export const HomeOverview: React.FC<HomeOverviewProps> = ({ onNavigate }) => {
               <div className="grid grid-cols-2 gap-2 pt-2 border-t border-border/30">
                 <div>
                   <p className="text-[10px] text-muted-foreground font-arabic">{t('home.wallet.income')}</p>
-                  <p className="text-sm font-bold font-mono text-jood-teal-500">{fmt(walletSummary.income)}</p>
+                  <p className="text-sm font-bold font-mono text-jood-teal-500"><bdi dir="ltr">{fmt(walletSummary.income)}</bdi></p>
                 </div>
                 <div>
                   <p className="text-[10px] text-muted-foreground font-arabic">{t('home.wallet.expenses')}</p>
-                  <p className="text-sm font-bold font-mono text-jood-gold-500">{fmt(walletSummary.expenses)}</p>
+                  <p className="text-sm font-bold font-mono text-jood-gold-500"><bdi dir="ltr">{fmt(walletSummary.expenses)}</bdi></p>
                 </div>
               </div>
 
@@ -480,7 +480,7 @@ export const HomeOverview: React.FC<HomeOverviewProps> = ({ onNavigate }) => {
                   <TrendingUp className="w-3.5 h-3.5 text-muted-foreground" />
                   <div className="flex-1 min-w-0">
                     <p className="text-[11px] text-muted-foreground font-arabic">{t('home.wallet.last')}</p>
-                    <p className="text-xs font-arabic truncate">{walletSummary.recent.label} · {fmt(walletSummary.recent.amount)}</p>
+                    <p className="text-xs font-arabic truncate">{walletSummary.recent.label} · <bdi dir="ltr">{fmt(walletSummary.recent.amount)}</bdi></p>
                   </div>
                 </div>
               )}
