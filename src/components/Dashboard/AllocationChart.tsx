@@ -20,7 +20,8 @@ export const AllocationChart: React.FC<AllocationChartProps> = ({
   data,
   title = "Portfolio Allocation"
 }) => {
-  const { dir } = useLanguage();
+  const { dir, lang } = useLanguage();
+  const L = (ar: string, en: string) => (lang === 'ar' ? ar : en);
   const slices = data.map((item, i) => ({ name: item.name, value: item.value, color: PALETTE[i % PALETTE.length] }));
   const total = slices.reduce((s, d) => s + d.value, 0);
   const largest = slices.reduce<typeof slices[number] | null>((top, s) => (!top || s.value > top.value ? s : top), null);
@@ -50,8 +51,8 @@ export const AllocationChart: React.FC<AllocationChartProps> = ({
           <div className="h-80 flex items-center justify-center">
             <div className="text-center">
               <TrendingUp className="h-12 w-12 mx-auto mb-3 text-muted-foreground" />
-              <p className="text-muted-foreground font-medium">No portfolio data</p>
-              <p className="text-sm text-muted-foreground">Add holdings to see allocation</p>
+              <p className="text-muted-foreground font-medium font-arabic">{L('لا توجد أصول بعد', 'No holdings yet')}</p>
+              <p className="text-sm text-muted-foreground font-arabic">{L('أضف أصولاً لترى توزيع محفظتك', 'Add holdings to see your allocation')}</p>
             </div>
           </div>
         )}

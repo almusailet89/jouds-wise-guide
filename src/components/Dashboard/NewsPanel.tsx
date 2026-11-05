@@ -1,4 +1,5 @@
 import React from 'react';
+import { useLanguage } from '@/hooks/useLanguage';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -23,6 +24,8 @@ export const NewsPanel: React.FC<NewsPanelProps> = ({
   loading = false, 
   onRefresh 
 }) => {
+  const { lang } = useLanguage();
+  const L = (ar: string, en: string) => (lang === 'ar' ? ar : en);
   // Flatten and sort news by published date
   const allNews = Object.entries(news)
     .flatMap(([symbol, articles]) => 
@@ -60,8 +63,8 @@ export const NewsPanel: React.FC<NewsPanelProps> = ({
               <Newspaper className="h-5 w-5 text-white" />
             </div>
             <div>
-              <span className="text-xl font-semibold">Market News</span>
-              <p className="text-sm text-muted-foreground font-normal">Latest financial headlines</p>
+              <span className="text-xl font-semibold font-arabic">{L('أخبار السوق', 'Market news')}</span>
+              <p className="text-sm text-muted-foreground font-normal font-arabic">{L('آخر العناوين عن أصولك', 'Latest headlines for your holdings')}</p>
             </div>
           </CardTitle>
           {onRefresh && (
@@ -70,7 +73,7 @@ export const NewsPanel: React.FC<NewsPanelProps> = ({
               size="sm"
               onClick={onRefresh}
               disabled={loading}
-              className="bg-white/10 border-white/20 hover:bg-white/20"
+              aria-label={L('تحديث الأخبار', 'Refresh news')}
             >
               <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
             </Button>
@@ -129,9 +132,9 @@ export const NewsPanel: React.FC<NewsPanelProps> = ({
         ) : (
           <div className="text-center py-8">
             <Newspaper className="h-12 w-12 mx-auto mb-3 text-muted-foreground" />
-            <p className="text-lg font-medium text-muted-foreground">No news available</p>
+            <p className="text-lg font-medium text-muted-foreground font-arabic">{L('لا توجد أخبار حالياً', 'No news right now')}</p>
             <p className="text-sm text-muted-foreground">
-              News will appear when you add portfolio holdings
+              {L('تظهر الأخبار هنا بعد إضافة أصول لمحفظتك.', 'News appears here once you add holdings.')}
             </p>
           </div>
         )}

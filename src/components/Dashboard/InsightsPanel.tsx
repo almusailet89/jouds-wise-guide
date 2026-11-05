@@ -1,4 +1,5 @@
 import React from 'react';
+import { useLanguage } from '@/hooks/useLanguage';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -16,6 +17,8 @@ export const InsightsPanel: React.FC<InsightsPanelProps> = ({
   loading = false, 
   onRefresh 
 }) => {
+  const { lang } = useLanguage();
+  const L = (ar: string, en: string) => (lang === 'ar' ? ar : en);
   const getInsightIcon = (type: string) => {
     switch (type) {
       case 'performance':
@@ -58,8 +61,8 @@ export const InsightsPanel: React.FC<InsightsPanelProps> = ({
               <Sparkles className="h-5 w-5 text-white" />
             </div>
             <div>
-              <span className="text-xl font-semibold">AI Insights</span>
-              <p className="text-sm text-muted-foreground font-normal">Fact-based portfolio analysis</p>
+              <span className="text-xl font-semibold font-arabic">{L('رؤى جود', 'AI insights')}</span>
+              <p className="text-sm text-muted-foreground font-normal font-arabic">{L('تحليل لمحفظتك مبني على أرقامك', 'Fact-based portfolio analysis')}</p>
             </div>
           </CardTitle>
           {onRefresh && (
@@ -68,7 +71,7 @@ export const InsightsPanel: React.FC<InsightsPanelProps> = ({
               size="sm"
               onClick={onRefresh}
               disabled={loading}
-              className="bg-white/10 border-white/20 hover:bg-white/20"
+              aria-label={L('تحديث الرؤى', 'Refresh insights')}
             >
               <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
             </Button>
@@ -125,9 +128,9 @@ export const InsightsPanel: React.FC<InsightsPanelProps> = ({
         ) : (
           <div className="text-center py-8">
             <Sparkles className="h-12 w-12 mx-auto mb-3 text-muted-foreground" />
-            <p className="text-lg font-medium text-muted-foreground">No insights available</p>
+            <p className="text-lg font-medium text-muted-foreground font-arabic">{L('لا توجد رؤى بعد', 'No insights yet')}</p>
             <p className="text-sm text-muted-foreground">
-              Add portfolio holdings to get AI-powered insights
+              {L('أضف أصولاً لمحفظتك ليحللها جود ويعطيك رؤى.', 'Add portfolio holdings to get AI insights.')}
             </p>
           </div>
         )}
