@@ -2,12 +2,14 @@ import { createContext, useContext, useEffect, useMemo, useState, ReactNode } fr
 import { AuthError, User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { clearPrivateClientState } from '@/lib/privacy';
+import { LEGAL_ACCEPTANCE_KEY, type LegalAcceptance } from '@/lib/legalAcceptance';
+import { syncLegalAcceptance } from '@/lib/legalAcceptanceSync';
 
 interface AuthContextType {
   user: User | null;
   session: Session | null;
   loading: boolean;
-  signUp: (email: string, password: string, displayName?: string, gender?: 'male' | 'female', phone?: string) => Promise<{ error: AuthError | null }>;
+  signUp: (email: string, password: string, displayName?: string, gender?: 'male' | 'female', phone?: string, legalAcceptance?: LegalAcceptance) => Promise<{ error: AuthError | null }>;
   signIn: (email: string, password: string) => Promise<{ error: AuthError | null }>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<{ error: AuthError | null }>;
@@ -53,12 +55,19 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     return () => subscription.unsubscribe();
   }, []);
 
+  // Record the terms/privacy acceptance captured at sign-up once the user has a session
+  // (with email confirmation on, that's after they confirm and first sign in).
+  useEffect(() => {
+    if (user) void syncLegalAcceptance(user);
+  }, [user]);
+
   const signUp = async (
     email: string,
     password: string,
     displayName?: string,
     gender?: 'male' | 'female',
     phone?: string,
+    legalAcceptance?: LegalAcceptance,
   ) => {
     const redirectUrl = `${window.location.origin}/dashboard`;
     const { error } = await supabase.auth.signUp({
@@ -70,6 +79,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
           display_name: displayName,
           gender:       gender,
           phone:        phone,
+          [LEGAL_ACCEPTANCE_KEY]: legalAcceptance,
         }
       }
     });

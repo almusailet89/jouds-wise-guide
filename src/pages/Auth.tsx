@@ -13,6 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Sparkles, ArrowRight } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { buildLegalAcceptance } from '@/lib/legalAcceptance';
 
 export default function Auth() {
   const { t, dir } = useLanguage();
@@ -31,7 +32,7 @@ export default function Auth() {
   const [resetLoading, setResetLoading]       = useState(false);
 
   const { signIn, signUp, user, resetPassword } = useAuth();
-  const { acceptAgreement, getLatestVersion } = useLegalAgreements();
+  const { getLatestVersion } = useLegalAgreements();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -73,14 +74,17 @@ export default function Auth() {
       return;
     }
     setLoading(true);
-    const { error } = await signUp(email, password, displayName, gender, phone || undefined);
+    // No session exists yet when email confirmation is on, so the acceptance rides along in
+    // the sign-up metadata and AuthProvider writes the user_agreements rows on first sign-in.
+    const legalAcceptance = buildLegalAcceptance(
+      { terms: getLatestVersion('terms')?.version, privacy: getLatestVersion('privacy')?.version },
+      new Date(),
+      navigator.userAgent,
+    );
+    const { error } = await signUp(email, password, displayName, gender, phone || undefined, legalAcceptance);
     if (error) {
       toast.error(error.message || t('auth.error.signup'));
     } else {
-      const termsVersion   = getLatestVersion('terms');
-      const privacyVersion = getLatestVersion('privacy');
-      if (termsVersion)   await acceptAgreement('terms',   termsVersion.version);
-      if (privacyVersion) await acceptAgreement('privacy', privacyVersion.version);
       toast.success(t('auth.success.signup'));
     }
     setLoading(false);
