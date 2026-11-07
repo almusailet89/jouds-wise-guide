@@ -1,0 +1,416 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>جارفس — مركز القيادة</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Share+Tech+Mono&family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #02070d; --panel: rgba(6, 22, 34, .72); --line: rgba(80, 220, 255, .18);
+    --cyan: #4fe3ff; --cyan-dim: #8ad9ea; --text: #d9f6ff; --muted: #6fa3b3;
+    --amber: #ffb347; --green: #3dffa8;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; background: var(--bg); color: var(--text); overflow: hidden; }
+  body { font-family: 'Tajawal', sans-serif; }
+  .mono { font-family: 'Share Tech Mono', monospace; }
+  .orb  { font-family: 'Orbitron', sans-serif; letter-spacing: .12em; }
+
+  canvas#sphere { position: fixed; inset: 0; width: 100vw; height: 100vh; }
+  .scan { position: fixed; inset: 0; pointer-events: none; opacity: .07;
+          background: repeating-linear-gradient(0deg, #fff 0 1px, transparent 1px 3px); }
+  .vignette { position: fixed; inset: 0; pointer-events: none;
+          background: radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,.8) 100%); }
+
+  .hud { position: fixed; inset: 0; display: grid; padding: 22px 26px; gap: 16px;
+         grid-template-columns: minmax(240px, 300px) 1fr minmax(240px, 300px);
+         grid-template-rows: auto 1fr auto auto; pointer-events: none; }
+  .hud > * { pointer-events: auto; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
+           padding: 12px 14px; backdrop-filter: blur(6px);
+           box-shadow: 0 0 24px rgba(79, 227, 255, .06) inset; }
+  .ptitle { font-size: 11px; color: var(--cyan); letter-spacing: .1em; margin-bottom: 8px; font-weight: 700; }
+
+  header.top-right { grid-column: 1; grid-row: 1; }
+  header.top-left  { grid-column: 3; grid-row: 1; text-align: left; }
+  .title { font-size: 26px; color: var(--cyan); text-shadow: 0 0 18px rgba(79,227,255,.6); }
+  .sub   { color: var(--muted); font-size: 13px; margin-top: 4px; }
+  .clock { font-size: 30px; color: var(--cyan); text-shadow: 0 0 14px rgba(79,227,255,.5); direction: ltr; }
+
+  aside.right { grid-column: 1; grid-row: 2; display: flex; flex-direction: column; gap: 12px; min-height: 0; }
+  aside.left  { grid-column: 3; grid-row: 2; display: flex; flex-direction: column; gap: 12px; min-height: 0; }
+
+  .conn { display: flex; justify-content: space-between; align-items: center; font-size: 13px; padding: 3px 0; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-inline-end: 8px; }
+  .dot.on  { background: var(--green); box-shadow: 0 0 8px var(--green); }
+  .dot.off { background: var(--amber); animation: blink 1.1s infinite; }
+  @keyframes blink { 50% { opacity: .2; } }
+  .conn small { color: var(--muted); font-size: 11px; }
+
+  #log { list-style: none; font-size: 12px; color: var(--cyan-dim); line-height: 1.7; overflow: hidden; flex: 1; }
+  #log li { opacity: 0; transform: translateX(8px); animation: in .4s forwards; }
+  @keyframes in { to { opacity: 1; transform: none; } }
+
+  .stat { margin: 6px 0 10px; }
+  .stat .row { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); }
+  .stat .row b { color: var(--text); font-weight: 700; }
+  .bar { height: 3px; background: rgba(255,255,255,.08); border-radius: 2px; margin-top: 5px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--cyan); box-shadow: 0 0 8px var(--cyan); }
+
+  .prio li { list-style: none; margin-bottom: 8px; }
+  .prio b { color: #fff; font-size: 14px; }
+  .prio span { display: block; color: var(--muted); font-size: 11px; }
+  .prio .n { color: var(--cyan); font-family: 'Orbitron'; margin-inline-end: 6px; }
+
+  .figures { grid-column: 1 / -1; grid-row: 3; display: flex; justify-content: center; gap: 46px; text-align: center; }
+  .figures .v { font-size: 34px; color: #fff; text-shadow: 0 0 16px rgba(79,227,255,.45); }
+  .figures .k { font-size: 12px; color: var(--muted); }
+  .chip { display: inline-block; margin-top: 8px; padding: 4px 12px; border-radius: 999px;
+          border: 1px solid var(--amber); color: var(--amber); font-size: 12px; }
+
+  .bottom { grid-column: 1 / -1; grid-row: 4; display: flex; gap: 12px; align-items: center; }
+  .btn { cursor: pointer; border-radius: 999px; padding: 11px 22px; font: 800 14px 'Tajawal';
+         color: var(--bg); background: var(--cyan); border: 0;
+         box-shadow: 0 0 22px rgba(79,227,255,.55); transition: transform .15s; white-space: nowrap; }
+  .btn:hover { transform: scale(1.04); }
+  .btn.ghost { background: transparent; color: var(--cyan); border: 1px solid var(--cyan); box-shadow: none; }
+  .btn.live  { background: #ff4f6d; box-shadow: 0 0 22px rgba(255,79,109,.6); color: #fff; }
+  .ticker { flex: 1; overflow: hidden; border: 1px solid var(--line); border-radius: 999px; padding: 9px 0; }
+  .ticker div { display: inline-block; white-space: nowrap; padding-inline: 100%; color: var(--cyan-dim);
+                font-size: 13px; animation: tick 45s linear infinite; }
+  @keyframes tick { from { transform: translateX(-50%); } to { transform: translateX(50%); } }
+
+  .ask { position: fixed; left: 50%; top: calc(50% + 190px); transform: translateX(-50%);
+         width: min(560px, 90vw); text-align: center; pointer-events: auto; }
+  .ask form { display: flex; gap: 8px; }
+  .ask input { flex: 1; background: rgba(6,22,34,.85); border: 1px solid var(--line); border-radius: 999px;
+               color: var(--text); padding: 10px 16px; font: 14px 'Tajawal'; outline: none; }
+  .ask input:focus { border-color: var(--cyan); }
+  #heard { color: var(--muted); font-size: 13px; min-height: 20px; margin-bottom: 6px; }
+  #reply { color: #fff; font-size: 16px; line-height: 1.7; min-height: 24px; margin-top: 10px;
+           text-shadow: 0 0 10px rgba(79,227,255,.3); }
+
+  .hud > * { min-width: 0; }
+  .ticker { min-width: 0; }
+  .sphere-space { display: none; }
+  @media (max-width: 900px) {
+    html, body { overflow-x: hidden; overflow-y: auto; }
+    canvas#sphere { position: absolute; height: 560px; }
+    .scan, .vignette { position: absolute; height: 560px; }
+    .hud { position: relative; display: flex; flex-direction: column; padding: 16px; gap: 12px; }
+    header.top-right { order: 1; }
+    .sphere-space { display: block; order: 2; height: 380px; pointer-events: none; }
+    .ask { order: 3; position: static; transform: none; width: 100%; }
+    .bottom { order: 4; flex-wrap: wrap; }
+    .bottom .ticker { order: 9; flex-basis: 100%; }
+    .bottom .btn { flex: 1; }
+    header.top-left { order: 5; text-align: right; }
+    aside.left  { order: 6; }
+    aside.right { order: 7; min-height: 160px; }
+    .figures { order: 8; flex-wrap: wrap; gap: 20px; }
+  }
+</style>
+</head>
+<body>
+<canvas id="sphere"></canvas>
+<div class="scan"></div><div class="vignette"></div>
+
+<audio id="briefAudio" src="jarvis_brief.mp3" preload="none"></audio>
+
+<div class="hud">
+  <header class="top-right">
+    <div class="title orb">J.A.R.V.I.S</div>
+    <div class="sub" id="greeting">…</div>
+    <div class="sub" id="date"></div>
+  </header>
+
+  <header class="top-left">
+    <div class="clock mono" id="clock">--:--:--</div>
+    <div class="panel" style="margin-top:10px; text-align:right">
+      <div class="ptitle">الموصّلات</div>
+      <div id="connectors"></div>
+    </div>
+  </header>
+
+  <aside class="right">
+    <div class="panel" style="flex:1; display:flex; flex-direction:column; min-height:0">
+      <div class="ptitle">سجل النشاط</div>
+      <ul id="log"></ul>
+    </div>
+  </aside>
+
+  <aside class="left">
+    <div class="panel">
+      <div class="ptitle">أهم ٣ اليوم</div>
+      <ol class="prio" id="priorities"></ol>
+    </div>
+    <div class="panel">
+      <div class="ptitle">المؤشرات</div>
+      <div id="stats"></div>
+    </div>
+  </aside>
+
+  <div class="sphere-space"></div>
+<div class="ask">
+  <div id="heard"></div>
+  <form id="askForm"><input id="askInput" placeholder="اكتب أو اضغط تكلّم… مثال: كيف حال تطبيق جود اليوم؟" autocomplete="off"></form>
+  <div id="reply"></div>
+</div>
+
+  <div class="figures" id="figures"></div>
+
+  <div class="bottom">
+    <button class="btn" id="briefBtn">موجز الصباح</button>
+    <button class="btn ghost" id="micBtn">🎙 تكلّم</button>
+    <div class="ticker"><div id="ticker"></div></div>
+    <button class="btn ghost" id="closerBtn">وش أبدأ فيه أول؟</button>
+  </div>
+</div>
+
+<script src="jarvis_data.js"></script>
+<script>
+(() => {
+  const D = window.JARVIS_DATA || {};
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const onServer = location.protocol.startsWith('http');
+
+  // ── Fill HUD from jarvis_data.js ──────────────────────────────────────────
+  $('greeting').textContent = D.greeting || 'أهلاً';
+  $('date').textContent = new Date().toLocaleDateString('ar-SA-u-ca-islamic', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+    + (D.generated ? `  •  آخر تحديث ${D.generated}` : '');
+
+  $('connectors').innerHTML = (D.connectors || []).map(c => `
+    <div class="conn"><span><i class="dot ${c.online ? 'on' : 'off'}"></i>${esc(c.name)}</span>
+    <small>${esc(c.online ? (c.detail || 'متصل') : (c.detail || 'غير متصل'))}</small></div>`).join('')
+    || '<small style="color:var(--muted)">ما فيه موصّلات بعد</small>';
+
+  $('priorities').innerHTML = (D.priorities || []).slice(0, 3).map((p, i) =>
+    `<li><b><span class="n">${i + 1}</span>${esc(p.title)}</b><span>${esc(p.why)}</span></li>`).join('')
+    || '<li><span>لا أولويات مسجلة — حدّث priorities.md</span></li>';
+
+  $('stats').innerHTML = (D.stats || []).map(s => {
+    const pct = s.max ? Math.min(100, Math.round((Number(s.value) / s.max) * 100)) : null;
+    return `<div class="stat"><div class="row"><span>${esc(s.label)}</span><b>${esc(s.display ?? s.value)}</b></div>
+      ${pct !== null ? `<div class="bar"><i style="width:${pct}%"></i></div>` : ''}</div>`;
+  }).join('');
+
+  $('figures').innerHTML = (D.figures || []).map(f =>
+    `<div><div class="v orb">${esc(f.value)}</div><div class="k">${esc(f.label)}</div></div>`).join('')
+    + (D.dueChip ? `<div><div class="chip">⚠ ${esc(D.dueChip)}</div></div>` : '');
+
+  $('ticker').textContent = [D.headline, ...(D.ticker || [])].filter(Boolean).join('   ◆   ') || 'جارفس جاهز';
+  if (D.closer) $('closerBtn').textContent = D.closer;
+
+  // Activity log reveals one line at a time
+  (D.log || []).forEach((line, i) => setTimeout(() => {
+    const li = document.createElement('li'); li.textContent = line; $('log').appendChild(li);
+  }, 300 + i * 450));
+
+  // ── Clock (Riyadh) ────────────────────────────────────────────────────────
+  const tz = D.timezone || 'Asia/Riyadh';
+  const tickClock = () => $('clock').textContent = new Date().toLocaleTimeString('en-GB', { timeZone: tz });
+  tickClock(); setInterval(tickClock, 1000);
+
+  // ── Energy sphere ─────────────────────────────────────────────────────────
+  const cv = $('sphere'), ctx = cv.getContext('2d');
+  let W = 0, H = 0, DPR = 1, mobile = false;
+  const resize = () => {
+    DPR = Math.min(window.devicePixelRatio || 1, 2);
+    mobile = innerWidth < 900;
+    W = innerWidth; H = mobile ? 560 : innerHeight;
+    cv.width = W * DPR; cv.height = H * DPR; ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  };
+  resize(); addEventListener('resize', resize);
+
+  const N = 680, pts = [];
+  const golden = Math.PI * (3 - Math.sqrt(5));
+  for (let i = 0; i < N; i++) {
+    const y = 1 - (i / (N - 1)) * 2, r = Math.sqrt(1 - y * y), th = golden * i;
+    pts.push([Math.cos(th) * r, y, Math.sin(th) * r]);
+  }
+
+  let speaking = false, level = 0, analyser = null, freq = null;
+  const envelope = t => 0.45 + 0.35 * Math.abs(Math.sin(t * 9.1)) * Math.abs(Math.sin(t * 2.3 + 1)); // synthetic speech
+
+  function frame(ms) {
+    const t = ms / 1000;
+    let target = 0;
+    if (speaking) {
+      if (analyser) {
+        analyser.getByteFrequencyData(freq);
+        let s = 0; for (let i = 0; i < freq.length; i++) s += freq[i];
+        target = Math.min(1, (s / freq.length) / 90);
+      } else target = envelope(t);
+    }
+    level += (target - level) * 0.18;
+
+    ctx.clearRect(0, 0, W, H);
+    const cx = W / 2, cy = mobile ? 290 : H / 2 - 20;
+    const base = mobile ? W * 0.2 : Math.min(W, H) * 0.17;
+    const breathe = 1 + 0.025 * Math.sin(t * 1.4) + level * 0.12;
+    const R = base * breathe;
+
+    // glow
+    const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, R * 2.4);
+    g.addColorStop(0, `rgba(79,227,255,${0.22 + level * 0.25})`);
+    g.addColorStop(0.4, 'rgba(79,227,255,0.06)');
+    g.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+
+    // rays
+    ctx.save(); ctx.translate(cx, cy);
+    for (let i = 0; i < 72; i++) {
+      const a = (i / 72) * Math.PI * 2 + t * 0.03;
+      ctx.strokeStyle = `rgba(79,227,255,${0.03 + (i % 6 === 0 ? 0.04 : 0)})`;
+      ctx.beginPath(); ctx.moveTo(Math.cos(a) * R * 1.25, Math.sin(a) * R * 1.25);
+      ctx.lineTo(Math.cos(a) * R * 2.3, Math.sin(a) * R * 2.3); ctx.stroke();
+    }
+    // tick ring
+    for (let i = 0; i < 120; i++) {
+      const a = (i / 120) * Math.PI * 2, long = i % 10 === 0;
+      ctx.strokeStyle = `rgba(79,227,255,${long ? 0.5 : 0.18})`;
+      ctx.beginPath(); ctx.moveTo(Math.cos(a) * R * 2.05, Math.sin(a) * R * 2.05);
+      ctx.lineTo(Math.cos(a) * R * (long ? 2.15 : 2.1), Math.sin(a) * R * (long ? 2.15 : 2.1)); ctx.stroke();
+    }
+    // dashed HUD arcs
+    [[1.45, 0.25, [6, 10]], [1.65, -0.15, [2, 6]], [1.85, 0.08, [24, 14]]].forEach(([k, sp, dash]) => {
+      ctx.setLineDash(dash); ctx.lineWidth = 1.2; ctx.strokeStyle = 'rgba(79,227,255,0.35)';
+      ctx.beginPath(); ctx.arc(0, 0, R * k, t * sp, t * sp + Math.PI * 1.5); ctx.stroke();
+    });
+    ctx.setLineDash([]);
+    // tilted orbital ring + marker
+    ctx.rotate(-0.35);
+    ctx.strokeStyle = 'rgba(79,227,255,0.4)'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.ellipse(0, 0, R * 1.55, R * 0.42, 0, 0, Math.PI * 2); ctx.stroke();
+    const ma = t * 0.9;
+    ctx.fillStyle = '#bff6ff'; ctx.shadowColor = '#4fe3ff'; ctx.shadowBlur = 16;
+    ctx.beginPath(); ctx.arc(Math.cos(ma) * R * 1.55, Math.sin(ma) * R * 0.42, 3.2, 0, Math.PI * 2); ctx.fill();
+    ctx.shadowBlur = 0; ctx.restore();
+
+    // sphere points
+    const ry = t * 0.25, rx = 0.42;
+    const cY = Math.cos(ry), sY = Math.sin(ry), cX = Math.cos(rx), sX = Math.sin(rx);
+    for (const [x0, y0, z0] of pts) {
+      const x1 = x0 * cY + z0 * sY, z1 = -x0 * sY + z0 * cY;
+      const y2 = y0 * cX - z1 * sX, z2 = y0 * sX + z1 * cX;
+      const jitter = 1 + level * 0.08 * Math.sin(t * 12 + x0 * 9 + y0 * 7);
+      const px = cx + x1 * R * jitter, py = cy + y2 * R * jitter;
+      const depth = (z2 + 1) / 2;
+      ctx.fillStyle = `rgba(${120 + depth * 100},${230 + depth * 25},255,${0.15 + depth * 0.75})`;
+      ctx.fillRect(px, py, 0.8 + depth * 1.6, 0.8 + depth * 1.6);
+    }
+    // core
+    const core = ctx.createRadialGradient(cx, cy, 0, cx, cy, R * (0.45 + level * 0.25));
+    core.addColorStop(0, `rgba(255,255,255,${0.85})`);
+    core.addColorStop(0.25, `rgba(140,240,255,${0.55 + level * 0.3})`);
+    core.addColorStop(1, 'rgba(79,227,255,0)');
+    ctx.fillStyle = core; ctx.beginPath(); ctx.arc(cx, cy, R * (0.45 + level * 0.25), 0, Math.PI * 2); ctx.fill();
+
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+
+  // ── Speech out ────────────────────────────────────────────────────────────
+  let audioCtx = null, currentAudio = null;
+  function wire(audioEl) {
+    try {
+      audioCtx = audioCtx || new AudioContext();
+      if (!audioEl._src) {
+        audioEl._src = audioCtx.createMediaElementSource(audioEl);
+        const an = audioCtx.createAnalyser(); an.fftSize = 256;
+        audioEl._src.connect(an); an.connect(audioCtx.destination); audioEl._an = an;
+      }
+      analyser = audioEl._an; freq = new Uint8Array(analyser.frequencyBinCount);
+    } catch { analyser = null; }
+  }
+  function setSpeaking(on) {
+    speaking = on;
+    $('briefBtn').textContent = on ? 'يتكلّم… (إيقاف)' : 'موجز الصباح';
+    $('briefBtn').classList.toggle('live', on);
+    if (!on) analyser = null;
+  }
+  function stopAll() {
+    if (currentAudio) { currentAudio.pause(); currentAudio = null; }
+    speechSynthesis.cancel(); setSpeaking(false);
+  }
+  function playEl(audioEl) {
+    currentAudio = audioEl; wire(audioEl); setSpeaking(true);
+    audioEl.onended = () => setSpeaking(false);
+    return audioEl.play();
+  }
+  function browserSpeak(text) {
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'ar-SA';
+    const v = speechSynthesis.getVoices().find(v => v.lang.startsWith('ar'));
+    if (v) u.voice = v;
+    u.onend = () => setSpeaking(false);
+    setSpeaking(true); speechSynthesis.speak(u);
+  }
+  async function say(text) {
+    stopAll();
+    if (onServer) {
+      try {
+        const r = await fetch('/tts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text }) });
+        if (r.ok) {
+          const a = new Audio(URL.createObjectURL(await r.blob()));
+          return playEl(a);
+        }
+      } catch {}
+    }
+    browserSpeak(text); // no TTS key or opened as a file → device Arabic voice
+  }
+
+  $('briefBtn').onclick = async () => {
+    if (speaking) return stopAll();
+    const a = $('briefAudio');
+    try { a.currentTime = 0; await playEl(a); }
+    catch { setSpeaking(false); say(D.briefText || [D.greeting, D.headline, D.closer].filter(Boolean).join('. ')); }
+  };
+  $('closerBtn').onclick = () => {
+    const top = (D.priorities || [])[0];
+    say(top ? `ابدأ بـ ${top.title}، لأن ${top.why}` : 'ما عندي أولويات مسجلة. حدّث ملف الأولويات وأرتبها لك.');
+  };
+
+  // ── Speech in → Claude Code → speech out ─────────────────────────────────
+  async function ask(text) {
+    $('heard').textContent = `«${text}»`;
+    if (!onServer) { $('reply').textContent = 'شغّل python3 server.py وافتح http://localhost:8765 عشان أقدر أجاوب.'; return; }
+    $('reply').textContent = 'أفكّر…'; speaking = true; analyser = null;
+    try {
+      const r = await fetch('/ask', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text }) });
+      const { reply } = await r.json();
+      speaking = false;
+      $('reply').textContent = reply;
+      say(reply);
+    } catch (e) {
+      speaking = false; $('reply').textContent = 'ما قدرت أوصل للخادم المحلي.';
+    }
+  }
+  $('askForm').onsubmit = e => { e.preventDefault(); const v = $('askInput').value.trim(); if (v) { $('askInput').value = ''; ask(v); } };
+
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  let rec = null;
+  $('micBtn').onclick = () => {
+    if (!SR) { $('heard').textContent = 'متصفحك ما يدعم التعرف على الصوت — استخدم Chrome أو اكتب سؤالك.'; return; }
+    if (rec) { rec.stop(); return; }
+    stopAll();
+    rec = new SR();
+    rec.lang = D.listenLang || 'ar-SA';
+    rec.interimResults = true;
+    rec.onresult = e => {
+      const r = e.results[e.results.length - 1];
+      $('heard').textContent = r[0].transcript;
+      if (r.isFinal) ask(r[0].transcript);
+    };
+    rec.onend = () => { rec = null; $('micBtn').classList.remove('live'); $('micBtn').textContent = '🎙 تكلّم'; };
+    rec.onerror = e => { $('heard').textContent = `خطأ في الميكروفون: ${e.error}`; };
+    rec.start();
+    $('micBtn').classList.add('live'); $('micBtn').textContent = '● أسمعك…';
+  };
+})();
+</script>
+</body>
+</html>
