@@ -87,7 +87,7 @@ class Models:
             from huggingface_hub import snapshot_download
             from safetensors.torch import load_file
 
-            tts = mtl_tts.ChatterboxMultilingualTTS.from_pretrained(device=torch.device(DEVICE))
+            tts = mtl_tts.ChatterboxMultilingualTTS.from_pretrained(device=DEVICE)
             ckpt = snapshot_download(repo_id=TTS_REPO, allow_patterns=["t3_mtl23ls_v2.safetensors"])
             tts.t3.load_state_dict(load_file(f"{ckpt}/t3_mtl23ls_v2.safetensors", device="cpu"))
             tts.t3.to(DEVICE).eval()

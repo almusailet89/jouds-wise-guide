@@ -45,3 +45,4 @@ local-voice/.venv/
 local-voice/voices/
 local-voice/out/
 local-voice/__pycache__/
+local-voice/.env
