@@ -39,3 +39,9 @@ supabase/config.toml
 *.pptx
 *.docx
 *.pdf
+
+# Local voice lab (models, env, voice samples stay on this machine)
+local-voice/.venv/
+local-voice/voices/
+local-voice/out/
+local-voice/__pycache__/

@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>JOOD Voice Lab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg: #0f2a2a; --bg2: #173b3a; --ink: #f6efe2; --muted: #b9c7c1;
+    --gold: #d4a64a; --gold-soft: rgba(212,166,74,.16); --glass: rgba(255,255,255,.07);
+    --line: rgba(255,255,255,.14); --danger: #e07a6a; --ok: #7fc8a9;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh; font-family: Tajawal, system-ui, sans-serif; color: var(--ink);
+    background: radial-gradient(1200px 600px at 80% -10%, rgba(212,166,74,.18), transparent 60%),
+                radial-gradient(900px 500px at -10% 110%, rgba(127,200,169,.12), transparent 60%),
+                linear-gradient(160deg, var(--bg), var(--bg2));
+  }
+  main { max-width: 760px; margin: 0 auto; padding: 24px 16px 48px; }
+  header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 20px; }
+  h1 { font-size: 20px; margin: 0; letter-spacing: .5px; }
+  h1 span { color: var(--gold); }
+  .pill { font-size: 12px; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--line); background: var(--glass); color: var(--muted); }
+  .pill.ok { color: var(--ok); border-color: rgba(127,200,169,.4); }
+  .pill.bad { color: var(--danger); border-color: rgba(224,122,106,.4); }
+  .card { background: var(--glass); border: 1px solid var(--line); border-radius: 20px; padding: 18px;
+          backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); }
+  .stage { display: grid; place-items: center; gap: 14px; padding: 28px 18px; text-align: center; }
+  .orb { width: 132px; height: 132px; border-radius: 50%;
+         background: radial-gradient(circle at 35% 30%, #3f6e69, #12302f 70%);
+         box-shadow: 0 0 0 1px rgba(212,166,74,.35), 0 0 calc(20px + var(--lvl, 0) * 60px) rgba(212,166,74,.45);
+         transform: scale(calc(1 + var(--lvl, 0) * .08)); transition: transform .08s linear, box-shadow .08s linear; }
+  .status { font-size: 18px; font-weight: 700; min-height: 1.4em; }
+  .sub { color: var(--muted); font-size: 13px; min-height: 1.2em; }
+  .controls { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+  button { font: inherit; cursor: pointer; border-radius: 999px; padding: 12px 22px; border: 1px solid var(--line);
+           background: var(--glass); color: var(--ink); min-height: 44px; }
+  button.primary { background: linear-gradient(135deg, #e0b65c, #b07d2a); color: #1b1408; border: 0; font-weight: 700; }
+  button.danger { background: rgba(224,122,106,.18); border-color: rgba(224,122,106,.45); }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  button:focus-visible, input:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+  form { display: flex; gap: 8px; margin-top: 14px; }
+  input[type=text] { flex: 1; font: inherit; color: var(--ink); background: rgba(0,0,0,.18); border: 1px solid var(--line);
+                     border-radius: 14px; padding: 12px 14px; min-height: 44px; }
+  .log { display: flex; flex-direction: column; gap: 10px; margin-top: 16px; max-height: 42vh; overflow-y: auto; }
+  .msg { padding: 10px 14px; border-radius: 14px; line-height: 1.7; max-width: 92%; }
+  .msg.user { align-self: flex-start; background: rgba(255,255,255,.08); }
+  .msg.jood { align-self: flex-end; background: var(--gold-soft); border: 1px solid rgba(212,166,74,.3); }
+  .timings { font-size: 12px; color: var(--muted); margin-top: 12px; direction: ltr; text-align: left; font-family: ui-monospace, monospace; }
+  .row { display: flex; gap: 12px; align-items: center; justify-content: space-between; flex-wrap: wrap; margin-top: 14px; font-size: 13px; color: var(--muted); }
+  .row label { display: flex; gap: 8px; align-items: center; }
+  @media (prefers-reduced-motion: reduce) { .orb { transition: none; transform: none; } }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>JOOD <span>·</span> Voice Lab</h1>
+    <span id="health" class="pill">جاري التحميل…</span>
+  </header>
+
+  <section class="card stage" aria-live="polite">
+    <div id="orb" class="orb" aria-hidden="true"></div>
+    <div id="status" class="status">جاهزة</div>
+    <div id="sub" class="sub">كل شي يشتغل على جهازك — بدون إنترنت وبدون تكلفة</div>
+    <div class="controls">
+      <button id="talk" class="primary" type="button">ابدأ المحادثة</button>
+      <button id="stop" class="danger" type="button" disabled>أوقفها</button>
+      <button id="reset" type="button">محادثة جديدة</button>
+    </div>
+    <div class="row">
+      <label><input id="handsfree" type="checkbox" checked /> وضع بدون يدين (يكتشف نهاية كلامك)</label>
+      <label>حساسية الميكروفون <input id="sens" type="range" min="1" max="10" value="5" aria-label="Microphone sensitivity" /></label>
+    </div>
+  </section>
+
+  <form id="textForm" autocomplete="off">
+    <input id="textInput" type="text" placeholder="أو اكتب لجود هنا…" aria-label="Message to Jood" />
+    <button class="primary" type="submit">أرسل</button>
+  </form>
+
+  <div id="log" class="log" role="log" aria-live="polite"></div>
+  <div id="timings" class="timings"></div>
+</main>
+
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const orb = $('orb'), statusEl = $('status'), subEl = $('sub'), logEl = $('log'), timingsEl = $('timings');
+  const talkBtn = $('talk'), stopBtn = $('stop'), resetBtn = $('reset');
+  let ws, audioCtx, micCtx, micNode, micStream, listening = false, busy = false;
+  let playQueue = Promise.resolve(), playing = new Set(), nextTime = 0, currentJood = null;
+
+  const setStatus = (s, sub = '') => { statusEl.textContent = s; subEl.textContent = sub; };
+  const addMsg = (who, text) => { const d = document.createElement('div'); d.className = 'msg ' + who; d.textContent = text; logEl.appendChild(d); logEl.scrollTop = logEl.scrollHeight; return d; };
+
+  async function health() {
+    try {
+      const r = await fetch('/api/health'); const j = await r.json();
+      const el = $('health');
+      el.textContent = j.ready ? `جاهزة · ${j.llm_short} · ${j.device}` : 'تحميل النماذج…';
+      el.className = 'pill ' + (j.ready ? 'ok' : '');
+      if (!j.ready) setTimeout(health, 2000);
+    } catch { $('health').textContent = 'السيرفر متوقف'; $('health').className = 'pill bad'; setTimeout(health, 3000); }
+  }
+
+  function connect() {
+    ws = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws`);
+    ws.onmessage = e => onEvent(JSON.parse(e.data));
+    ws.onclose = () => setTimeout(connect, 1500);
+  }
+
+  function ensureAudio() {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+  }
+
+  function playWav(b64) {
+    ensureAudio();
+    const bytes = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+    playQueue = playQueue.then(async () => {
+      const buf = await audioCtx.decodeAudioData(bytes.buffer);
+      const src = audioCtx.createBufferSource(); src.buffer = buf;
+      const analyser = audioCtx.createAnalyser(); analyser.fftSize = 256;
+      src.connect(analyser).connect(audioCtx.destination);
+      const at = Math.max(nextTime, audioCtx.currentTime + 0.02);
+      src.start(at); nextTime = at + buf.duration; playing.add(src);
+      setStatus('جود تتكلم…', 'تقدر تقاطعها بأي وقت');
+      const data = new Uint8Array(analyser.fftSize);
+      const tick = () => { if (!playing.has(src)) return; analyser.getByteTimeDomainData(data); let p = 0; for (const v of data) p = Math.max(p, Math.abs(v - 128) / 128); orb.style.setProperty('--lvl', p.toFixed(2)); requestAnimationFrame(tick); };
+      requestAnimationFrame(tick);
+      src.onended = () => { playing.delete(src); if (!playing.size) { orb.style.setProperty('--lvl', 0); if (!busy) setStatus(listening ? 'أسمعك…' : 'جاهزة', listening ? 'تكلم براحتك' : ''); } };
+    });
+  }
+
+  function stopPlayback() {
+    playing.forEach(s => { try { s.stop(); } catch {} }); playing.clear(); nextTime = 0; playQueue = Promise.resolve();
+  }
+
+  function onEvent(ev) {
+    if (ev.type === 'transcript') { addMsg('user', ev.text); setStatus('جود تفكر…', ''); currentJood = null; }
+    else if (ev.type === 'reply_delta') { if (!currentJood) currentJood = addMsg('jood', ''); currentJood.textContent += ev.text; logEl.scrollTop = logEl.scrollHeight; }
+    else if (ev.type === 'audio') playWav(ev.wav_b64);
+    else if (ev.type === 'done') {
+      busy = false; currentJood = null;
+      const t = ev.timings || {};
+      timingsEl.textContent = Object.entries(t).map(([k, v]) => `${k}: ${v}ms`).join('  ·  ');
+      if (!playing.size) setStatus(listening ? 'أسمعك…' : 'جاهزة', '');
+    }
+    else if (ev.type === 'error') { busy = false; setStatus('صار خطأ', ev.message); }
+  }
+
+  // ── Microphone capture with a simple energy-based end-of-speech detector ──
+  const WORKLET = `class Cap extends AudioWorkletProcessor{process(i){const c=i[0]&&i[0][0];if(c)this.port.postMessage(c.slice(0));return true}}registerProcessor('cap',Cap)`;
+  let chunks = [], speaking = false, silenceMs = 0, speechMs = 0, inRate = 48000;
+
+  async function startMic() {
+    ensureAudio();
+    micStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1 } });
+    micCtx = new (window.AudioContext || window.webkitAudioContext)(); inRate = micCtx.sampleRate;
+    const url = URL.createObjectURL(new Blob([WORKLET], { type: 'application/javascript' }));
+    await micCtx.audioWorklet.addModule(url); URL.revokeObjectURL(url);
+    const src = micCtx.createMediaStreamSource(micStream);
+    micNode = new AudioWorkletNode(micCtx, 'cap');
+    const sink = micCtx.createGain(); sink.gain.value = 0;
+    src.connect(micNode).connect(sink).connect(micCtx.destination);
+    micNode.port.onmessage = e => onFrame(e.data);
+  }
+
+  function onFrame(frame) {
+    if (!listening) return;
+    let peak = 0; for (let i = 0; i < frame.length; i++) peak = Math.max(peak, Math.abs(frame[i]));
+    if (!playing.size) orb.style.setProperty('--lvl', Math.min(peak * 3, 1).toFixed(2));
+    const threshold = 0.11 - Number($('sens').value) * 0.009;   // higher sensitivity → lower threshold
+    const ms = frame.length / inRate * 1000;
+    const loud = peak > threshold;
+    if (loud) {
+      if (!speaking && playing.size) { stopPlayback(); ws.send(JSON.stringify({ type: 'stop' })); }  // barge-in
+      speaking = true; silenceMs = 0; speechMs += ms;
+    } else if (speaking) silenceMs += ms;
+    if (speaking) chunks.push(frame);
+    if (speaking && $('handsfree').checked && silenceMs > 750) {
+      if (speechMs > 350) sendUtterance(); else { chunks = []; }
+      speaking = false; silenceMs = 0; speechMs = 0;
+    }
+  }
+
+  function sendUtterance() {
+    const total = chunks.reduce((n, c) => n + c.length, 0);
+    if (!total) return;
+    const ratio = inRate / 16000, outLen = Math.floor(total / ratio), out = new Int16Array(outLen);
+    const flat = new Float32Array(total); let o = 0; for (const c of chunks) { flat.set(c, o); o += c.length; }
+    for (let i = 0; i < outLen; i++) { const s = Math.max(-1, Math.min(1, flat[Math.floor(i * ratio)])); out[i] = s < 0 ? s * 0x8000 : s * 0x7fff; }
+    chunks = [];
+    let bin = ''; const b = new Uint8Array(out.buffer); for (let i = 0; i < b.length; i += 0x8000) bin += String.fromCharCode.apply(null, b.subarray(i, i + 0x8000));
+    busy = true; setStatus('أسمع… أكتب كلامك', '');
+    ws.send(JSON.stringify({ type: 'audio', pcm16_b64: btoa(bin), rate: 16000 }));
+  }
+
+  talkBtn.onclick = async () => {
+    try {
+      if (!micCtx) await startMic();
+      listening = true; talkBtn.disabled = true; stopBtn.disabled = false;
+      setStatus('أسمعك…', $('handsfree').checked ? 'تكلم، وإذا سكت أرسل كلامك لجود' : 'تكلم ثم اضغط «أوقفها» للإرسال');
+    } catch (e) { setStatus('الميكروفون غير متاح', 'اسمح للمتصفح باستخدام الميكروفون ثم أعد المحاولة'); }
+  };
+  stopBtn.onclick = () => {
+    if (speaking || chunks.length) { sendUtterance(); speaking = false; }
+    listening = false; talkBtn.disabled = false; stopBtn.disabled = true;
+    if (!busy) setStatus('جاهزة', '');
+  };
+  resetBtn.onclick = () => { stopPlayback(); ws.send(JSON.stringify({ type: 'reset' })); logEl.innerHTML = ''; timingsEl.textContent = ''; setStatus('محادثة جديدة', ''); };
+  $('textForm').onsubmit = e => {
+    e.preventDefault(); const text = $('textInput').value.trim(); if (!text) return;
+    ensureAudio(); stopPlayback(); $('textInput').value = ''; addMsg('user', text); busy = true; currentJood = null; setStatus('جود تفكر…', '');
+    ws.send(JSON.stringify({ type: 'text', text }));
+  };
+
+  health(); connect();
+})();
+</script>
+</body>
+</html>
