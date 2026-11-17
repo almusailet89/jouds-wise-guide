@@ -70,3 +70,9 @@ verify_jwt = true
 
 [functions.delete-account]
 verify_jwt = true
+
+[functions.gemini-live-token]
+verify_jwt = true
+
+[functions.gemini-live-tools]
+verify_jwt = true

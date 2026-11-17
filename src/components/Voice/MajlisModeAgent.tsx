@@ -1,35 +1,19 @@
-import React, { useEffect, useRef, useState, useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
-import { X, Mic, MicOff, Sparkles, Phone, PhoneOff, RotateCcw, MessageSquare, WifiOff } from 'lucide-react';
-import { useAuth } from '@/hooks/useAuth';
+import { X, Mic, MicOff, Sparkles, Phone, PhoneOff, RotateCcw, MessageSquare, WifiOff, Clock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { JoodOrb, type OrbMode } from './JoodOrb';
 import { useLanguage } from '@/hooks/useLanguage';
-import { supabase } from '@/integrations/supabase/client';
-import { Conversation } from '@11labs/client';
+import { useRoles } from '@/hooks/useRoles';
+import { useGeminiLive } from '@/hooks/useGeminiLive';
+import { useElevenLabsMajlis } from '@/hooks/useElevenLabsMajlis';
+import type { CallIssue, EngineId, MajlisMode } from './majlisEngine';
 
-// ─── Microphone availability ─────────────────────────────────────────────────
-type CallIssue = 'denied' | 'no-device' | 'busy' | 'unsupported' | 'insecure' | 'connection';
-
-async function checkMicAvailability(): Promise<CallIssue | null> {
-  if (!window.isSecureContext) return 'insecure';
-  if (!navigator.mediaDevices?.getUserMedia) return 'unsupported';
-  try {
-    const status = await navigator.permissions?.query({ name: 'microphone' as PermissionName });
-    if (status?.state === 'denied') return 'denied';
-  } catch {
-    // Some browsers can't query microphone permission; getUserMedia will tell us.
-  }
-  return null;
-}
-
-function issueFromMediaError(err: unknown): CallIssue {
-  const name = (err as DOMException | undefined)?.name;
-  if (name === 'NotAllowedError' || name === 'SecurityError') return 'denied';
-  if (name === 'NotFoundError' || name === 'OverconstrainedError') return 'no-device';
-  return 'busy';
-}
+const ENGINE_KEY = 'jood.majlis.engine';
+const readEngine = (): EngineId => {
+  try { return localStorage.getItem(ENGINE_KEY) === 'elevenlabs' ? 'elevenlabs' : 'gemini'; } catch { return 'gemini'; }
+};
 
 // ─── Audio-reactive visualizer rings ─────────────────────────────────────────
 const PulseRings: React.FC<{ active: boolean; intensity: number }> = ({ active, intensity }) => (
@@ -94,42 +78,38 @@ const ThinkingDots: React.FC = () => (
   </div>
 );
 
-// ─── Mode types ──────────────────────────────────────────────────────────────
-type Mode = 'idle' | 'connecting' | 'listening' | 'thinking' | 'speaking';
+type Mode = MajlisMode;
 
 interface MajlisModeAgentProps {
   onClose: () => void;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// MajlisMode powered by ElevenLabs Conversational AI
+// Majlis — Jood's live voice call.
 //
-// Architecture:
-//   1. User opens Majlis → we fetch a signed WebSocket URL from our edge function
-//   2. ElevenLabs SDK opens a direct WebSocket to their Conversational AI
-//   3. Everything happens in real-time over that single connection:
-//      - STT (user speech → text)
-//      - LLM (your GPT-4o with Jood personality via agent config)
-//      - TTS (clone voice rx14CzWiL77Roff1cjW6 → audio stream)
-//   4. First word of Jood's response plays in < 1 second
-//   5. Natural barge-in — user can interrupt Jood mid-sentence
-//
+// Two engines share one screen:
+//   • gemini      Gemini Live native audio (default, low cost per minute)
+//   • elevenlabs  ElevenLabs Conversational AI (premium voice, admins only for now)
+// Both report call time to voice_usage so monthly minutes can be capped.
 // ═══════════════════════════════════════════════════════════════════════════════
 
 export const MajlisModeAgent: React.FC<MajlisModeAgentProps> = ({ onClose }) => {
-  const { session } = useAuth();
   const { t, tg, lang, dir, gender } = useLanguage();
+  const { isAdmin } = useRoles();
+  const canChooseEngine = isAdmin();
 
-  const [mode, setMode] = useState<Mode>('idle');
-  const [transcript, setTranscript] = useState('');       // User's last utterance
-  const [lastReply, setLastReply] = useState('');          // Jood's last response
-  const [isMuted, setIsMuted] = useState(false);
-  const [intensity, setIntensity] = useState(0);
-  const [connected, setConnected] = useState(false);
-  const [issue, setIssue] = useState<CallIssue | null>(null);
+  const [engineId, setEngineId] = useState<EngineId>(readEngine);
+  const gemini = useGeminiLive();
+  const eleven = useElevenLabsMajlis();
+  const activeEngineId: EngineId = canChooseEngine ? engineId : 'gemini';
+  const engine = activeEngineId === 'elevenlabs' ? eleven : gemini;
+  const { mode, transcript, lastReply, isMuted, intensity, connected, issue, secondsLeft } = engine;
 
-  const conversationRef = useRef<any>(null);
-  const intensityIntervalRef = useRef<number | null>(null);
+  const chooseEngine = useCallback((id: EngineId) => {
+    if (connected || mode === 'connecting') return;
+    setEngineId(id);
+    try { localStorage.setItem(ENGINE_KEY, id); } catch { /* private mode */ }
+  }, [connected, mode]);
 
   const MODE_LABELS: Record<Mode, { label: string; sub: string }> = {
     idle:       { label: tg('majlis.idle'),       sub: lang === 'ar' ? (gender === 'female' ? 'اضغطي الاتصال للبدء' : 'اضغط الاتصال للبدء') : 'Press call to start' },
@@ -139,140 +119,12 @@ export const MajlisModeAgent: React.FC<MajlisModeAgentProps> = ({ onClose }) => 
     speaking:   { label: t('majlis.speaking'),    sub: tg('majlis.speaking.sub') },
   };
 
-  // ── Get signed URL from our edge function ───────────────────────────────────
-  const getSignedUrl = useCallback(async (): Promise<string> => {
-    const { data, error } = await supabase.functions.invoke<{ signed_url?: string }>('elevenlabs-agent-sign');
-    if (error) throw error;
-    if (!data?.signed_url) throw new Error('No signed URL returned');
-    return data.signed_url;
-  }, []);
-
-  const stopMeter = useCallback(() => {
-    if (intensityIntervalRef.current) {
-      clearInterval(intensityIntervalRef.current);
-      intensityIntervalRef.current = null;
-    }
-    setIntensity(0);
-  }, []);
-
-  // ── Start conversation with ElevenLabs Agent ────────────────────────────────
-  const startConversation = useCallback(async () => {
-    if (!session) return;
-    setIssue(null);
-    setMode('connecting');
-
-    const preflightIssue = await checkMicAvailability();
-    if (preflightIssue) {
-      setIssue(preflightIssue);
-      setMode('idle');
-      return;
-    }
-
-    try {
-      // Ask for permission, then release the probe stream at once; the SDK opens its own.
-      const probe = await navigator.mediaDevices.getUserMedia({ audio: true });
-      probe.getTracks().forEach(track => track.stop());
-    } catch (err) {
-      console.error('[Majlis Agent] Microphone error:', err);
-      setIssue(issueFromMediaError(err));
-      setMode('idle');
-      return;
-    }
-
-    try {
-      const signedUrl = await getSignedUrl();
-
-      // Start the ElevenLabs conversation — pass user_id so webhook tools know who's talking
-      const conversation = await Conversation.startSession({
-        signedUrl,
-        dynamicVariables: {
-          user_id: session.user.id,
-        },
-        onConnect: () => {
-          setConnected(true);
-          setMode('listening');
-        },
-        onDisconnect: () => {
-          stopMeter();
-          conversationRef.current = null;
-          setConnected(false);
-          setIsMuted(false);
-          setMode('idle');
-          setTranscript('');
-        },
-        onMessage: ({ message, source }) => {
-          if (!message) return;
-          if (source === 'user') {
-            setTranscript(message);
-            setMode('thinking');
-          } else {
-            setTranscript('');
-            setLastReply(message);
-          }
-        },
-        onError: (error: unknown) => {
-          console.error('[Majlis Agent] Error:', error);
-          stopMeter();
-          setIssue('connection');
-          setMode('idle');
-          setConnected(false);
-        },
-        onModeChange: (modeChange: any) => {
-          // ElevenLabs reports: 'listening' | 'speaking'
-          const agentMode = modeChange.mode;
-          if (agentMode === 'listening') {
-            setMode('listening');
-          } else if (agentMode === 'speaking') {
-            setMode('speaking');
-          }
-        },
-      });
-
-      conversationRef.current = conversation;
-
-      // Simulate intensity from conversation volume
-      intensityIntervalRef.current = window.setInterval(() => {
-        if (conversationRef.current) {
-          try {
-            const vol = conversationRef.current.getInputVolume?.() ?? 0;
-            const outVol = conversationRef.current.getOutputVolume?.() ?? 0;
-            setIntensity(Math.max(vol, outVol));
-          } catch {
-            setIntensity(0);
-          }
-        }
-      }, 100);
-
-    } catch (err) {
-      console.error('[Majlis Agent] Start error:', err);
-      stopMeter();
-      setIssue('connection');
-      setMode('idle');
-    }
-  }, [session, getSignedUrl, stopMeter]);
-
-  // ── End conversation ────────────────────────────────────────────────────────
-  const endConversation = useCallback(async () => {
-    stopMeter();
-    if (conversationRef.current) {
-      try { await conversationRef.current.endSession(); } catch { /* ignore */ }
-      conversationRef.current = null;
-    }
-    setConnected(false);
-    setIsMuted(false);
-    setMode('idle');
-  }, [stopMeter]);
-
-  // ── Toggle mute (the user's microphone, not Jood's voice) ──────────────────
-  const toggleMute = useCallback(() => {
-    if (!conversationRef.current) return;
-    const next = !isMuted;
-    conversationRef.current.setMicMuted?.(next);
-    setIsMuted(next);
-  }, [isMuted]);
+  const startConversation = engine.start;
+  const endConversation = engine.end;
+  const toggleMute = engine.toggleMute;
 
   const continueByText = useCallback(() => {
-    endConversation();
+    void endConversation();
     window.dispatchEvent(new CustomEvent('jood:navigate', { detail: { tab: 'chat' } }));
     onClose();
   }, [endConversation, onClose]);
@@ -307,18 +159,22 @@ export const MajlisModeAgent: React.FC<MajlisModeAgentProps> = ({ onClose }) => 
       title: ar ? 'الصوت يحتاج اتصالاً آمناً' : 'Voice needs a secure connection',
       body: ar ? g('افتح جود من رابطه الآمن (https) لاستخدام الميكروفون.', 'افتحي جود من رابطه الآمن (https) لاستخدام الميكروفون.') : 'Open JOOD from its https:// address to use the microphone.',
     },
+    minutes: {
+      title: ar ? 'انتهت دقائق الصوت لهذا الشهر' : "You've used this month's voice minutes",
+      body: ar ? g('تقدر تكمل مع جود بالكتابة، وتتجدد الدقائق بداية الشهر.', 'تقدرين تكملين مع جود بالكتابة، وتتجدد الدقائق بداية الشهر.') : 'You can keep going with Jood by text. Minutes renew at the start of next month.',
+    },
+    'not-configured': {
+      title: ar ? 'المحادثة الصوتية غير متاحة حالياً' : 'Voice calls are not available yet',
+      body: ar ? g('نجهّز صوت جود الآن. جرّب الكتابة لها في الوقت الحالي.', 'نجهّز صوت جود الآن. جرّبي الكتابة لها في الوقت الحالي.') : "We're getting Jood's voice ready. Try chatting by text for now.",
+    },
     connection: {
       title: ar ? 'تعذّر الاتصال بجود' : "Couldn't reach Jood",
       body: ar ? g('تحقق من اتصالك بالإنترنت، ثم أعد المحاولة.', 'تحققي من اتصالك بالإنترنت، ثم أعيدي المحاولة.') : 'Check your internet connection, then try again.',
     },
   };
 
-  // ── Cleanup on unmount ──────────────────────────────────────────────────────
-  useEffect(() => {
-    return () => {
-      endConversation();
-    };
-  }, [endConversation]);
+  const canRetry = issue !== 'minutes' && issue !== 'not-configured';
+  const minutesLeft = secondsLeft == null ? null : Math.ceil(secondsLeft / 60);
 
   const labels = MODE_LABELS[mode];
   const isActive = mode === 'listening' || mode === 'speaking';
@@ -365,11 +221,48 @@ export const MajlisModeAgent: React.FC<MajlisModeAgentProps> = ({ onClose }) => 
               {lang === 'ar' ? 'متصلة' : 'Live'}
             </span>
           )}
+          {minutesLeft != null && activeEngineId === 'gemini' && (connected || minutesLeft <= 15) && (
+            <span
+              className={cn(
+                'inline-flex items-center gap-1 text-[10px] rounded-full px-2.5 py-0.5 font-arabic border',
+                minutesLeft <= 5 ? 'bg-red-500/15 text-red-200 border-red-300/30' : 'bg-white/10 text-white/80 border-white/15',
+              )}
+              aria-label={ar ? `باقي ${minutesLeft} دقيقة هذا الشهر` : `${minutesLeft} voice minutes left this month`}
+            >
+              <Clock className="w-3 h-3" />
+              <bdi dir="ltr">{minutesLeft}</bdi> {ar ? 'دقيقة' : 'min'}
+            </span>
+          )}
         </div>
+
+        {canChooseEngine && (
+          <div
+            role="radiogroup"
+            aria-label={ar ? 'محرك الصوت' : 'Voice engine'}
+            className="absolute start-1/2 top-5 -translate-x-1/2 rtl:translate-x-1/2 hidden sm:flex glass rounded-full p-1 text-[11px] font-arabic"
+          >
+            {(['gemini', 'elevenlabs'] as const).map(id => (
+              <button
+                key={id}
+                role="radio"
+                aria-checked={activeEngineId === id}
+                disabled={connected || mode === 'connecting'}
+                onClick={() => chooseEngine(id)}
+                className={cn(
+                  'px-3 py-1 rounded-full transition-colors disabled:cursor-not-allowed',
+                  activeEngineId === id ? 'bg-jood-gold-500 text-jood-teal-900 font-bold' : 'text-white/75 hover:text-white disabled:opacity-50',
+                )}
+              >
+                {id === 'gemini' ? (ar ? 'جود لايف' : 'Jood Live') : (ar ? 'الصوت المميز' : 'Premium voice')}
+              </button>
+            ))}
+          </div>
+        )}
         <Button
           variant="ghost"
           size="icon"
-          onClick={() => { endConversation(); onClose(); }}
+          onClick={() => { void endConversation(); onClose(); }}
+          aria-label={ar ? 'إغلاق المجلس' : 'Close Majlis'}
           className="text-white hover:bg-white/10 rounded-full h-10 w-10"
         >
           <X className="w-5 h-5" />
@@ -431,7 +324,9 @@ export const MajlisModeAgent: React.FC<MajlisModeAgentProps> = ({ onClose }) => 
               <div role="alert" className="glass rounded-2xl p-5 text-start">
                 <div className="flex items-start gap-3">
                   <div className="w-10 h-10 rounded-xl bg-jood-gold-500/15 flex items-center justify-center flex-shrink-0">
-                    {issue === 'connection'
+                    {issue === 'minutes'
+                      ? <Clock className="w-5 h-5 text-jood-gold-300" />
+                      : issue === 'connection' || issue === 'not-configured'
                       ? <WifiOff className="w-5 h-5 text-jood-gold-300" />
                       : <MicOff className="w-5 h-5 text-jood-gold-300" />}
                   </div>
@@ -444,11 +339,13 @@ export const MajlisModeAgent: React.FC<MajlisModeAgentProps> = ({ onClose }) => 
                   </div>
                 </div>
                 <div className="flex gap-2 mt-4">
-                  <button onClick={startConversation} className="jood-btn-primary flex-1 !px-3 !py-2.5 whitespace-nowrap font-arabic">
-                    <RotateCcw className="w-4 h-4" />
-                    {ar ? g('أعد المحاولة', 'أعيدي المحاولة') : 'Try again'}
-                  </button>
-                  <button onClick={continueByText} className="jood-btn-outline flex-1 !px-3 !py-2.5 whitespace-nowrap font-arabic">
+                  {canRetry && (
+                    <button onClick={startConversation} className="jood-btn-primary flex-1 !px-3 !py-2.5 whitespace-nowrap font-arabic">
+                      <RotateCcw className="w-4 h-4" />
+                      {ar ? g('أعد المحاولة', 'أعيدي المحاولة') : 'Try again'}
+                    </button>
+                  )}
+                  <button onClick={continueByText} className={cn(canRetry ? 'jood-btn-outline' : 'jood-btn-primary', 'flex-1 !px-3 !py-2.5 whitespace-nowrap font-arabic')}>
                     <MessageSquare className="w-4 h-4" />
                     {ar ? g('أكمل بالكتابة', 'أكملي بالكتابة') : 'Continue by text'}
                   </button>
@@ -496,7 +393,8 @@ export const MajlisModeAgent: React.FC<MajlisModeAgentProps> = ({ onClose }) => 
       </div>
 
       {/* ── Bottom controls ───────────────────────────────────────────────── */}
-      <div className="absolute bottom-0 inset-x-0 z-10 p-6 flex items-center justify-center gap-4">
+      {/* While a problem card is open, its own buttons replace the call controls. */}
+      <div className={cn('absolute bottom-0 inset-x-0 z-10 p-6 flex items-center justify-center gap-4', issue && 'hidden')}>
 
         {/* Mute toggle */}
         <Button
@@ -518,7 +416,8 @@ export const MajlisModeAgent: React.FC<MajlisModeAgentProps> = ({ onClose }) => 
 
         {/* ── Main call button ──────────────────────────────────────────── */}
         <button
-          onClick={connected ? endConversation : startConversation}
+          onClick={() => { void (connected ? endConversation() : startConversation()); }}
+          aria-label={connected ? (ar ? 'إنهاء المكالمة' : 'End call') : (ar ? 'بدء المكالمة' : 'Start call')}
           disabled={mode === 'connecting'}
           className={cn(
             'relative h-20 w-20 rounded-full flex items-center justify-center transition-all shadow-luxury',
@@ -546,7 +445,7 @@ export const MajlisModeAgent: React.FC<MajlisModeAgentProps> = ({ onClose }) => 
       </div>
 
       {/* Bottom hint */}
-      <p className="absolute bottom-2 inset-x-0 text-center text-[10px] text-white/40 font-arabic">
+      <p className={cn('absolute bottom-2 inset-x-0 text-center text-[10px] text-white/40 font-arabic', issue && 'hidden')}>
         {connected
           ? (lang === 'ar' ? 'تحدث بشكل طبيعي — جود تسمعك وتجاوبك فوراً' : 'Speak naturally — Jood hears you and responds instantly')
           : (lang === 'ar' ? (gender === 'female' ? 'اضغطي زر الاتصال لبدء المحادثة مع جود' : 'اضغط زر الاتصال لبدء المحادثة مع جود') : 'Press the call button to start talking to Jood')
